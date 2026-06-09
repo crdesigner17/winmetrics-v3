@@ -578,10 +578,81 @@ a{text-decoration:none;color:inherit}
   .wm-modal{border-bottom-left-radius:0;border-bottom-right-radius:0}
 }
 
+
+/* ── AUTH MODAL (landing) ── */
+#wm-modal-overlay{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);align-items:center;justify-content:center}
+#wm-modal-overlay.open{display:flex}
+.wm-modal{background:#13161f;border:1px solid #2d3450;border-radius:16px;padding:0;width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(108,99,255,.12);overflow:hidden;position:relative;animation:modalIn .2s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+.wm-modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
+.wm-modal-logo{display:flex;align-items:center;gap:9px}
+.wm-modal-logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:#fff}
+.wm-modal-logo-text{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#f0f2ff}
+.wm-modal-close{width:30px;height:30px;border-radius:7px;background:transparent;border:1px solid #252a3a;color:#525870;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s;font-family:'DM Sans',sans-serif}
+.wm-modal-close:hover{border-color:#2d3450;color:#f0f2ff}
+.wm-modal-tabs{display:flex;gap:0;margin:18px 24px 0;background:#181c27;border-radius:9px;padding:3px}
+.wm-tab{flex:1;padding:8px;border-radius:7px;font-size:13px;font-weight:600;background:transparent;border:none;color:#8b90a8;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.wm-tab.active{background:#1e2232;color:#f0f2ff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.wm-modal-body{padding:20px 24px 24px}
+.wm-field{margin-bottom:14px}
+.wm-field label{display:block;font-size:12px;font-weight:600;color:#8b90a8;margin-bottom:6px;letter-spacing:.3px}
+.wm-field input{width:100%;height:42px;background:#181c27;border:1px solid #252a3a;border-radius:8px;padding:0 14px;color:#f0f2ff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s}
+.wm-field input:focus{border-color:#6c63ff}
+.wm-field input::placeholder{color:#525870}
+.wm-btn-primary{width:100%;height:44px;border-radius:9px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;box-shadow:0 4px 16px rgba(108,99,255,.3);margin-top:4px}
+.wm-btn-primary:hover{box-shadow:0 6px 24px rgba(108,99,255,.5);transform:translateY(-1px)}
+.wm-btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.wm-modal-link{text-align:center;margin-top:14px;font-size:12.5px;color:#8b90a8}
+.wm-modal-link span{color:#a78bfa;cursor:pointer;font-weight:600}
+.wm-modal-link span:hover{text-decoration:underline}
+.wm-feedback{display:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;margin-bottom:14px;align-items:center;gap:9px}
+.wm-feedback.show{display:flex}
+.wm-feedback.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#f87171}
+.wm-feedback.success{background:rgba(0,210,160,.1);border:1px solid rgba(0,210,160,.25);color:#00d2a0}
+.wm-feedback.loading{background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);color:#a78bfa}
+.wm-feedback svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+@media(max-width:768px){.wm-modal{max-width:calc(100vw - 32px);margin:0 16px}#wm-modal-overlay{align-items:flex-end}.wm-modal{border-bottom-left-radius:0;border-bottom-right-radius:0}}
+
 </style>
 </head>
 <body>
-<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<!-- ═══ AUTH MODAL ═══ -->
+<div id="wm-modal-overlay">
+  <div class="wm-modal">
+    <div class="wm-modal-header">
+      <div class="wm-modal-logo">
+        <div class="wm-modal-logo-icon">M</div>
+        <span class="wm-modal-logo-text">WinMetrics</span>
+      </div>
+      <button class="wm-modal-close" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="wm-modal-tabs">
+      <button class="wm-tab active" id="tab-entrar" onclick="_trocarAba('login')">Entrar</button>
+      <button class="wm-tab" id="tab-cadastro" onclick="_trocarAba('cadastro')">Criar conta</button>
+    </div>
+    <div class="wm-modal-body">
+      <div class="wm-feedback" id="wm-feedback">
+        <svg viewBox="0 0 24 24" id="wm-feedback-icon"></svg>
+        <span id="wm-feedback-text"></span>
+      </div>
+      <div id="painel-login">
+        <div class="wm-field"><label>Email</label><input type="email" id="input-login-email" placeholder="seu@email.com" autocomplete="email"></div>
+        <div class="wm-field"><label>Senha</label><input type="password" id="input-login-senha" placeholder="••••••••" autocomplete="current-password"></div>
+        <button class="wm-btn-primary" id="btn-entrar" onclick="_executarLogin()">Entrar</button>
+        <div class="wm-modal-link">Não tem conta? <span onclick="_trocarAba('cadastro')">Criar conta</span></div>
+      </div>
+      <div id="painel-cadastro" style="display:none">
+        <div class="wm-field"><label>Nome</label><input type="text" id="input-cad-nome" placeholder="Seu nome" autocomplete="name"></div>
+        <div class="wm-field"><label>Email</label><input type="email" id="input-cad-email" placeholder="seu@email.com" autocomplete="email"></div>
+        <div class="wm-field"><label>Senha</label><input type="password" id="input-cad-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+        <button class="wm-btn-primary" id="btn-cadastrar" onclick="_executarCadastro()">Criar conta</button>
+        <div class="wm-modal-link">Já tem conta? <span onclick="_trocarAba('login')">Entrar</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 
 <!-- ══════════════ NAVBAR ══════════════ -->
@@ -604,8 +675,8 @@ a{text-decoration:none;color:inherit}
     <div class="nav-link">Treinamentos</div>
   </div>
   <div class="nav-actions">
-    <button class="btn-entrar">Entrar</button>
-    <button class="btn-comecar">
+    <button class="btn-entrar" onclick="abrirModal('login')">Entrar</button>
+    <button class="btn-comecar" onclick="abrirModal('cadastro')">
       Começar Grátis
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </button>
@@ -620,7 +691,7 @@ a{text-decoration:none;color:inherit}
     <h1 class="hero-h1">A <em>Inteligência Artificial</em> que encontra as melhores oportunidades do mercado esportivo.</h1>
     <p class="hero-p">Analise milhares de jogos em segundos, descubra apostas de valor e receba previsões com Win Score, Probabilidade IA, EV+ e Nível de Confiança.</p>
     <div class="hero-ctas">
-      <button class="cta-primary">
+      <button class="cta-primary" onclick="abrirModal('cadastro')">
         Começar Gratuitamente
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </button>
@@ -1304,7 +1375,7 @@ a{text-decoration:none;color:inherit}
             Suporte padrão
           </div>
         </div>
-        <button class="btn-plan btn-plan-free">Começar Grátis</button>
+        <button class="btn-plan btn-plan-free" onclick="abrirModal('cadastro')">Começar Grátis</button>
       </div>
 
       <!-- Plano PRO -->
@@ -1351,7 +1422,7 @@ a{text-decoration:none;color:inherit}
             Suporte Prioritário
           </div>
         </div>
-        <button class="btn-plan btn-plan-pro">Começar 7 Dias Grátis</button>
+        <button class="btn-plan btn-plan-pro" onclick="abrirModal('cadastro')">Começar 7 Dias Grátis</button>
       </div>
     </div>
   </div>
@@ -1408,7 +1479,7 @@ a{text-decoration:none;color:inherit}
     <h2>Comece hoje a apostar com inteligência artificial.</h2>
     <p>Transforme dados em decisões mais inteligentes.</p>
     <div class="cta-final-btns">
-      <button class="cta-primary">Começar Gratuitamente <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+      <button class="cta-primary" onclick="abrirModal('cadastro')">Começar Gratuitamente <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     </div>
     <div class="cta-trust">
       <div class="cta-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>7 dias grátis no PRO</div>
@@ -1468,6 +1539,121 @@ document.querySelectorAll('.plan-card').forEach(card=>{
     card.style.boxShadow='';
   });
 });
+</script>
+<script>
+window.toggleSidebar = function () {
+  var sidebar = document.querySelector('.sidebar');
+  var overlay = document.querySelector('.sidebar-overlay');
+  if (!sidebar || !overlay) return;
+  var isOpen = sidebar.classList.toggle('open');
+  overlay.classList.toggle('open', isOpen);
+  document.body.classList.toggle('sidebar-open', isOpen);
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://kpcxjmydlmqxmvnawdyo.supabase.co'
+  const SUPABASE_ANON_KEY = 'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+  // If already logged in, redirect to dashboard
+  supabaseClient.auth.getSession().then(function(r) {
+    if (r.data && r.data.session) window.location.replace('dashboard.html')
+  })
+
+  function abrirModal(aba) {
+    _limparFeedback()
+    document.getElementById('input-login-email').value = ''
+    document.getElementById('input-login-senha').value = ''
+    document.getElementById('input-cad-nome').value    = ''
+    document.getElementById('input-cad-email').value   = ''
+    document.getElementById('input-cad-senha').value   = ''
+    _trocarAba(aba || 'login')
+    document.getElementById('wm-modal-overlay').classList.add('open')
+  }
+
+  function fecharModal() {
+    document.getElementById('wm-modal-overlay').classList.remove('open')
+    _limparFeedback()
+  }
+
+  function _trocarAba(aba) {
+    var isLogin = aba === 'login'
+    document.getElementById('painel-login').style.display    = isLogin ? '' : 'none'
+    document.getElementById('painel-cadastro').style.display = isLogin ? 'none' : ''
+    document.getElementById('tab-entrar').classList.toggle('active', isLogin)
+    document.getElementById('tab-cadastro').classList.toggle('active', !isLogin)
+    _limparFeedback()
+  }
+
+  function _mostrarFeedback(tipo, texto) {
+    var el   = document.getElementById('wm-feedback')
+    var txt  = document.getElementById('wm-feedback-text')
+    var icon = document.getElementById('wm-feedback-icon')
+    el.className = 'wm-feedback show ' + tipo
+    txt.textContent = texto
+    var icons = {
+      error:   '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+      success: '<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>',
+      loading: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'
+    }
+    icon.innerHTML = icons[tipo] || ''
+  }
+
+  function _limparFeedback() {
+    var el = document.getElementById('wm-feedback')
+    if (el) el.className = 'wm-feedback'
+    var txt = document.getElementById('wm-feedback-text')
+    if (txt) txt.textContent = ''
+  }
+
+  function _setBloqueio(b) {
+    document.getElementById('btn-entrar').disabled    = b
+    document.getElementById('btn-cadastrar').disabled = b
+  }
+
+  async function _executarLogin() {
+    var email = document.getElementById('input-login-email').value.trim()
+    var senha = document.getElementById('input-login-senha').value
+    if (!email || !senha) { _mostrarFeedback('error', 'Preencha email e senha.'); return }
+    _setBloqueio(true)
+    _mostrarFeedback('loading', 'Autenticando...')
+    var r = await supabaseClient.auth.signInWithPassword({ email, password: senha })
+    if (r.error) { _mostrarFeedback('error', r.error.message); _setBloqueio(false); return }
+    _mostrarFeedback('success', 'Login realizado! Redirecionando...')
+    setTimeout(function() { window.location.replace('dashboard.html') }, 800)
+  }
+
+  async function _executarCadastro() {
+    var nome  = document.getElementById('input-cad-nome').value.trim()
+    var email = document.getElementById('input-cad-email').value.trim()
+    var senha = document.getElementById('input-cad-senha').value
+    if (!email || !senha) { _mostrarFeedback('error', 'Preencha email e senha.'); return }
+    if (senha.length < 6) { _mostrarFeedback('error', 'A senha deve ter no mínimo 6 caracteres.'); return }
+    _setBloqueio(true)
+    _mostrarFeedback('loading', 'Criando conta...')
+    var r = await supabaseClient.auth.signUp({ email, password: senha })
+    if (r.error) { _mostrarFeedback('error', r.error.message); _setBloqueio(false); return }
+    if (!r.data.user) { _mostrarFeedback('error', 'Cadastro não concluído. Email já em uso ou confirmação por email ativada.'); _setBloqueio(false); return }
+    var nomeProfile = nome || email.split('@')[0]
+    await supabaseClient.from('profiles').insert({ id: r.data.user.id, email: r.data.user.email, name: nomeProfile, plan: 'free' })
+    _mostrarFeedback('success', 'Conta criada! Redirecionando...')
+    setTimeout(function() { window.location.replace('dashboard.html') }, 900)
+  }
+
+  // Close modal on overlay click
+  document.getElementById('wm-modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) fecharModal()
+  })
+
+  // Enter key submits
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return
+    var overlay = document.getElementById('wm-modal-overlay')
+    if (!overlay.classList.contains('open')) return
+    if (document.getElementById('painel-login').style.display !== 'none') _executarLogin()
+    else _executarCadastro()
+  })
 </script>
 </body>
 </html>
