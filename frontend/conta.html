@@ -434,9 +434,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
                   </div>
                   <span class="login-title">Login com Google</span>
                 </div>
-                <span class="badge-conectado">CONECTADO</span>
+                <span class="badge-conectado" id="google-badge" style="display:none">CONECTADO</span>
               </div>
-              <div class="login-detail">Conta conectada com Google</div>
+              <div class="login-detail" id="login-google-detail" style="display:none">Conta conectada com Google</div>
               <div class="login-access" id="login-google-access">--</div>
               <div class="login-actions">
                 <button class="btn-outline">Gerenciar</button>
@@ -827,44 +827,57 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
   }
 
   async function verificarUsuario() {
-    const { data, error } = await supabaseClient.auth.getUser()
-    const user = data?.user
+    // ── 1. Obter sessão ──────────────────────────────────────────
+    const { data: authData } = await supabaseClient.auth.getUser()
+    const user = authData?.user
 
     if (!user) {
-      // Sem sessão ativa — mostra estado deslogado
-      _setTexto('user-name-topbar', 'Visitante')
-      _setTexto('user-pro-topbar', 'GRATUITO')
-      _setTexto('user-avatar-topbar', '?')
-      _setTexto('profile-avatar-initials', '?')
-      _setTexto('profile-name-display', 'Visitante')
-      _setTexto('profile-email-display', 'Nenhum usuário logado')
-      _setTexto('profile-plan-badge', 'GRATUITO')
-      _setTexto('meta-plan-val', 'GRATUITO')
-      _setTexto('meta-signup-date', '--')
-      _setTexto('login-google-access', '--')
-      _setTexto('login-email-detail', '--')
-      _setTexto('login-email-access', '--')
-      _setTexto('plan-name-display', 'GRATUITO')
-      _setTexto('plan-next-billing', '--')
-      _setTexto('pro-level-days-text', '-- / 365 dias')
-      _setTexto('pro-level-hint-text', 'Sem plano ativo')
-      _setBarra(0)
-      _setTexto('resumo-favoritos', '0')
-      _setTexto('resumo-bilhetes', '0')
-      _setTexto('resumo-alertas', '0')
-      _setTexto('resumo-ia', '0')
-      _setTexto('resumo-dias-pro', '0')
+      _renderDeslogado()
       return
     }
 
-    // ── Dados básicos do usuário ──────────────────────────────
-    const email = user.email || ''
-    const meta  = user.user_metadata || {}
+    // ── 2. Buscar perfil na tabela profiles ──────────────────────
+    let profile = null
+    const { data: profileData, error: fetchError } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
 
-    // Nome: tenta full_name, depois name, depois parte do email
-    const nomeCompleto = meta.full_name || meta.name || email.split('@')[0] || 'Usuário'
+    if (fetchError && fetchError.code === 'PGRST116') {
+      // Perfil não existe — criar perfil básico automaticamente
+      const nomeBase = user.email.split('@')[0]
+      const { data: newProfile, error: insertError } = await supabaseClient
+        .from('profiles')
+        .insert({
+          id:    user.id,
+          email: user.email,
+          name:  nomeBase,
+          plan:  'free'
+        })
+        .select('*')
+        .single()
 
-    // Iniciais (até 2 caracteres)
+      if (insertError) {
+        console.error('Erro ao criar perfil:', insertError.message)
+        // Continua com objeto mínimo para não travar a interface
+        profile = { id: user.id, email: user.email, name: nomeBase, plan: 'free' }
+      } else {
+        profile = newProfile
+      }
+    } else if (fetchError) {
+      console.error('Erro ao buscar perfil:', fetchError.message)
+      profile = { id: user.id, email: user.email, name: user.email.split('@')[0], plan: 'free' }
+    } else {
+      profile = profileData
+    }
+
+    // ── 3. Derivar valores de exibição ───────────────────────────
+
+    const email        = profile.email || user.email || ''
+    const nomeCompleto = profile.name  || email.split('@')[0] || 'Usuário'
+
+    // Iniciais (até 2 letras)
     const iniciais = nomeCompleto
       .split(' ')
       .filter(Boolean)
@@ -872,77 +885,91 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
       .map(p => p[0].toUpperCase())
       .join('')
 
-    // Data de criação da conta (signup)
-    const criadoEm = user.created_at
-      ? new Date(user.created_at).toLocaleDateString('pt-BR')
+    // Data de cadastro (da tabela profiles ou fallback para auth)
+    const criadoEm = (profile.created_at || user.created_at)
+      ? new Date(profile.created_at || user.created_at).toLocaleDateString('pt-BR')
       : '--'
 
-    // Último login
+    // Último login (vem sempre do Auth)
     const ultimoLogin = user.last_sign_in_at
       ? new Date(user.last_sign_in_at).toLocaleString('pt-BR', {
-          day:'2-digit', month:'2-digit', year:'numeric',
-          hour:'2-digit', minute:'2-digit'
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
         })
       : '--'
 
-    // Provedor de login (google, email, etc.)
-    const identidades  = user.identities || []
-    const temGoogle    = identidades.some(i => i.provider === 'google')
-    const providerText = temGoogle ? 'Conectado via Google' : email
+    // Provedor de login
+    const identidades = user.identities || []
+    const temGoogle   = identidades.some(i => i.provider === 'google')
 
-    // ── Plano via user_metadata (preenchido pelo backend/webhook) ──
-    // Espera-se: meta.plano = 'PRO' | 'GRATUITO', meta.expiracao = 'YYYY-MM-DD'
-    const plano       = (meta.plano || 'GRATUITO').toUpperCase()
-    const expiracaoRaw = meta.expiracao || null
+    // Plano — fonte: profiles.plan
+    const planRaw = (profile.plan || 'free').toLowerCase()
+    const plano   = planRaw === 'pro' ? 'PRO' : 'GRATUITO'
+    const isPro   = plano === 'PRO'
 
-    // Dias como PRO e barra de progresso
-    let diasPro   = 0
-    let diasTotal = 365
-    let diasRestam = 0
-    let pctBarra  = 0
-    let textoHint = 'Sem plano ativo'
+    // Datas do plano — fonte: profiles.plan_started_at / plan_expires_at
+    const startedRaw  = profile.plan_started_at  || null
+    const expiresRaw  = profile.plan_expires_at  || null
+
+    // Cálculo de dias PRO e barra de progresso
+    let diasPro      = 0
+    let diasTotal    = 365
+    let diasRestam   = 0
+    let pctBarra     = 0
+    let textoHint    = 'Sem plano ativo'
     let textoBilling = '--'
 
-    if (plano === 'PRO' && user.created_at) {
-      const inicio = new Date(user.created_at)
+    if (isPro && startedRaw) {
+      const inicio = new Date(startedRaw)
       const hoje   = new Date()
-      diasPro = Math.floor((hoje - inicio) / 86400000)
-      diasPro = Math.max(0, diasPro)
+      diasPro = Math.max(0, Math.floor((hoje - inicio) / 86400000))
 
-      if (expiracaoRaw) {
-        const expDate = new Date(expiracaoRaw)
+      if (expiresRaw) {
+        const expDate = new Date(expiresRaw)
         diasRestam    = Math.ceil((expDate - hoje) / 86400000)
         textoBilling  = expDate.toLocaleDateString('pt-BR')
-        diasTotal     = Math.max(diasPro + diasRestam, 1)
+        diasTotal     = Math.max(diasPro + Math.max(diasRestam, 0), 1)
         pctBarra      = Math.min(100, Math.round((diasPro / diasTotal) * 100))
         textoHint     = diasRestam > 0
           ? `Faltam ${diasRestam} dia${diasRestam !== 1 ? 's' : ''} para renovação`
           : 'Plano expirado — renove para continuar'
       } else {
-        // Sem data de expiração conhecida — usa 365 dias como referência
         pctBarra  = Math.min(100, Math.round((diasPro / 365) * 100))
         textoHint = `${diasPro} dia${diasPro !== 1 ? 's' : ''} de uso acumulado`
       }
     }
 
-    // ── Popular interface ─────────────────────────────────────
+    // ── 4. Popular interface ─────────────────────────────────────
 
     // Topbar
-    _setTexto('user-avatar-topbar', iniciais || '?')
-    _setTexto('user-name-topbar', nomeCompleto)
-    _setTexto('user-pro-topbar', plano)
+    _setTexto('user-avatar-topbar',   iniciais || '?')
+    _setTexto('user-name-topbar',     nomeCompleto)
+    _setTexto('user-pro-topbar',      plano)
 
     // Hero
     _setTexto('profile-avatar-initials', iniciais || '?')
-    _setTexto('profile-name-display', nomeCompleto)
-    _setTexto('profile-email-display', email)
-    _setTexto('profile-plan-badge', plano)
-    _setTexto('meta-plan-val', plano)
-    _setTexto('meta-signup-date', criadoEm)
+    _setTexto('profile-name-display',    nomeCompleto)
+    _setTexto('profile-email-display',   email)
+    _setTexto('profile-plan-badge',      plano)
+    _setTexto('meta-plan-val',           plano)
+    _setTexto('meta-signup-date',        criadoEm)
 
-    // Login & Segurança
-    _setTexto('login-google-access', `Último acesso: ${ultimoLogin}`)
-    _setTexto('login-email-detail', providerText)
+    // Card Google — só mostrar se o provedor for Google
+    const googleBadge  = document.getElementById('google-badge')
+    const googleDetail = document.getElementById('login-google-detail')
+    const googleAccess = document.getElementById('login-google-access')
+    if (temGoogle) {
+      if (googleBadge)  googleBadge.style.display  = ''
+      if (googleDetail) googleDetail.style.display = ''
+      if (googleAccess) _setTexto('login-google-access', `Último acesso: ${ultimoLogin}`)
+    } else {
+      if (googleBadge)  googleBadge.style.display  = 'none'
+      if (googleDetail) googleDetail.style.display = 'none'
+      if (googleAccess) _setTexto('login-google-access', 'Não conectado')
+    }
+
+    // Card Email
+    _setTexto('login-email-detail', email)
     _setTexto('login-email-access', `Último acesso: ${ultimoLogin}`)
 
     // Plano atual
@@ -954,15 +981,41 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
     _setBarra(pctBarra)
     _setTexto('pro-level-hint-text', textoHint)
 
-    // Resumo da Conta — valores de user_metadata (opcionais)
-    _setTexto('resumo-favoritos',  meta.stat_favoritos  ?? '--')
-    _setTexto('resumo-bilhetes',   meta.stat_bilhetes   ?? '--')
-    _setTexto('resumo-alertas',    meta.stat_alertas    ?? '--')
-    _setTexto('resumo-ia',         meta.stat_ia         ?? '--')
+    // Resumo da Conta — fonte: profiles
+    _setTexto('resumo-favoritos',  profile.favorites_count    ?? '--')
+    _setTexto('resumo-bilhetes',   profile.saved_tickets_count ?? '--')
+    _setTexto('resumo-alertas',    profile.active_alerts_count ?? '--')
+    _setTexto('resumo-ia',         profile.ai_analyses_count   ?? '--')
     _setTexto('resumo-dias-pro',   diasPro > 0 ? diasPro : '--')
   }
 
-  // ── Helpers internos ──────────────────────────────────────────
+  // ── Estado deslogado ──────────────────────────────────────────
+  function _renderDeslogado() {
+    _setTexto('user-name-topbar',        'Visitante')
+    _setTexto('user-pro-topbar',         'GRATUITO')
+    _setTexto('user-avatar-topbar',      '?')
+    _setTexto('profile-avatar-initials', '?')
+    _setTexto('profile-name-display',    'Visitante')
+    _setTexto('profile-email-display',   'Nenhum usuário logado')
+    _setTexto('profile-plan-badge',      'GRATUITO')
+    _setTexto('meta-plan-val',           'GRATUITO')
+    _setTexto('meta-signup-date',        '--')
+    _setTexto('login-google-access',     '--')
+    _setTexto('login-email-detail',      '--')
+    _setTexto('login-email-access',      '--')
+    _setTexto('plan-name-display',       'GRATUITO')
+    _setTexto('plan-next-billing',       '--')
+    _setTexto('pro-level-days-text',     '-- / 365 dias')
+    _setTexto('pro-level-hint-text',     'Sem plano ativo')
+    _setBarra(0)
+    _setTexto('resumo-favoritos',  '0')
+    _setTexto('resumo-bilhetes',   '0')
+    _setTexto('resumo-alertas',    '0')
+    _setTexto('resumo-ia',         '0')
+    _setTexto('resumo-dias-pro',   '0')
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
   function _setTexto(id, valor) {
     const el = document.getElementById(id)
     if (el) el.textContent = valor
@@ -975,10 +1028,5 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
 
   verificarUsuario()
 </script>
-  <div style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;gap:8px;">
-  <button onclick="cadastrarUsuario()">Cadastrar</button>
-  <button onclick="loginUsuario()">Login</button>
-  <button onclick="logoutUsuario()">Sair</button>
-</div>
 </body>
 </html>
