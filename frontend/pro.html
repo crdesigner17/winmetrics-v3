@@ -1,9 +1,751 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <title>WinMetrics V3</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WinMetrics PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1017;--bg1:#13161f;--bg2:#181c27;--bg3:#1e2232;
+  --border:#252a3a;--border2:#2d3450;
+  --accent:#6c63ff;--accent2:#a78bfa;
+  --green:#00d2a0;--red:#ef4444;--yellow:#f0a500;--blue:#3b82f6;
+  --text:#f0f2ff;--muted:#8b90a8;--dim:#525870;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* SIDEBAR */
+.sidebar{width:240px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;height:100vh}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar-logo{padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;color:#fff;flex-shrink:0}
+.logo-text strong{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--text);display:block;line-height:1.1}
+.logo-text span{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.sidebar-nav{padding:10px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9px 20px;border-left:3px solid transparent;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-item.active{color:var(--text);background:linear-gradient(90deg,rgba(108,99,255,.14),rgba(108,99,255,.03));font-weight:600;border-left:3px solid var(--accent);padding-left:17px}
+.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+.badge-pro{margin-left:auto;font-size:9px;background:linear-gradient(90deg,#6c63ff,#a78bfa);color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
+.badge-live{margin-left:auto;font-size:9px;background:rgba(0,210,160,.15);border:1px solid rgba(0,210,160,.4);color:var(--green);padding:2px 7px;border-radius:4px;font-weight:700;flex-shrink:0;display:flex;align-items:center;gap:4px}
+.badge-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.nav-section{padding:16px 20px 5px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-weight:600}
+.sidebar-upgrade{margin:10px 14px 14px;background:linear-gradient(135deg,#1a1f35,#232848);border:1px solid #2d3358;border-radius:12px;padding:14px;flex-shrink:0}
+.sidebar-upgrade .crown{font-size:20px;margin-bottom:6px}
+.sidebar-upgrade h4{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.sidebar-upgrade p{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:12px}
+.btn-upgrade{width:100%;padding:9px;background:linear-gradient(90deg,#6c63ff,#a78bfa);border:none;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* MAIN */
+.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 24px;flex-shrink:0}
+.search-box{flex:1;max-width:340px;display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:0 12px;height:34px}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;font-family:'DM Sans',sans-serif}
+.search-box input::placeholder{color:var(--dim)}
+.search-box svg{width:15px;height:15px;stroke:var(--dim);fill:none;flex-shrink:0}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.icon-btn{width:34px;height:34px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--muted)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none}
+.notif-dot{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#ef4444;border-radius:50%;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1)}
+.user-pill{display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px 12px 4px 5px;cursor:pointer}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.user-name{font-size:13px;font-weight:600}
+.user-pro{font-size:9px;font-weight:700;color:var(--accent2);display:block}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:16px}
+
+/* ═══════════════════════════════════
+   HERO SECTION
+   Grid: [left col] [plan cards 1fr 1fr] [brain col]
+═══════════════════════════════════ */
+.hero{
+  display:grid;
+  grid-template-columns:260px 1fr 1fr 420px;
+  gap:14px;
+  align-items:stretch;
+  min-height:320px;
+}
+
+/* Hero left */
+.hero-left{display:flex;flex-direction:column;gap:14px;justify-content:flex-start}
+.hero-title{font-family:'DM Sans',sans-serif;font-size:clamp(22px,2.5vw,34px);font-weight:700;letter-spacing:-.5px;line-height:1.15;margin-bottom:6px}
+.hero-title .pro-word{background:linear-gradient(135deg,#6c63ff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-title .crown{font-size:26px;vertical-align:middle;margin-left:4px}
+.hero-sub{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:4px}
+
+/* Social proof card */
+.social-proof{
+  background:rgba(0,210,160,.06);
+  border:1px solid rgba(0,210,160,.22);
+  border-radius:12px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.sp-label{font-size:11px;color:var(--muted);text-align:center}
+.sp-count{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--green);text-align:center;line-height:1}
+.sp-text{font-size:11.5px;color:var(--muted);text-align:center;margin-bottom:4px}
+.sp-avatars{display:flex;justify-content:center}
+.sp-av{width:24px;height:24px;border-radius:50%;border:2px solid var(--bg1);background:linear-gradient(135deg,#6c63ff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;margin-left:-7px}
+.sp-av:first-child{margin-left:0}
+
+/* ── FREE PLAN card ── */
+.free-plan-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:18px 20px;
+  display:flex;flex-direction:column;
+  gap:0;
+}
+.plan-card-title{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:14px;color:var(--text)}
+
+/* ── PRO PLAN card ── */
+.pro-plan-card{
+  background:linear-gradient(160deg,rgba(108,99,255,.1) 0%,rgba(0,210,160,.04) 100%);
+  border:1.5px solid rgba(108,99,255,.55);
+  border-radius:14px;
+  padding:18px 20px;
+  display:flex;flex-direction:column;
+  gap:0;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 0 30px rgba(108,99,255,.12);
+}
+.pro-plan-card::before{
+  content:'';position:absolute;top:-40px;left:-40px;width:150px;height:150px;
+  background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%);
+  pointer-events:none;
+}
+.most-popular{
+  position:absolute;top:16px;right:16px;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  color:#fff;font-size:9.5px;font-weight:700;padding:4px 12px;
+  border-radius:6px;letter-spacing:.3px;text-transform:uppercase;
+}
+.feat-item{
+  display:flex;align-items:center;gap:9px;
+  padding:5.5px 0;
+  border-bottom:1px solid rgba(37,42,58,.4);
+  font-size:12.5px;color:var(--muted);
+}
+.feat-item:last-child{border-bottom:none}
+.fi-icon{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}
+.fi-check{background:rgba(0,210,160,.14);color:var(--green);border:1px solid rgba(0,210,160,.25)}
+.fi-cross{background:rgba(82,88,112,.1);color:var(--dim);border:1px solid rgba(82,88,112,.2)}
+
+/* ── BRAIN / METRICS RIGHT COLUMN ── */
+.brain-col{
+  position:relative;
+  border-radius:14px;
+  overflow:hidden;
+  background:radial-gradient(ellipse at 55% 45%,rgba(60,40,180,.25) 0%,rgba(0,210,120,.06) 40%,rgba(8,12,22,.95) 80%);
+  border:1px solid rgba(108,99,255,.18);
+  min-height:300px;
+}
+/* SVG brain art */
+.brain-art{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.brain-art svg{width:70%;height:70%;opacity:.55}
+/* glow rings */
+.brain-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle,rgba(108,99,255,.22) 0%,rgba(0,210,160,.08) 40%,transparent 70%);
+  animation:pulseglow 3s ease-in-out infinite alternate;
+}
+@keyframes pulseglow{0%{opacity:.7;transform:translate(-50%,-50%) scale(.95)}100%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}}
+
+/* floating metric cards on brain */
+.metric-card{
+  position:absolute;
+  background:rgba(14,17,26,.88);
+  border:1px solid rgba(108,99,255,.3);
+  border-radius:10px;
+  padding:10px 13px;
+  backdrop-filter:blur(8px);
+  min-width:100px;
+}
+.mc-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.mc-val{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:800;line-height:1}
+.mc-sub{font-size:10px;margin-top:2px}
+.mc-sub.green{color:var(--green)}
+.mc-sub.up{color:var(--green);display:flex;align-items:center;gap:3px}
+
+/* card positions */
+.mc-winscore{top:12px;left:12px;border-color:rgba(167,139,250,.35)}
+.mc-ev{bottom:55px;left:12px;border-color:rgba(0,210,160,.3)}
+.mc-oddmedia{bottom:12px;left:12px;border-color:rgba(59,130,246,.25)}
+.mc-assertividade{top:12px;right:12px;min-width:130px;border-color:rgba(0,210,160,.3)}
+.mc-lucro{top:50%;right:12px;transform:translateY(-50%);min-width:130px;border-color:rgba(167,139,250,.3)}
+.mc-jogos{bottom:12px;right:12px;border-color:rgba(0,210,160,.25)}
+
+/* sparklines */
+.sparkline{display:block;margin-top:5px}
+
+/* ═══ 4 FEATURES GRID ═══ */
+.features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.feature-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  padding:18px;display:flex;flex-direction:column;gap:10px;
+}
+.fc-header{display:flex;align-items:center;gap:10px}
+.fc-num{
+  width:28px;height:28px;border-radius:50%;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.fc-title{font-size:14px;font-weight:700}
+.fc-desc{font-size:11.5px;color:var(--muted);line-height:1.55}
+
+/* Bilhetes card */
+.bilhete-header-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.bilhete-name{font-size:12px;font-weight:700;color:var(--text)}
+.badge-elite{font-size:8.5px;font-weight:700;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--accent2);padding:2px 7px;border-radius:4px;letter-spacing:.3px}
+.bt{width:100%;border-collapse:collapse;font-size:11px}
+.bt thead th{font-size:9.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);padding:4px 0;border-bottom:1px solid var(--border);text-align:left}
+.bt tbody tr{border-bottom:1px solid rgba(37,42,58,.35)}
+.bt tbody tr:last-child{border-bottom:none}
+.bt td{padding:5px 0;vertical-align:middle}
+.bt-logo{width:16px;height:16px;border-radius:50%;background:var(--bg3);display:inline-flex;align-items:center;justify-content:center;font-size:8px;margin-right:4px;vertical-align:middle;flex-shrink:0}
+.bt-match{font-size:11px;font-weight:600;color:var(--text)}
+.bt-mkt{font-size:10px;color:var(--muted)}
+.bt-odd{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--yellow);text-align:right}
+.bilhete-footer{display:flex;justify-content:space-between;align-items:center;padding-top:7px;margin-top:3px;border-top:1px solid var(--border)}
+.bf-label{font-size:11.5px;color:var(--muted)}
+.bf-val{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--text)}
+.bf-conf{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--green)}
+
+/* Filtros card */
+.filter-row{margin-bottom:7px}
+.fl{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fl-label{font-size:10.5px;color:var(--muted);min-width:95px;flex-shrink:0}
+.fl-select{
+  flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  padding:6px 9px;font-size:11px;color:var(--text);font-family:'DM Sans',sans-serif;
+  display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+}
+.fl-select svg{width:11px;height:11px;stroke:var(--muted);fill:none;flex-shrink:0}
+.btn-apply{
+  width:100%;margin-top:8px;padding:10px;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;
+  cursor:pointer;font-family:'DM Sans',sans-serif;
+  box-shadow:0 0 14px rgba(108,99,255,.3);
+}
+
+/* Análise IA card */
+.ia-match{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.ia-league{font-size:10.5px;color:var(--muted);margin-bottom:10px}
+.ia-body{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.ia-ring{position:relative;width:74px;height:74px;flex-shrink:0}
+.ia-ring svg{transform:rotate(-90deg)}
+.ia-ring-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-65%);font-size:8px;color:var(--muted);text-align:center;font-weight:600;letter-spacing:.3px}
+.ia-ring-pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-30%);font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:800;color:var(--text)}
+.ia-metrics{flex:1;display:flex;flex-direction:column;gap:7px}
+.ia-metric{display:flex;justify-content:space-between;font-size:12px}
+.ia-metric-label{color:var(--muted)}
+.ia-metric-val.green{color:var(--green);font-weight:700}
+.ia-metric-val.yellow{color:var(--yellow);font-weight:700}
+.ia-metric-val.accent{color:var(--accent2);font-weight:700}
+.ia-analysis-label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.ia-analysis-text{font-size:11px;color:var(--muted);line-height:1.55}
+
+/* Alertas card */
+.alert-item{display:flex;align-items:flex-start;gap:9px;padding:6px 0;border-bottom:1px solid rgba(37,42,58,.35)}
+.alert-item:last-child{border-bottom:none;padding-bottom:0}
+.al-dot{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.al-dot.fire{background:rgba(239,68,68,.12)}
+.al-dot.zap{background:rgba(240,165,0,.12)}
+.al-dot.chart{background:rgba(59,130,246,.12)}
+.al-dot.live{background:rgba(0,210,160,.12)}
+.al-info{flex:1;min-width:0}
+.al-type{font-size:11.5px;font-weight:700;margin-bottom:1px}
+.al-type.red{color:#f87171}
+.al-type.yellow{color:var(--yellow)}
+.al-type.blue{color:var(--blue)}
+.al-type.green{color:var(--green)}
+.al-detail{font-size:10.5px;color:var(--muted)}
+.al-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+.al-time{font-size:10px;color:var(--dim)}
+.al-val{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+
+/* ═══ PRICING SECTION ═══ */
+.pricing{display:grid;grid-template-columns:1fr 1fr auto 1fr;gap:14px;align-items:stretch}
+
+.price-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px;
+}
+.price-card.annual{
+  border-color:rgba(0,210,160,.38);
+  background:linear-gradient(160deg,rgba(0,210,160,.07) 0%,rgba(108,99,255,.04) 100%);
+  position:relative;
+}
+.rec-tag{
+  position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,#00d2a0,#10b981);
+  color:#fff;font-size:9.5px;font-weight:700;padding:4px 14px;
+  border-radius:10px;letter-spacing:.3px;white-space:nowrap;
+}
+.price-icon-wrap{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.price-plan-label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.price-row{display:flex;align-items:baseline;gap:2px;flex-wrap:wrap}
+.price-curr{font-size:14px;font-weight:700;color:var(--muted);margin-top:4px}
+.price-amount{font-family:'Rajdhani',sans-serif;font-size:38px;font-weight:700;line-height:1}
+.price-amount.green{color:var(--green)}
+.price-period{font-size:13px;color:var(--muted)}
+.badge-save{font-size:9px;font-weight:700;background:rgba(0,210,160,.15);border:1px solid rgba(0,210,160,.3);color:var(--green);padding:3px 8px;border-radius:5px;margin-left:6px;letter-spacing:.3px}
+.price-equiv{font-size:11.5px;color:var(--muted)}
+.price-cancel{font-size:12px;color:var(--muted)}
+.price-feat-item{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.price-feat-item::before{content:'✓';color:var(--green);font-weight:700;font-size:12px;flex-shrink:0}
+
+/* guarantees */
+.guarantees{
+  background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  padding:20px;display:flex;flex-direction:column;gap:12px;min-width:220px;justify-content:center;
+}
+.guarantee-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.gi-icon{width:22px;height:22px;border-radius:50%;background:rgba(0,210,160,.1);border:1px solid rgba(0,210,160,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gi-icon svg{width:10px;height:10px;stroke:var(--green);fill:none}
+
+/* cta col */
+.cta-col{
+  background:linear-gradient(145deg,#5a52e0,#7c3aed,#6c63ff);
+  border-radius:14px;padding:22px 20px;
+  display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:14px;
+  box-shadow:0 0 50px rgba(108,99,255,.28);
+  min-width:240px;
+}
+.btn-cta{
+  width:100%;padding:15px;background:#fff;border:none;border-radius:11px;
+  color:#5a52e0;font-size:15px;font-weight:800;cursor:pointer;
+  font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:9px;
+  transition:all .18s;box-shadow:0 4px 20px rgba(0,0,0,.25);
+}
+.btn-cta:hover{background:rgba(255,255,255,.93);transform:translateY(-2px)}
+.btn-cta svg{width:17px;height:17px;stroke:currentColor;fill:none}
+.cta-secure{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:rgba(255,255,255,.65)}
+.cta-secure svg{width:12px;height:12px;stroke:currentColor;fill:none}
+</style>
 </head>
 <body>
-  <h1>Página em construção</h1>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">M</div>
+    <div class="logo-text"><strong>WinMetrics</strong><span>Analytics</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Visão Geral</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Melhores Previsões<span class="badge-pro">PRO</span></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>Painel Live<span class="badge-live">LIVE</span></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Bilhetes</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Histórico Global</div>
+    <div class="nav-section">Análises</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Estatísticas</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Desempenho</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Mercados</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Times</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Competições</div>
+    <div class="nav-section">Ferramentas</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>Análise IA<span class="badge-pro">PRO</span></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>Pirâmide de Confiança</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Hot Streaks</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Calculadora de Stakes</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alertas<span class="badge-pro">PRO</span></div>
+    <div class="nav-section">Conta</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Meu Perfil</div>
+    <div class="nav-item active"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Assinatura<span class="badge-pro">PRO</span></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Pagamentos</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Favoritos</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Configurações</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sair</div>
+  </nav>
+  <div class="sidebar-upgrade">
+    <div class="crown">👑</div>
+    <h4>Seja PRO</h4>
+    <p>Tenha acesso a todos os recursos exclusivos e aumente seus lucros.</p>
+    <button class="btn-upgrade">Upgrade para PRO</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Buscar jogos, times, ligas...">
+    </div>
+    <div class="topbar-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><div class="notif-dot">3</div></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+      <div class="user-pill">
+        <div class="user-avatar">JS</div>
+        <div><span class="user-name">João Silva</span><span class="user-pro">PRO</span></div>
+        <svg style="width:13px;height:13px;stroke:var(--dim);fill:none" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ═══ HERO ═══ -->
+    <div class="hero">
+
+      <!-- Left: title + social proof -->
+      <div class="hero-left">
+        <div>
+          <div class="hero-title">WinMetrics <span class="pro-word">PRO</span><span class="crown">👑</span></div>
+          <div class="hero-sub">Desbloqueie todo o potencial da Inteligência Artificial aplicada às apostas esportivas.</div>
+        </div>
+        <div class="social-proof">
+          <div class="sp-label">Junte-se a mais de</div>
+          <div class="sp-count">+12.500</div>
+          <div class="sp-text">apostadores que já usam o PRO</div>
+          <div class="sp-avatars">
+            <div class="sp-av">R</div><div class="sp-av">T</div>
+            <div class="sp-av">M</div><div class="sp-av">A</div>
+            <div class="sp-av" style="background:var(--bg3);color:var(--muted);font-size:9px;border:1px dashed var(--border2)">+</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FREE PLAN -->
+      <div class="free-plan-card">
+        <div class="plan-card-title">FREE PLAN</div>
+        <div class="feat-item"><div class="fi-icon fi-cross">✕</div>Top 5 previsões por dia</div>
+        <div class="feat-item"><div class="fi-icon fi-cross">✕</div>Estatísticas básicas</div>
+        <div class="feat-item"><div class="fi-icon fi-cross">✕</div>Histórico limitado</div>
+        <div class="feat-item"><div class="fi-icon fi-cross">✕</div>Sem filtros avançados</div>
+        <div class="feat-item"><div class="fi-icon fi-cross">✕</div>Sem análise IA</div>
+        <div class="feat-item"><div class="fi-icon fi-cross">✕</div>Sem bilhetes premium</div>
+      </div>
+
+      <!-- PRO PLAN -->
+      <div class="pro-plan-card">
+        <div class="most-popular">MAIS POPULAR</div>
+        <div class="plan-card-title">PRO PLAN</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Todas as previsões liberadas</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Bilhetes Premium automáticos</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Filtros avançados por mercado</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Análise IA detalhada</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Pirâmide de confiança completa</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Alertas em tempo real</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Histórico completo</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Estatísticas avançadas</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Jogos ao vivo premium</div>
+        <div class="feat-item"><div class="fi-icon fi-check">✓</div>Favoritos personalizados</div>
+      </div>
+
+      <!-- BRAIN + metrics -->
+      <div class="brain-col">
+        <!-- glow background -->
+        <div class="brain-glow"></div>
+        <!-- Brain SVG art -->
+        <div class="brain-art">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="bg1" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#6c63ff" stop-opacity=".5"/>
+                <stop offset="100%" stop-color="#00d2a0" stop-opacity=".1"/>
+              </radialGradient>
+              <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <!-- Brain shape simplified -->
+            <ellipse cx="100" cy="95" rx="62" ry="55" fill="none" stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="4 3" opacity=".6" filter="url(#glow)"/>
+            <ellipse cx="100" cy="95" rx="48" ry="42" fill="none" stroke="#a78bfa" stroke-width="1" opacity=".5"/>
+            <ellipse cx="100" cy="95" rx="34" ry="30" fill="none" stroke="#00d2a0" stroke-width="1" stroke-dasharray="3 4" opacity=".4"/>
+            <!-- AI chip center -->
+            <rect x="82" y="77" width="36" height="36" rx="8" fill="rgba(108,99,255,.25)" stroke="#6c63ff" stroke-width="1.5" filter="url(#glow)"/>
+            <text x="100" y="102" text-anchor="middle" fill="#fff" font-size="16" font-weight="900" font-family="sans-serif">AI</text>
+            <!-- neural lines -->
+            <line x1="100" y1="40" x2="100" y2="77" stroke="#6c63ff" stroke-width=".8" stroke-dasharray="2 2" opacity=".5"/>
+            <line x1="100" y1="113" x2="100" y2="150" stroke="#00d2a0" stroke-width=".8" stroke-dasharray="2 2" opacity=".5"/>
+            <line x1="38" y1="95" x2="82" y2="95" stroke="#a78bfa" stroke-width=".8" stroke-dasharray="2 2" opacity=".5"/>
+            <line x1="118" y1="95" x2="162" y2="95" stroke="#a78bfa" stroke-width=".8" stroke-dasharray="2 2" opacity=".5"/>
+            <line x1="55" y1="55" x2="82" y2="77" stroke="#6c63ff" stroke-width=".7" opacity=".4"/>
+            <line x1="145" y1="55" x2="118" y2="77" stroke="#6c63ff" stroke-width=".7" opacity=".4"/>
+            <line x1="55" y1="135" x2="82" y2="113" stroke="#00d2a0" stroke-width=".7" opacity=".4"/>
+            <line x1="145" y1="135" x2="118" y2="113" stroke="#00d2a0" stroke-width=".7" opacity=".4"/>
+            <!-- dots -->
+            <circle cx="100" cy="38" r="3" fill="#6c63ff" opacity=".8"/>
+            <circle cx="100" cy="152" r="3" fill="#00d2a0" opacity=".8"/>
+            <circle cx="36" cy="95" r="3" fill="#a78bfa" opacity=".8"/>
+            <circle cx="164" cy="95" r="3" fill="#a78bfa" opacity=".8"/>
+            <circle cx="53" cy="53" r="2.5" fill="#6c63ff" opacity=".7"/>
+            <circle cx="147" cy="53" r="2.5" fill="#6c63ff" opacity=".7"/>
+            <circle cx="53" cy="137" r="2.5" fill="#00d2a0" opacity=".7"/>
+            <circle cx="147" cy="137" r="2.5" fill="#00d2a0" opacity=".7"/>
+            <!-- orbit ring -->
+            <ellipse cx="100" cy="130" rx="60" ry="16" fill="none" stroke="#6c63ff" stroke-width=".8" stroke-dasharray="3 5" opacity=".4" transform="rotate(-15 100 130)"/>
+          </svg>
+        </div>
+
+        <!-- Metric cards overlaid -->
+        <!-- Left side: Win Score, EV+, Odd Média -->
+        <div class="metric-card mc-winscore">
+          <div class="mc-label">WIN SCORE</div>
+          <div class="mc-val" style="color:var(--accent2)">93</div>
+          <div class="mc-sub green">+12.4%</div>
+        </div>
+
+        <div class="metric-card mc-ev">
+          <div class="mc-label">EV+</div>
+          <div class="mc-val" style="color:var(--green)">+11.8%</div>
+        </div>
+
+        <div class="metric-card mc-oddmedia">
+          <div class="mc-label">ODD MÉDIA</div>
+          <div class="mc-val" style="color:var(--text)">1.68</div>
+          <svg class="sparkline" width="70" height="18" viewBox="0 0 70 18">
+            <polyline points="0,14 12,12 24,9 36,11 48,7 58,4 70,2" fill="none" stroke="#3b82f6" stroke-width="1.4" opacity=".8"/>
+          </svg>
+        </div>
+
+        <!-- Right side: Assertividade, Lucro, Jogos ao Vivo -->
+        <div class="metric-card mc-assertividade">
+          <div class="mc-label">ASSERTIVIDADE</div>
+          <div class="mc-val" style="color:var(--green)">89.4%</div>
+          <svg class="sparkline" width="80" height="18" viewBox="0 0 80 18">
+            <polyline points="0,15 13,12 27,8 40,6 54,4 67,2 80,1" fill="none" stroke="#00d2a0" stroke-width="1.5" opacity=".8"/>
+          </svg>
+        </div>
+
+        <div class="metric-card mc-lucro">
+          <div class="mc-label">LUCRO (7 DIAS)</div>
+          <div class="mc-val" style="color:var(--accent2)">+124.5u</div>
+          <svg class="sparkline" width="80" height="18" viewBox="0 0 80 18">
+            <polyline points="0,16 13,13 27,9 40,7 54,4 67,2 80,1" fill="none" stroke="#a78bfa" stroke-width="1.5" opacity=".8"/>
+          </svg>
+        </div>
+
+        <div class="metric-card mc-jogos">
+          <div class="mc-label">JOGOS AO VIVO</div>
+          <div class="mc-val" style="color:var(--text)">38</div>
+          <div class="mc-sub up">● AO VIVO AGORA</div>
+        </div>
+
+      </div><!-- /brain-col -->
+
+    </div><!-- /hero -->
+
+    <!-- ═══ 4 FEATURE CARDS ═══ -->
+    <div class="features-grid">
+
+      <!-- 1 Bilhetes Premium -->
+      <div class="feature-card">
+        <div class="fc-header">
+          <div class="fc-num">1</div>
+          <div class="fc-title">Bilhetes Premium</div>
+        </div>
+        <div class="fc-desc">Bilhetes gerados automaticamente com as melhores oportunidades do dia com alta probabilidade.</div>
+        <div>
+          <div class="bilhete-header-row">
+            <span class="bilhete-name">Bilhete Premium</span>
+            <span class="badge-elite">ELITE</span>
+          </div>
+          <table class="bt">
+            <thead><tr><th style="min-width:80px">Jogo</th><th>Mercado</th><th style="text-align:right">Odd</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="bt-logo">🔵</span><span class="bt-match">Man City vs Liverpool</span></td>
+                <td><span class="bt-mkt">Over 2.5 Gols</span></td>
+                <td class="bt-odd">1.72</td>
+              </tr>
+              <tr>
+                <td><span class="bt-logo">🔴</span><span class="bt-match">Flamengo vs Palmeiras</span></td>
+                <td><span class="bt-mkt">BTTS - Sim</span></td>
+                <td class="bt-odd">1.80</td>
+              </tr>
+              <tr>
+                <td><span class="bt-logo">⚪</span><span class="bt-match">Real Madrid vs Betis</span></td>
+                <td><span class="bt-mkt">Over 1.5 Gols</span></td>
+                <td class="bt-odd">1.40</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="bilhete-footer">
+            <span class="bf-label">Odd Total</span>
+            <span class="bf-val">4.33</span>
+          </div>
+          <div class="bilhete-footer" style="border-top:none;padding-top:0">
+            <span class="bf-label">Confiança</span>
+            <span class="bf-conf">92%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 Filtros Avançados -->
+      <div class="feature-card">
+        <div class="fc-header">
+          <div class="fc-num">2</div>
+          <div class="fc-title">Filtros Avançados</div>
+        </div>
+        <div class="fc-desc">Encontre as melhores oportunidades com nossos filtros poderosos e personalizáveis.</div>
+        <div>
+          <div class="fl"><span class="fl-label">Campeonatos</span><div class="fl-select"><span>Todos os Campeonatos</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div></div>
+          <div style="height:6px"></div>
+          <div class="fl"><span class="fl-label">Mercados</span><div class="fl-select"><span>Over 1.5, BTTS, 1X2...</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div></div>
+          <div style="height:6px"></div>
+          <div class="fl"><span class="fl-label">Odd mínima</span><div class="fl-select"><span>1.50</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div></div>
+          <div style="height:6px"></div>
+          <div class="fl"><span class="fl-label">Confiança mínima</span><div class="fl-select"><span>Alta (80%+)</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div></div>
+          <div style="height:6px"></div>
+          <div class="fl"><span class="fl-label">Win Score mínimo</span><div class="fl-select"><span>85</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div></div>
+          <button class="btn-apply">Aplicar Filtros</button>
+        </div>
+      </div>
+
+      <!-- 3 Análise IA -->
+      <div class="feature-card">
+        <div class="fc-header">
+          <div class="fc-num">3</div>
+          <div class="fc-title">Análise IA</div>
+        </div>
+        <div class="fc-desc">Nossa IA analisa milhares de dados e entrega análises detalhadas e probabilidades precisas.</div>
+        <div>
+          <div class="ia-match">Man City vs Liverpool</div>
+          <div class="ia-league">Premier League · Hoje 16:00</div>
+          <div class="ia-body">
+            <div class="ia-ring">
+              <svg width="74" height="74" viewBox="0 0 74 74">
+                <circle cx="37" cy="37" r="31" fill="none" stroke="#252a3a" stroke-width="6"/>
+                <circle cx="37" cy="37" r="31" fill="none" stroke="#6c63ff" stroke-width="6"
+                  stroke-dasharray="146.6 194.8" stroke-linecap="round"/>
+              </svg>
+              <div class="ia-ring-label">Probabilidade IA</div>
+              <div class="ia-ring-pct">78%</div>
+            </div>
+            <div class="ia-metrics">
+              <div class="ia-metric"><span class="ia-metric-label">Confiança</span><span class="ia-metric-val green">Alta</span></div>
+              <div class="ia-metric"><span class="ia-metric-label">Risco</span><span class="ia-metric-val yellow">Médio</span></div>
+              <div class="ia-metric"><span class="ia-metric-label">Valor</span><span class="ia-metric-val accent">+12.4%</span></div>
+            </div>
+          </div>
+          <div class="ia-analysis-label">Análise da IA</div>
+          <div class="ia-analysis-text">O Manchester City tem 78% de probabilidade de vencer baseado no desempenho recente, estatísticas avançadas e condições atuais das equipes.</div>
+        </div>
+      </div>
+
+      <!-- 4 Alertas Inteligentes -->
+      <div class="feature-card">
+        <div class="fc-header">
+          <div class="fc-num">4</div>
+          <div class="fc-title">Alertas Inteligentes</div>
+        </div>
+        <div class="fc-desc">Receba alertas em tempo real sobre as melhores oportunidades do mercado.</div>
+        <div>
+          <div class="alert-item">
+            <div class="al-dot fire">🔥</div>
+            <div class="al-info"><div class="al-type red">Oportunidade <span style="color:var(--green)">de Valor</span></div><div class="al-detail">Over 2.5 Gols</div></div>
+            <div class="al-meta"><span class="al-time">Agora</span><span class="al-val">1.85</span></div>
+          </div>
+          <div class="alert-item">
+            <div class="al-dot zap">⚡</div>
+            <div class="al-info"><div class="al-type yellow">Odd em Alta</div><div class="al-detail">BTTS - Sim</div></div>
+            <div class="al-meta"><span class="al-time">2 min</span><span class="al-val">1.72</span></div>
+          </div>
+          <div class="alert-item">
+            <div class="al-dot chart">📊</div>
+            <div class="al-info"><div class="al-type blue">Alta Probabilidade</div><div class="al-detail">Man City vence</div></div>
+            <div class="al-meta"><span class="al-time">3 min</span><span class="al-val" style="color:var(--green)">78%</span></div>
+          </div>
+          <div class="alert-item">
+            <div class="al-dot live">📡</div>
+            <div class="al-info"><div class="al-type green">Live Alert</div><div class="al-detail">Flamengo marcou</div></div>
+            <div class="al-meta"><span class="al-time">5 min</span><span class="al-val">67'</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /features-grid -->
+
+    <!-- ═══ PRICING ═══ -->
+    <div class="pricing">
+
+      <!-- Mensal -->
+      <div class="price-card">
+        <div class="price-icon-wrap" style="background:rgba(108,99,255,.1)">📅</div>
+        <div class="price-plan-label">Plano Mensal</div>
+        <div class="price-row">
+          <span class="price-curr">R$</span>
+          <span class="price-amount">29,90</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <div class="price-cancel">Cancele quando quiser</div>
+        <div class="price-feat-item">Acesso completo ao PRO</div>
+      </div>
+
+      <!-- Anual -->
+      <div class="price-card annual">
+        <div class="rec-tag">RECOMENDADO</div>
+        <div class="price-icon-wrap" style="background:rgba(0,210,160,.1)">👑</div>
+        <div class="price-plan-label">Plano Anual</div>
+        <div class="price-row">
+          <span class="price-curr">R$</span>
+          <span class="price-amount green">299,90</span>
+          <span class="price-period">/ano</span>
+          <span class="badge-save">ECONOMIZE 17%</span>
+        </div>
+        <div class="price-equiv">Equivale a R$24,99/mês</div>
+        <div class="price-feat-item" style="color:var(--text)">Acesso completo ao PRO</div>
+      </div>
+
+      <!-- Garantias -->
+      <div class="guarantees">
+        <div class="guarantee-item">
+          <div class="gi-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          7 dias de garantia incondicional
+        </div>
+        <div class="guarantee-item">
+          <div class="gi-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          Cancele quando quiser
+        </div>
+        <div class="guarantee-item">
+          <div class="gi-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          Suporte prioritário PRO
+        </div>
+        <div class="guarantee-item">
+          <div class="gi-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          Atualizações constantes
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-col">
+        <button class="btn-cta">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Fazer Upgrade para PRO
+        </button>
+        <div class="cta-secure">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Pagamento 100% seguro
+        </div>
+      </div>
+
+    </div><!-- /pricing -->
+
+  </div><!-- /content -->
+</div><!-- /main-wrap -->
+
+<script>
+document.querySelectorAll('.nav-item:not(.active)').forEach(item=>{
+  item.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+  });
+});
+</script>
 </body>
 </html>
