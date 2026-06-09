@@ -1,9 +1,777 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <title>WinMetrics V3</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WinMetrics — Minha Conta</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #0e1017;
+  --bg1:    #13161f;
+  --bg2:    #181c27;
+  --bg3:    #1e2232;
+  --border: #252a3a;
+  --border2:#2d3450;
+  --accent: #6c63ff;
+  --accent2:#a78bfa;
+  --green:  #00d2a0;
+  --red:    #ef4444;
+  --yellow: #f0a500;
+  --blue:   #3b82f6;
+  --purple: #7c3aed;
+  --text:   #f0f2ff;
+  --muted:  #8b90a8;
+  --dim:    #525870;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── SIDEBAR ── */
+.sidebar{width:240px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;height:100vh}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar-logo{padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;color:#fff;flex-shrink:0}
+.logo-text strong{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--text);display:block;line-height:1.1}
+.logo-text span{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.sidebar-nav{padding:10px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9px 20px;border-left:3px solid transparent;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-item.active{color:var(--text);background:linear-gradient(90deg,rgba(108,99,255,.14),rgba(108,99,255,.03));font-weight:600;border-left:3px solid var(--accent);padding-left:17px}
+.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+.badge-pro{margin-left:auto;font-size:9px;background:linear-gradient(90deg,#6c63ff,#a78bfa);color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
+.badge-live{margin-left:auto;font-size:9px;background:rgba(0,210,160,.15);border:1px solid rgba(0,210,160,.4);color:var(--green);padding:2px 7px;border-radius:4px;font-weight:700;flex-shrink:0;display:flex;align-items:center;gap:4px}
+.badge-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.nav-section{padding:16px 20px 5px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-weight:600}
+.sidebar-upgrade{margin:10px 14px 14px;background:linear-gradient(135deg,#1a1f35,#232848);border:1px solid #2d3358;border-radius:12px;padding:14px;flex-shrink:0}
+.sidebar-upgrade .crown{font-size:20px;margin-bottom:6px}
+.sidebar-upgrade h4{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.sidebar-upgrade p{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:12px}
+.btn-upgrade{width:100%;padding:9px;background:linear-gradient(90deg,#6c63ff,#a78bfa);border:none;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* ── MAIN ── */
+.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 24px;flex-shrink:0}
+.search-box{flex:1;max-width:340px;display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:0 12px;height:34px}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;font-family:'DM Sans',sans-serif}
+.search-box input::placeholder{color:var(--dim)}
+.search-box svg{width:15px;height:15px;stroke:var(--dim);fill:none;flex-shrink:0}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.icon-btn{width:34px;height:34px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--muted)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none}
+.notif-dot{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#ef4444;border-radius:50%;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1)}
+.user-pill{display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px 12px 4px 5px;cursor:pointer}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.user-name{font-size:13px;font-weight:600}
+.user-pro{font-size:9px;font-weight:700;color:var(--accent2);display:block}
+
+/* ── CONTENT LAYOUT ── */
+.content-outer{flex:1;overflow-y:auto;padding:22px 24px}
+.content-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+.content-main{display:flex;flex-direction:column;gap:18px}
+.content-side{display:flex;flex-direction:column;gap:16px;position:sticky;top:0}
+
+/* ── PAGE HEADER ── */
+.page-header{margin-bottom:4px}
+.page-title{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted)}
+
+/* ── PROFILE HERO ── */
+.profile-hero{
+  background:var(--bg2);
+  border-radius:14px;padding:22px 24px;
+  border:1px solid transparent;
+  background-clip:padding-box;
+  position:relative;
+  overflow:hidden;
+}
+.profile-hero::before{
+  content:'';position:absolute;inset:0;border-radius:14px;
+  background:linear-gradient(135deg,rgba(108,99,255,.35),rgba(0,210,160,.2),rgba(108,99,255,.1));
+  z-index:0;margin:-1px;
+}
+.profile-hero-inner{position:relative;z-index:1;background:var(--bg2);border-radius:13px;padding:22px 24px;margin:-22px -24px;display:flex;align-items:center;gap:20px}
+.profile-avatar-wrap{position:relative;flex-shrink:0}
+.profile-avatar{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;border:3px solid rgba(108,99,255,.5);overflow:hidden}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.crown-badge{position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:2px solid var(--bg2);display:flex;align-items:center;justify-content:center;font-size:11px}
+.profile-info{flex:1}
+.profile-name-row{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.profile-name{font-size:20px;font-weight:700}
+.badge-pro-user{font-size:10px;font-weight:700;background:linear-gradient(135deg,#2563eb,#6c63ff);color:#fff;padding:3px 9px;border-radius:5px;letter-spacing:.5px}
+.profile-email{font-size:13px;color:var(--muted);margin-bottom:5px}
+.profile-active{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--green);font-weight:500}
+.profile-active::before{content:'•';font-size:14px}
+.profile-meta{display:flex;gap:0;margin-left:auto;align-items:center}
+.meta-item{padding:0 28px;text-align:center;border-right:1px solid var(--border)}
+.meta-item:last-child{border-right:none;padding-right:0}
+.meta-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.meta-val{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--text)}
+.meta-val.pro-purple{font-size:24px;background:linear-gradient(135deg,#6c63ff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.badge-ativa{display:inline-block;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(0,210,160,.12);border:1px solid rgba(0,210,160,.3);color:var(--green)}
+
+/* ── LOGIN & SECURITY ── */
+.section-title-lg{font-size:16px;font-weight:700;margin-bottom:4px}
+.section-sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.login-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.login-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.login-left{display:flex;align-items:center;gap:12px}
+.login-icon{width:38px;height:38px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.login-title{font-size:14px;font-weight:700}
+.badge-conectado{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:5px;letter-spacing:.4px;background:rgba(0,210,160,.1);border:1px solid rgba(0,210,160,.28);color:var(--green)}
+.badge-ativo{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:5px;letter-spacing:.4px;background:rgba(0,210,160,.1);border:1px solid rgba(0,210,160,.28);color:var(--green)}
+.login-detail{font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.login-access{font-size:11.5px;color:var(--dim)}
+.login-actions{display:flex;gap:8px;margin-top:12px}
+.btn-outline{padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.btn-outline:hover{border-color:var(--accent2);color:var(--accent2)}
+.shield-corner{position:absolute;bottom:14px;right:14px;width:28px;height:28px;opacity:.8}
+.shield-corner svg{width:28px;height:28px;stroke:var(--green);fill:none}
+
+/* ── 4 QUICK CARDS ── */
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.quick-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:0}
+.quick-header{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.quick-icon{font-size:18px}
+.quick-title{font-size:13.5px;font-weight:700}
+.quick-title.yellow{color:var(--yellow)}
+.quick-title.red{color:var(--red)}
+.quick-title.blue{color:var(--blue)}
+.quick-title.green{color:var(--green)}
+.quick-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(37,42,58,.4);font-size:12.5px}
+.quick-row:last-of-type{border-bottom:none}
+.quick-row-left{display:flex;align-items:center;gap:7px;color:var(--muted)}
+.quick-row-left svg{width:13px;height:13px;stroke:var(--dim);fill:none}
+.quick-row-val{font-weight:700;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px}
+.quick-row-val.green{color:var(--green)}
+.quick-btn{margin-top:14px;width:100%;padding:9px;border-radius:8px;font-size:12.5px;font-weight:600;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.quick-btn:hover{border-color:var(--accent2);background:rgba(108,99,255,.06)}
+.quick-btn.green-btn{border-color:rgba(0,210,160,.3);color:var(--green)}
+.quick-btn.green-btn:hover{background:rgba(0,210,160,.06)}
+
+/* ── PLANO CARD ── */
+.plan-big{
+  background:linear-gradient(135deg,#0f1525,#141829,#0f1525);
+  border:1px solid rgba(108,99,255,.3);border-radius:14px;
+  padding:24px;display:grid;grid-template-columns:auto 1fr auto auto;gap:24px;align-items:center;
+  overflow:hidden;position:relative;
+}
+.plan-big::before{
+  content:'';position:absolute;top:-60px;left:60px;width:200px;height:200px;
+  background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%);
+  pointer-events:none;
+}
+.crown-3d{font-size:64px;filter:drop-shadow(0 0 20px rgba(108,99,255,.4));flex-shrink:0}
+.plan-info{}
+.plan-info-label{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.plan-info-name{font-family:'Rajdhani',sans-serif;font-size:42px;font-weight:700;background:linear-gradient(135deg,#6c63ff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1}
+.plan-info-desc{font-size:12.5px;color:var(--muted);margin-top:6px;max-width:280px;line-height:1.5}
+.plan-status{display:flex;flex-direction:column;gap:14px}
+.plan-status-item{display:flex;align-items:center;gap:10px}
+.plan-status-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.plan-status-icon.green-ring{background:rgba(0,210,160,.1);border:2px solid rgba(0,210,160,.3)}
+.plan-status-icon.clock-ring{background:rgba(108,99,255,.1);border:2px solid rgba(108,99,255,.3)}
+.plan-status-label{font-size:11px;color:var(--muted);margin-bottom:1px}
+.plan-status-val{font-size:13.5px;font-weight:700;color:var(--text)}
+.plan-status-val.green{color:var(--green)}
+.plan-actions{display:flex;flex-direction:column;gap:10px;min-width:200px}
+.btn-manage{padding:12px 20px;border-radius:9px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border:none;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:center;box-shadow:0 0 20px rgba(108,99,255,.3);transition:all .18s}
+.btn-manage:hover{box-shadow:0 0 35px rgba(108,99,255,.5);transform:translateY(-1px)}
+.btn-outline-plan{padding:11px 20px;border-radius:9px;background:transparent;border:1px solid var(--border2);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:center;transition:all .15s}
+.btn-outline-plan:hover{border-color:var(--accent2);color:var(--accent2)}
+.btn-export{padding:11px 20px;border-radius:9px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s}
+.btn-export:hover{border-color:var(--border2);color:var(--text)}
+.btn-export svg{width:14px;height:14px;stroke:currentColor;fill:none}
+
+/* ── RIGHT PANEL ── */
+.side-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.side-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.side-header-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.side-header-title svg{width:15px;height:15px;stroke:currentColor;fill:none}
+
+/* resumo */
+.resumo-list{padding:0}
+.resumo-item{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid rgba(37,42,58,.5)}
+.resumo-item:last-child{border-bottom:none}
+.resumo-left{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.resumo-icon{font-size:15px}
+.resumo-val{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
+
+/* pro level bar */
+.pro-level{padding:14px 16px;border-top:1px solid var(--border)}
+.pro-level-header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px}
+.pro-level-label{font-weight:600;color:var(--text)}
+.pro-level-days{color:var(--muted)}
+.pro-bar-bg{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:6px}
+.pro-bar-fill{height:100%;width:58.6%;background:linear-gradient(90deg,#6c63ff,#a78bfa);border-radius:3px}
+.pro-level-hint{font-size:11px;color:var(--dim)}
+
+/* atividade recente */
+.atividade-list{padding:8px 0}
+.atividade-item{display:flex;align-items:flex-start;gap:12px;padding:10px 16px}
+.atividade-dot-wrap{display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0}
+.atividade-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.atividade-dot.yellow{background:rgba(240,165,0,.15)}
+.atividade-dot.red{background:rgba(239,68,68,.12)}
+.atividade-dot.green{background:rgba(0,210,160,.12)}
+.atividade-dot.blue{background:rgba(59,130,246,.12)}
+.atividade-dot.purple{background:rgba(108,99,255,.12)}
+.atividade-info{flex:1;min-width:0}
+.atividade-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.atividade-detail{font-size:11.5px;color:var(--muted)}
+.atividade-time{font-size:11px;color:var(--dim);flex-shrink:0;padding-top:2px}
+
+/* benefits */
+.benefits-list{padding:12px 16px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border)}
+.benefits-title{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
+.benefit-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.benefit-item::before{content:'✓';color:var(--green);font-weight:700;font-size:12px;flex-shrink:0}
+</style>
 </head>
 <body>
-  <h1>Página em construção</h1>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">M</div>
+    <div class="logo-text">
+      <strong>WinMetrics</strong>
+      <span>Analytics</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Visão Geral
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Melhores Previsões
+      <span class="badge-pro">PRO</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+      Painel Live
+      <span class="badge-live">LIVE</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+      Bilhetes
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Histórico Global
+    </div>
+    <div class="nav-section">Análises</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Estatísticas
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Desempenho
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      Mercados
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Times
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Competições
+    </div>
+    <div class="nav-section">Ferramentas</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+      Análise IA
+      <span class="badge-pro">PRO</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
+      Pirâmide de Confiança
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      Hot Streaks
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Calculadora de Stakes
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Alertas
+      <span class="badge-pro">PRO</span>
+    </div>
+    <div class="nav-section">Conta</div>
+    <div class="nav-item active">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Meu Perfil
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Assinatura
+      <span class="badge-pro">PRO</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Pagamentos
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      Favoritos
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Configurações
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sair
+    </div>
+  </nav>
+  <div class="sidebar-upgrade">
+    <div class="crown">👑</div>
+    <h4>Seja PRO</h4>
+    <p>Tenha acesso a todos os recursos exclusivos e aumente seus lucros.</p>
+    <button class="btn-upgrade">Upgrade para PRO</button>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Buscar jogos, times, ligas...">
+    </div>
+    <div class="topbar-right">
+      <div class="icon-btn">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot">1</div>
+      </div>
+      <div class="icon-btn">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="user-pill">
+        <div class="user-avatar">JS</div>
+        <div>
+          <span class="user-name">João Silva</span>
+          <span class="user-pro">PRO</span>
+        </div>
+        <svg style="width:13px;height:13px;stroke:var(--dim);fill:none" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="content-outer">
+    <div class="content-grid">
+
+      <!-- ═══ LEFT MAIN ═══ -->
+      <div class="content-main">
+
+        <!-- Page Header -->
+        <div class="page-header">
+          <h1 class="page-title">Minha Conta</h1>
+          <p class="page-sub">Gerencie seu perfil, favoritos, bilhetes e configurações da sua conta.</p>
+        </div>
+
+        <!-- Profile Hero -->
+        <div class="profile-hero">
+          <div class="profile-hero-inner">
+            <div class="profile-avatar-wrap">
+              <div class="profile-avatar">JS</div>
+              <div class="crown-badge">👑</div>
+            </div>
+            <div class="profile-info">
+              <div class="profile-name-row">
+                <span class="profile-name">João Silva</span>
+                <span class="badge-pro-user">PRO</span>
+              </div>
+              <div class="profile-email">joaosilva@email.com</div>
+              <div class="profile-active">Conta ativa</div>
+            </div>
+            <div class="profile-meta">
+              <div class="meta-item">
+                <div class="meta-label">Plano atual</div>
+                <div class="meta-val pro-purple">PRO</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Data de assinatura</div>
+                <div class="meta-val" style="font-size:16px">21/10/2024</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Status da conta</div>
+                <div style="margin-top:4px"><span class="badge-ativa">ATIVA</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Login & Segurança -->
+        <div>
+          <h2 class="section-title-lg">Login &amp; Segurança</h2>
+          <p class="section-sub">Gerencie suas opções de login e segurança da conta.</p>
+          <div class="login-grid">
+            <!-- Google -->
+            <div class="login-card">
+              <div class="login-card-header">
+                <div class="login-left">
+                  <div class="login-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                  </div>
+                  <span class="login-title">Login com Google</span>
+                </div>
+                <span class="badge-conectado">CONECTADO</span>
+              </div>
+              <div class="login-detail">Conta conectada com Google</div>
+              <div class="login-access">Último acesso: 06/06/2024 às 14:32</div>
+              <div class="login-actions">
+                <button class="btn-outline">Gerenciar</button>
+              </div>
+              <div class="shield-corner">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+            </div>
+            <!-- Email -->
+            <div class="login-card">
+              <div class="login-card-header">
+                <div class="login-left">
+                  <div class="login-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+                  </div>
+                  <span class="login-title">Login com Email</span>
+                </div>
+                <span class="badge-ativo">ATIVO</span>
+              </div>
+              <div class="login-detail">joaosilva@email.com</div>
+              <div class="login-access">Último acesso: 06/06/2024 às 14:32</div>
+              <div class="login-actions">
+                <button class="btn-outline">Alterar senha</button>
+                <button class="btn-outline">Gerenciar</button>
+              </div>
+              <div class="shield-corner">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Quick Cards -->
+        <div class="quick-grid">
+          <!-- Favoritos -->
+          <div class="quick-card">
+            <div class="quick-header">
+              <span class="quick-icon">⭐</span>
+              <span class="quick-title yellow">Favoritos</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Jogos favoritados
+              </div>
+              <span class="quick-row-val">48</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Mercados favoritos
+              </div>
+              <span class="quick-row-val">23</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Alertas ativos
+              </div>
+              <span class="quick-row-val">12</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Times acompanhados
+              </div>
+              <span class="quick-row-val">15</span>
+            </div>
+            <button class="quick-btn">Ver todos</button>
+          </div>
+
+          <!-- Bilhetes Salvos -->
+          <div class="quick-card">
+            <div class="quick-header">
+              <span class="quick-icon">🎫</span>
+              <span class="quick-title red">Bilhetes Salvos</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Bilhetes Premium
+              </div>
+              <span class="quick-row-val">127</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Bilhetes vencedores
+              </div>
+              <span class="quick-row-val">68</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Bilhetes recentes
+              </div>
+              <span class="quick-row-val">9</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Taxa de acerto
+              </div>
+              <span class="quick-row-val green">73.2%</span>
+            </div>
+            <button class="quick-btn">Ver todos</button>
+          </div>
+
+          <!-- Histórico de Atividades -->
+          <div class="quick-card">
+            <div class="quick-header">
+              <span class="quick-icon">📊</span>
+              <span class="quick-title blue">Histórico de Atividades</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Últimos acessos
+              </div>
+              <span class="quick-row-val">34</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Palpites visualizados
+              </div>
+              <span class="quick-row-val">245</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Histórico de bilhetes
+              </div>
+              <span class="quick-row-val">127</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Análises IA realizadas
+              </div>
+              <span class="quick-row-val">846</span>
+            </div>
+            <button class="quick-btn">Ver histórico</button>
+          </div>
+
+          <!-- Configurações -->
+          <div class="quick-card">
+            <div class="quick-header">
+              <span class="quick-icon">⚙️</span>
+              <span class="quick-title green">Configurações</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Notificações
+              </div>
+              <span class="quick-row-val green" style="font-size:12px;font-family:'DM Sans',sans-serif">Ativadas</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Tema
+              </div>
+              <span class="quick-row-val green" style="font-size:12px;font-family:'DM Sans',sans-serif">Escuro</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Alertas personalizados
+              </div>
+              <span class="quick-row-val green" style="font-size:11px;font-family:'DM Sans',sans-serif">12 ativos</span>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-left">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                Privacidade
+              </div>
+              <span class="quick-row-val green" style="font-size:12px;font-family:'DM Sans',sans-serif">Configurar</span>
+            </div>
+            <button class="quick-btn green-btn">Gerenciar</button>
+          </div>
+        </div>
+
+        <!-- Plano Atual -->
+        <div class="plan-big">
+          <div class="crown-3d">👑</div>
+          <div class="plan-info">
+            <div class="plan-info-label">Plano Atual</div>
+            <div class="plan-info-name">PRO</div>
+            <div class="plan-info-desc">Tenha acesso completo a todos os recursos premium e ferramentas avançadas de IA.</div>
+          </div>
+          <div class="plan-status">
+            <div class="plan-status-item">
+              <div class="plan-status-icon green-ring">🔄</div>
+              <div>
+                <div class="plan-status-label">Renovação automática</div>
+                <div class="plan-status-val green">Ativa</div>
+              </div>
+            </div>
+            <div class="plan-status-item">
+              <div class="plan-status-icon clock-ring">⏰</div>
+              <div>
+                <div class="plan-status-label">Próxima cobrança</div>
+                <div class="plan-status-val" style="font-family:'Rajdhani',sans-serif;font-size:18px">07/07/2026</div>
+              </div>
+            </div>
+          </div>
+          <div class="plan-actions">
+            <button class="btn-manage">Gerenciar Assinatura</button>
+            <button class="btn-outline-plan">Atualizar Plano</button>
+            <button class="btn-export">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar Dados
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /content-main -->
+
+      <!-- ═══ RIGHT SIDE ═══ -->
+      <div class="content-side">
+
+        <!-- Resumo da Conta -->
+        <div class="side-card">
+          <div class="side-header">
+            <div class="side-header-title">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Resumo da Conta
+            </div>
+          </div>
+          <div class="resumo-list">
+            <div class="resumo-item">
+              <div class="resumo-left"><span class="resumo-icon">⭐</span> Favoritos</div>
+              <span class="resumo-val">48</span>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-left"><span class="resumo-icon">🎫</span> Bilhetes salvos</div>
+              <span class="resumo-val">127</span>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-left"><span class="resumo-icon">🔔</span> Alertas ativos</div>
+              <span class="resumo-val">12</span>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-left"><span class="resumo-icon">🎯</span> Análises IA utilizadas</div>
+              <span class="resumo-val">846</span>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-left"><span class="resumo-icon">👑</span> Dias como PRO</div>
+              <span class="resumo-val">214</span>
+            </div>
+          </div>
+          <div class="pro-level">
+            <div class="pro-level-header">
+              <span class="pro-level-label">Nível PRO</span>
+              <span class="pro-level-days">214 / 365 dias</span>
+            </div>
+            <div class="pro-bar-bg"><div class="pro-bar-fill"></div></div>
+            <div class="pro-level-hint">Faltam 151 dias para renovação anual</div>
+          </div>
+        </div>
+
+        <!-- Atividade Recente -->
+        <div class="side-card">
+          <div class="side-header">
+            <div class="side-header-title">Atividade Recente</div>
+            <span style="font-size:12px;color:var(--accent2);cursor:pointer">Ver tudo</span>
+          </div>
+          <div class="atividade-list">
+            <div class="atividade-item">
+              <div class="atividade-dot yellow">⭐</div>
+              <div class="atividade-info">
+                <div class="atividade-title">Favorito adicionado</div>
+                <div class="atividade-detail">Brasil vs Argentina</div>
+              </div>
+              <div class="atividade-time">14:32</div>
+            </div>
+            <div class="atividade-item">
+              <div class="atividade-dot red">🎫</div>
+              <div class="atividade-info">
+                <div class="atividade-title">Bilhete salvo</div>
+                <div class="atividade-detail">Bilhete Premium #127</div>
+              </div>
+              <div class="atividade-time">14:28</div>
+            </div>
+            <div class="atividade-item">
+              <div class="atividade-dot green">🔔</div>
+              <div class="atividade-info">
+                <div class="atividade-title">Alerta criado</div>
+                <div class="atividade-detail">Odd acima de 2.00</div>
+              </div>
+              <div class="atividade-time">14:22</div>
+            </div>
+            <div class="atividade-item">
+              <div class="atividade-dot blue">🔐</div>
+              <div class="atividade-info">
+                <div class="atividade-title">Login realizado</div>
+                <div class="atividade-detail">Chrome • São Paulo, BR</div>
+              </div>
+              <div class="atividade-time">14:15</div>
+            </div>
+            <div class="atividade-item">
+              <div class="atividade-dot purple">👑</div>
+              <div class="atividade-info">
+                <div class="atividade-title">Upgrade para PRO</div>
+                <div class="atividade-detail">Plano Anual</div>
+              </div>
+              <div class="atividade-time">10:30</div>
+            </div>
+          </div>
+
+          <!-- Benefícios PRO -->
+          <div class="benefits-list">
+            <div class="benefits-title">Benefícios do PRO</div>
+            <div class="benefit-item">Todas as previsões liberadas</div>
+            <div class="benefit-item">Bilhetes Premium automáticos</div>
+            <div class="benefit-item">Filtros avançados por mercado</div>
+            <div class="benefit-item">Análise IA detalhada</div>
+            <div class="benefit-item">Suporte prioritário</div>
+            <div class="benefit-item">Sem anúncios</div>
+          </div>
+        </div>
+
+      </div><!-- /content-side -->
+    </div><!-- /content-grid -->
+  </div><!-- /content-outer -->
+</div><!-- /main-wrap -->
+
+<script>
+document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+  });
+});
+</script>
 </body>
 </html>
