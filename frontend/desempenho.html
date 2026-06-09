@@ -75,6 +75,47 @@ body.sidebar-open{overflow:hidden}
   .topbar{padding:0 12px;gap:8px}
   .content-outer{padding:16px}
 }
+
+/* ── USER DROPDOWN ── */
+.user-pill { position:relative; }
+.user-dropdown {
+  display:none; position:absolute; top:calc(100% + 8px); right:0;
+  width:240px; background:#13161f; border:1px solid #2d3450;
+  border-radius:12px; box-shadow:0 16px 48px rgba(0,0,0,.6),0 0 0 1px rgba(108,99,255,.1);
+  z-index:8000; overflow:hidden;
+  animation:dropIn .15s ease;
+}
+@keyframes dropIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+.user-dropdown.open { display:block; }
+.ud-header {
+  padding:14px 16px 12px; border-bottom:1px solid #252a3a;
+  display:flex; align-items:center; gap:10px;
+}
+.ud-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; color:#fff; flex-shrink:0;
+}
+.ud-info { min-width:0; }
+.ud-name { font-size:13px; font-weight:700; color:#f0f2ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ud-email { font-size:11px; color:#525870; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ud-plan { display:inline-block; margin-top:4px; font-size:9px; font-weight:700; letter-spacing:.5px; padding:2px 7px; border-radius:4px; }
+.ud-plan.free { background:rgba(139,144,168,.15); color:#8b90a8; }
+.ud-plan.pro  { background:linear-gradient(90deg,rgba(108,99,255,.25),rgba(167,139,250,.25)); color:#a78bfa; border:1px solid rgba(108,99,255,.3); }
+.ud-items { padding:6px 0; }
+.ud-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 16px; font-size:13px; font-weight:500;
+  color:#8b90a8; cursor:pointer; text-decoration:none;
+  transition:all .12s;
+}
+.ud-item:hover { background:rgba(255,255,255,.04); color:#f0f2ff; }
+.ud-item svg { width:15px; height:15px; stroke:currentColor; fill:none; flex-shrink:0; }
+.ud-divider { height:1px; background:#252a3a; margin:4px 0; }
+.ud-item.ud-logout { color:#ff5e6a; }
+.ud-item.ud-logout:hover { background:rgba(255,94,106,.08); color:#ff5e6a; }
+
 </style>
 </head>
 <body>
@@ -100,15 +141,11 @@ body.sidebar-open{overflow:hidden}
     <a class="nav-item" href="ia.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg> Análise IA <span class="badge-pro">PRO</span></a>
     <a class="nav-item" href="calculadora.html"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Calculadora de Stakes </a>
     <a class="nav-item" href="alertas.html"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Alertas <span class="badge-pro">PRO</span></a>
-    <div class="nav-section">Conta</div>
-    <a class="nav-item" href="conta.html"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Meu Perfil </a>
-    <a class="nav-item" href="pro.html"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Assinatura <span class="badge-pro">PRO</span></a>
-    <a class="nav-item" href="favoritos.html"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Favoritos </a>
-    <a class="nav-item" href="configuracoes.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg> Configurações </a>
-    <div class="nav-item" onclick="(typeof logoutUsuario==='function'?logoutUsuario():window.location.replace('index.html'))" style="cursor:pointer">
-      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Sair
-    </div>
+    
+    
+    
+    
+    
   </nav>
   <div class="sidebar-upgrade">
     <div class="crown">👑</div>
@@ -125,8 +162,47 @@ body.sidebar-open{overflow:hidden}
     </button>
     <span class="topbar-title">Desempenho</span>
     <div class="topbar-right">
-      <div class="icon-btn">
-        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div class="user-pill" id="user-pill">
+        <div class="user-avatar" id="ud-pill-avatar">?</div>
+        <div>
+          <span style="font-size:13px;font-weight:600" id="ud-pill-name">Usuário</span>
+          <span style="font-size:9px;font-weight:700;color:#a78bfa;display:block" id="ud-pill-plan">--</span>
+        </div>
+        <svg style="width:13px;height:13px;stroke:#525870;fill:none" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="ud-header">
+            <div class="ud-avatar" id="ud-avatar">?</div>
+            <div class="ud-info">
+              <div class="ud-name" id="ud-name">Usuário</div>
+              <div class="ud-email" id="ud-email"></div>
+              <span class="ud-plan free" id="ud-plan">GRATUITO</span>
+            </div>
+          </div>
+          <div class="ud-items">
+            <a class="ud-item" href="conta.html">
+              <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Meu Perfil
+            </a>
+            <a class="ud-item" href="pro.html">
+              <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Assinatura
+              <span style="margin-left:auto;font-size:9px;font-weight:700;background:linear-gradient(90deg,#6c63ff,#a78bfa);color:#fff;padding:2px 6px;border-radius:4px">PRO</span>
+            </a>
+            <a class="ud-item" href="favoritos.html">
+              <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              Favoritos
+            </a>
+            <a class="ud-item" href="configuracoes.html">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Configurações
+            </a>
+            <div class="ud-divider"></div>
+            <div class="ud-item ud-logout" onclick="(typeof logoutUsuario==='function'?logoutUsuario():window.location.replace('index.html'))">
+              <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sair
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -149,6 +225,92 @@ window.toggleSidebar = function() {
   ov.classList.toggle('open', open);
   document.body.classList.toggle('sidebar-open', open);
 };
+</script>
+
+<script>
+// ── User dropdown ──────────────────────────────────────────────
+(function() {
+  function initDropdown() {
+    var pill = document.querySelector('.user-pill');
+    var dd   = document.getElementById('user-dropdown');
+    if (!pill || !dd) return;
+
+    pill.addEventListener('click', function(e) {
+      e.stopPropagation();
+      dd.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!pill.contains(e.target)) dd.classList.remove('open');
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') dd.classList.remove('open');
+    });
+  }
+
+  // Populate dropdown header from existing topbar IDs (populated by verificarUsuario or statically)
+  function syncDropdownHeader() {
+    var avatar = document.getElementById('user-avatar-topbar');
+    var name   = document.getElementById('user-name-topbar');
+    var plan   = document.getElementById('user-pro-topbar');
+
+    var udAvatar = document.getElementById('ud-avatar');
+    var udName   = document.getElementById('ud-name');
+    var udEmail  = document.getElementById('ud-email');
+    var udPlan   = document.getElementById('ud-plan');
+
+    if (!udAvatar) return;
+
+    if (avatar && avatar.textContent.trim() && avatar.textContent.trim() !== '--')
+      udAvatar.textContent = avatar.textContent.trim();
+
+    if (name && name.textContent.trim() && name.textContent.trim() !== 'Carregando...')
+      udName.textContent = name.textContent.trim();
+
+    // Email: try profile-email-display (conta.html) or build from name
+    var emailEl = document.getElementById('profile-email-display');
+    if (emailEl && emailEl.textContent && emailEl.textContent !== '--')
+      udEmail.textContent = emailEl.textContent;
+
+    if (udPlan && plan) {
+      var planTxt = (plan.textContent || 'GRATUITO').trim().toUpperCase();
+      udPlan.textContent = planTxt;
+      udPlan.className = 'ud-plan ' + (planTxt === 'PRO' ? 'pro' : 'free');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { initDropdown(); setTimeout(syncDropdownHeader, 800); });
+  } else {
+    initDropdown();
+    setTimeout(syncDropdownHeader, 800);
+  }
+})();
+</script>
+
+<script>
+// Populate user pill from Supabase session
+(function() {
+  if (typeof window.supabase === 'undefined') return;
+  var sb = window.supabase.createClient(
+    'https://kpcxjmydlmqxmvnawdyo.supabase.co',
+    'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
+  );
+  sb.auth.getUser().then(function(r) {
+    var user = r.data && r.data.user;
+    if (!user) return;
+    var email = user.email || '';
+    var name  = (user.user_metadata && user.user_metadata.full_name) || email.split('@')[0] || 'Usuário';
+    var initials = name.split(' ').filter(Boolean).slice(0,2).map(function(p){return p[0].toUpperCase();}).join('');
+    function s(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
+    s('ud-pill-avatar', initials||'?');
+    s('ud-pill-name', name);
+    s('ud-avatar', initials||'?');
+    s('ud-name', name);
+    s('ud-email', email);
+  });
+})();
 </script>
 </body>
 </html>
