@@ -1557,9 +1557,11 @@ window.toggleSidebar = function () {
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
   // If already logged in, redirect to dashboard
-  supabaseClient.auth.getSession().then(function(r) {
-    if (r.data && r.data.session) window.location.replace('dashboard.html')
-  })
+  // Uses getUser() (server-validated) instead of getSession() (may use cached token)
+  // to avoid redirect loop after logout
+  supabaseClient.auth.getUser().then(function(r) {
+    if (r.data && r.data.user && !r.error) window.location.replace('dashboard.html');
+  });
 
   function abrirModal(aba) {
     _limparFeedback()

@@ -940,6 +940,23 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item=>{
 });
 </script>
 <script>
+
+  async function logoutUsuario() {
+    try {
+      var _sbClient = (typeof supabaseClient !== 'undefined') ? supabaseClient
+        : window.supabase.createClient(
+            'https://kpcxjmydlmqxmvnawdyo.supabase.co',
+            'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
+          );
+      await _sbClient.auth.signOut();
+    } catch(e) {
+      console.warn('signOut error:', e);
+    }
+    console.log('Logout concluído');
+    window.location.replace('index.html');
+  }
+</script>
+<script>
 window.toggleSidebar = function () {
   var sidebar = document.querySelector('.sidebar');
   var overlay = document.querySelector('.sidebar-overlay');

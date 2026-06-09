@@ -1160,8 +1160,9 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
   }
 
   async function logoutUsuario() {
-    await supabaseClient.auth.signOut()
-    window.location.replace('index.html')
+    await supabaseClient.auth.signOut();
+    console.log('Logout concluído');
+    window.location.replace('index.html');
   }
 
   async function verificarUsuario() {
