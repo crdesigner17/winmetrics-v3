@@ -878,6 +878,14 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
       // Perfil não existe — criar perfil básico automaticamente
       console.log('Profile não existe, criando...')
       const nomeBase = user.email.split('@')[0]
+
+      console.log('auth.uid esperado:', user.id)
+      console.log('payload profile:', {
+        id:    user.id,
+        email: user.email,
+        name:  nomeBase
+      })
+
       const { data: newProfile, error: insertError } = await supabaseClient
         .from('profiles')
         .insert({
@@ -888,6 +896,9 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
         })
         .select('*')
         .single()
+
+      console.log('insert data:', newProfile)
+      console.log('insert error:', insertError)
 
       if (insertError) {
         console.error('Erro ao criar perfil:', insertError.message, insertError)
