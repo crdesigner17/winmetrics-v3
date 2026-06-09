@@ -801,7 +801,9 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
     }
 
     alert('Cadastro realizado com sucesso!')
-    console.log(data)
+    console.log('Login OK', data)
+    console.log('Verificando usuário...')
+    await verificarUsuario()
   }
 
   async function loginUsuario() {
@@ -819,7 +821,9 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
     }
 
     alert('Login realizado com sucesso!')
-    console.log(data)
+    console.log('Login OK', data)
+    console.log('Verificando usuário...')
+    await verificarUsuario()
   }
 
   async function logoutUsuario() {
@@ -848,6 +852,7 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
 
     if (fetchError && fetchError.code === 'PGRST116') {
       // Perfil não existe — criar perfil básico automaticamente
+      console.log('Profile não existe, criando...')
       const nomeBase = user.email.split('@')[0]
       const { data: newProfile, error: insertError } = await supabaseClient
         .from('profiles')
@@ -861,16 +866,18 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
         .single()
 
       if (insertError) {
-        console.error('Erro ao criar perfil:', insertError.message)
+        console.error('Erro ao criar perfil:', insertError.message, insertError)
         // Continua com objeto mínimo para não travar a interface
         profile = { id: user.id, email: user.email, name: nomeBase, plan: 'free' }
       } else {
+        console.log('Profile criado', newProfile)
         profile = newProfile
       }
     } else if (fetchError) {
-      console.error('Erro ao buscar perfil:', fetchError.message)
+      console.error('Erro ao buscar perfil:', fetchError.message, fetchError)
       profile = { id: user.id, email: user.email, name: user.email.split('@')[0], plan: 'free' }
     } else {
+      console.log('Profile encontrado', profileData)
       profile = profileData
     }
 
