@@ -521,9 +521,68 @@ a{text-decoration:none;color:inherit}
 .footer-link{font-size:12.5px;color:var(--muted);cursor:pointer;transition:color .15s}
 .footer-link:hover{color:var(--text)}
 .footer-copy{font-size:12px;color:var(--dim)}
+
+/* ── OVERLAY SIDEBAR MOBILE ── */
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;backdrop-filter:blur(2px)}
+#sidebar-overlay.open{display:block}
+
+/* ── HAMBURGER ── */
+.hamburger{display:none;width:36px;height:36px;background:var(--bg2,#181c27);border:1px solid var(--border,#252a3a);border-radius:8px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:4px}
+.hamburger svg{width:18px;height:18px;stroke:var(--text,#f0f2ff);fill:none}
+
+@media (max-width: 768px) {
+  /* ── Layout base ── */
+  body{overflow-x:hidden}
+  .main-wrap{width:100%;min-width:0}
+
+  /* ── Sidebar como drawer ── */
+  .sidebar{
+    position:fixed;top:0;left:0;height:100vh;z-index:1200;
+    transform:translateX(-100%);transition:transform .25s ease;
+    width:260px !important;
+  }
+  .sidebar.open{transform:translateX(0)}
+
+  /* ── Hamburger visível ── */
+  .hamburger{display:flex}
+
+  /* ── Topbar compacta ── */
+  .topbar{padding:0 12px;gap:8px}
+  .search-box{display:none}
+  .icon-btn:not(:first-of-type){display:none}
+  .user-pill > div > .user-pro{display:none}
+
+  /* ── Conteúdo 100% ── */
+  .content-outer{padding:12px}
+  .content-grid{grid-template-columns:1fr !important;gap:12px}
+  .content-side{position:static !important}
+
+  /* ── Grids viram 1 coluna ── */
+  .quick-grid{grid-template-columns:1fr !important}
+  .login-grid{grid-template-columns:1fr !important}
+
+  /* ── Profile hero empilhado ── */
+  .profile-hero-inner{flex-direction:column;align-items:flex-start;gap:14px;padding:16px}
+  .profile-meta{flex-direction:column;gap:10px;margin-left:0;width:100%}
+  .meta-item{padding:0;border-right:none !important;border-bottom:1px solid var(--border,#252a3a);padding-bottom:10px}
+  .meta-item:last-child{border-bottom:none;padding-bottom:0}
+
+  /* ── Plan big 1 coluna ── */
+  .plan-big{grid-template-columns:1fr !important;gap:14px;padding:16px}
+  .plan-actions{min-width:unset}
+  .crown-3d{font-size:40px}
+
+  /* ── Modal responsivo ── */
+  .wm-modal{max-width:calc(100vw - 32px);margin:0 16px}
+  #wm-modal-overlay{align-items:flex-end;padding-bottom:0}
+  .wm-modal{border-bottom-left-radius:0;border-bottom-right-radius:0}
+}
+
 </style>
 </head>
 <body>
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
 
 <!-- ══════════════ NAVBAR ══════════════ -->
 <nav class="navbar">
