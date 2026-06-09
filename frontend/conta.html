@@ -773,5 +773,75 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
   });
 });
 </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  const SUPABASE_URL = 'SUA_SUPABASE_URL_AQUI'
+  const SUPABASE_ANON_KEY = 'SUA_SUPABASE_ANON_KEY_AQUI'
+
+  const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  )
+
+  async function cadastrarUsuario() {
+    const email = prompt('Digite seu email:')
+    const senha = prompt('Digite sua senha:')
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: email,
+      password: senha
+    })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    alert('Cadastro realizado com sucesso!')
+    console.log(data)
+  }
+
+  async function loginUsuario() {
+    const email = prompt('Digite seu email:')
+    const senha = prompt('Digite sua senha:')
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: senha
+    })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    alert('Login realizado com sucesso!')
+    console.log(data)
+  }
+
+  async function logoutUsuario() {
+    await supabaseClient.auth.signOut()
+    alert('Logout realizado.')
+    location.reload()
+  }
+
+  async function verificarUsuario() {
+    const { data } = await supabaseClient.auth.getUser()
+
+    if (data.user) {
+      console.log('Usuário logado:', data.user.email)
+    } else {
+      console.log('Nenhum usuário logado')
+    }
+  }
+
+  verificarUsuario()
+</script>
+  <div style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;gap:8px;">
+  <button onclick="cadastrarUsuario()">Cadastrar</button>
+  <button onclick="loginUsuario()">Login</button>
+  <button onclick="logoutUsuario()">Sair</button>
+</div>
 </body>
 </html>
