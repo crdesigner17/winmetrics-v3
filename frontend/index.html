@@ -437,44 +437,96 @@ a{text-decoration:none;color:inherit}
 
 /* ══ PLANOS ═══════════════════════════════════════════════════════ */
 .plans-section{padding:80px 40px}
-.plans-inner{max-width:1280px;margin:0 auto}
-.plans-left{display:grid;grid-template-columns:320px 1fr 1fr;gap:40px;align-items:start}
-.plans-intro h2{font-size:clamp(22px,2.8vw,32px);font-weight:700;margin-bottom:10px;letter-spacing:-.3px;line-height:1.2}
-.plans-intro p{font-size:13.5px;color:var(--muted);line-height:1.6}
+.plans-inner{max-width:1100px;margin:0 auto}
+.plans-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
+  align-items:stretch; /* equal height */
+}
 .plan-card{
   background:var(--card);border:1px solid var(--border);border-radius:16px;
-  padding:26px;transition:all .2s;
+  padding:28px 24px;transition:border-color .2s,box-shadow .2s;
+  display:flex;flex-direction:column;position:relative;
 }
+.plan-card:hover{border-color:var(--border2)}
+
+/* PRO — destaque central */
 .plan-card.popular{
-  border-color:rgba(108,99,255,.5);
-  background:linear-gradient(135deg,rgba(108,99,255,.1),rgba(0,210,160,.04));
-  box-shadow:0 0 40px rgba(108,99,255,.15);
-  position:relative;
+  border-color:rgba(108,99,255,.55);
+  background:linear-gradient(160deg,rgba(108,99,255,.12),rgba(167,139,250,.06),rgba(0,210,160,.03));
+  box-shadow:0 0 48px rgba(108,99,255,.2),0 0 0 1px rgba(108,99,255,.25);
+  transform:translateY(-6px);
+  z-index:1;
 }
+.plan-card.popular:hover{box-shadow:0 0 64px rgba(108,99,255,.28),0 0 0 1px rgba(108,99,255,.4)}
+
+/* ELITE */
+.plan-card.elite{
+  border-color:rgba(240,165,0,.3);
+  background:linear-gradient(160deg,rgba(240,165,0,.07),rgba(0,0,0,0));
+}
+.plan-card.elite:hover{border-color:rgba(240,165,0,.55);box-shadow:0 0 32px rgba(240,165,0,.1)}
+
 .popular-tag{
-  position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
   background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;
-  font-size:10px;font-weight:700;padding:4px 14px;border-radius:12px;white-space:nowrap;
-  letter-spacing:.4px;
+  font-size:10px;font-weight:700;padding:4px 16px;border-radius:12px;white-space:nowrap;
+  letter-spacing:.5px;box-shadow:0 4px 12px rgba(108,99,255,.4);
 }
-.plan-name{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-.plan-desc{font-size:12px;color:var(--dim);margin-bottom:16px}
-.plan-price{display:flex;align-items:baseline;gap:4px;margin-bottom:20px}
+.elite-tag{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,#f0a500,#fcd34d);color:#0e1017;
+  font-size:10px;font-weight:700;padding:4px 16px;border-radius:12px;white-space:nowrap;
+  letter-spacing:.5px;box-shadow:0 4px 12px rgba(240,165,0,.3);
+}
+.plan-tier{
+  font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  margin-bottom:4px;
+}
+.plan-tier.free{color:var(--muted)}
+.plan-tier.pro{color:var(--accent2)}
+.plan-tier.elite{color:#f0a500}
+
+.plan-name{font-size:28px;font-weight:700;font-family:'Rajdhani',sans-serif;line-height:1;margin-bottom:4px}
+.plan-desc{font-size:12px;color:var(--dim);margin-bottom:18px;line-height:1.5}
+.plan-price{display:flex;align-items:baseline;gap:4px;margin-bottom:24px}
 .plan-curr{font-size:13px;font-weight:700;color:var(--muted);margin-top:6px}
-.plan-val{font-family:'Rajdhani',sans-serif;font-size:42px;font-weight:700;line-height:1;color:var(--text)}
+.plan-val{font-family:'Rajdhani',sans-serif;font-size:46px;font-weight:700;line-height:1;color:var(--text)}
 .plan-per{font-size:12px;color:var(--muted)}
-.plan-features{display:flex;flex-direction:column;gap:9px;margin-bottom:22px}
-.plan-feat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
-.plan-feat svg{width:14px;height:14px;color:var(--green);flex-shrink:0}
+.plan-features{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;flex:1}
+.plan-feat{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--muted);line-height:1.4}
+.plan-feat svg{width:14px;height:14px;flex-shrink:0;margin-top:1px}
+.plan-feat.green svg{color:var(--green)}
+.plan-feat.gold  svg{color:#f0a500}
 .plan-feat.unavail{color:var(--dim)}
 .plan-feat.unavail svg{color:var(--dim)}
+.plan-feat.inherit-pro{color:var(--muted)}
+.plan-feat.inherit-pro svg{color:var(--accent2)}
+
 .btn-plan{
-  width:100%;padding:12px;border-radius:8px;font-size:14px;font-weight:700;
+  width:100%;padding:13px;border-radius:9px;font-size:14px;font-weight:700;
   cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;border:none;
+  margin-top:auto;
 }
-.btn-plan-free{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:var(--text)}
-.btn-plan-pro{background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;box-shadow:0 0 20px rgba(108,99,255,.35)}
-.btn-plan-pro:hover{box-shadow:0 0 35px rgba(108,99,255,.55);transform:translateY(-1px)}
+.btn-plan-free{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);
+  color:var(--text);
+}
+.btn-plan-free:hover{background:rgba(255,255,255,.11)}
+.btn-plan-pro{
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;
+  box-shadow:0 4px 20px rgba(108,99,255,.4);
+}
+.btn-plan-pro:hover{box-shadow:0 6px 32px rgba(108,99,255,.6);transform:translateY(-1px)}
+.btn-plan-elite{
+  background:linear-gradient(135deg,#f0a500,#fcd34d);color:#0e1017;
+  box-shadow:0 4px 16px rgba(240,165,0,.25);
+}
+.btn-plan-elite:hover{box-shadow:0 6px 28px rgba(240,165,0,.4);transform:translateY(-1px)}
+
+@media(max-width:900px){
+  .plans-grid{grid-template-columns:1fr;max-width:420px;margin:0 auto}
+  .plan-card.popular{transform:none}
+}
 
 /* ══ DEPOIMENTOS ══════════════════════════════════════════════════ */
 .reviews-section{background:var(--bg1);padding:80px 40px}
@@ -1340,37 +1392,40 @@ a{text-decoration:none;color:inherit}
 <!-- ══════════════ PLANOS ══════════════ -->
 <div class="plans-section">
   <div class="plans-inner">
-    <div class="section-center" style="margin-bottom:40px">
+    <div class="section-center" style="margin-bottom:48px">
       <h2 class="section-title">Escolha seu plano<br>e comece a ganhar.</h2>
       <p class="section-sub">Planos simples, transparentes e feitos para quem leva apostas a sério.</p>
     </div>
-    <div class="plans-left">
-      <!-- dummy spacer for grid alignment -->
-      <div></div>
+    <div class="plans-grid">
 
-      <!-- Plano Grátis -->
-      <div class="plan-card">
-        <div class="plan-name">GRÁTIS</div>
-        <div class="plan-desc">Para começar</div>
+      <!-- ── PLANO GRÁTIS ── -->
+      <div class="plan-card" data-plan="free">
+        <div class="plan-tier free">GRÁTIS</div>
+        <div class="plan-name">Free</div>
+        <div class="plan-desc">Para começar e sentir o poder da plataforma</div>
         <div class="plan-price">
           <span class="plan-curr">R$</span>
           <span class="plan-val">0</span>
           <span class="plan-per">/mês</span>
         </div>
         <div class="plan-features">
-          <div class="plan-feat">
+          <div class="plan-feat green">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Top 5 previsões por dia
           </div>
-          <div class="plan-feat">
+          <div class="plan-feat green">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Estatísticas básicas
           </div>
-          <div class="plan-feat">
+          <div class="plan-feat green">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Histórico limitado
           </div>
-          <div class="plan-feat">
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Bilhetes básicos
+          </div>
+          <div class="plan-feat green">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Suporte padrão
           </div>
@@ -1378,52 +1433,106 @@ a{text-decoration:none;color:inherit}
         <button class="btn-plan btn-plan-free" onclick="abrirModal('cadastro')">Começar Grátis</button>
       </div>
 
-      <!-- Plano PRO -->
-      <div class="plan-card popular">
+      <!-- ── PLANO PRO — DESTAQUE ── -->
+      <div class="plan-card popular" data-plan="pro">
         <div class="popular-tag">MAIS POPULAR</div>
-        <div class="plan-name">PRO</div>
-        <div class="plan-desc">Para querer resultados impressionantes</div>
+        <div class="plan-tier pro">PRO</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-desc">Para quem quer resultados consistentes e vantagem real</div>
         <div class="plan-price">
           <span class="plan-curr">R$</span>
-          <span class="plan-val">29,90</span>
+          <span class="plan-val">49,90</span>
           <span class="plan-per">/mês</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px">
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="plan-features">
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Todas as previsões
           </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
-            Jogos Ao Vivo
-          </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Bilhetes Premium
           </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
-            Histórico Completo
-          </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Análise IA Completa
           </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
-            Busca Inteligente
-          </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Filtros Avançados
           </div>
-          <div class="plan-feat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Jogos Ao Vivo
+          </div>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Histórico Completo
+          </div>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Busca Inteligente
+          </div>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Favoritos ilimitados
+          </div>
+          <div class="plan-feat green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Suporte Prioritário
           </div>
         </div>
         <button class="btn-plan btn-plan-pro" onclick="abrirModal('cadastro')">Começar 7 Dias Grátis</button>
       </div>
+
+      <!-- ── PLANO ELITE ── -->
+      <div class="plan-card elite" data-plan="elite">
+        <div class="elite-tag">ELITE</div>
+        <div class="plan-tier elite">ELITE</div>
+        <div class="plan-name">Elite</div>
+        <div class="plan-desc">Para apostadores sérios que exigem o máximo da plataforma</div>
+        <div class="plan-price">
+          <span class="plan-curr">R$</span>
+          <span class="plan-val">99,90</span>
+          <span class="plan-per">/mês</span>
+        </div>
+        <div class="plan-features">
+          <div class="plan-feat inherit-pro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Tudo do PRO
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Alertas em tempo real
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            IA Avançada
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Score de Confiança Avançado
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Entradas antecipadas
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Estratégias Premium
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Recursos novos em primeira mão
+          </div>
+          <div class="plan-feat gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Prioridade máxima no suporte
+          </div>
+        </div>
+        <button class="btn-plan btn-plan-elite" onclick="abrirModal('cadastro')">Tornar-se Elite</button>
+      </div>
+
     </div>
   </div>
 </div>
