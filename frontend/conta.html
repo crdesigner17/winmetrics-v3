@@ -790,18 +790,42 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
     const email = prompt('Digite seu email:')
     const senha = prompt('Digite sua senha:')
 
+    if (!email || !senha) {
+      alert('Email e senha são obrigatórios.')
+      return
+    }
+
     const { data, error } = await supabaseClient.auth.signUp({
       email: email,
       password: senha
     })
 
+    console.log('Cadastro email:', email)
+    console.log('Cadastro senha length:', senha?.length)
+    console.log('Cadastro data:', data)
+    console.log('Cadastro error:', error)
+
     if (error) {
-      alert(error.message)
+      console.error('error.message:', error.message)
+      console.error('error.status:', error.status)
+      console.error('error.code:', error.code)
+      console.error('error.name:', error.name)
+      alert(
+        'Erro no cadastro:\n' +
+        'message: ' + error.message + '\n' +
+        'status: '  + error.status  + '\n' +
+        'code: '    + error.code    + '\n' +
+        'name: '    + error.name
+      )
+      return
+    }
+
+    if (!data.user) {
+      alert('Cadastro não concluído. Verifique se o email já está em uso ou se a confirmação por email está ativada no projeto.')
       return
     }
 
     alert('Cadastro realizado com sucesso!')
-    console.log('Login OK', data)
     console.log('Verificando usuário...')
     await verificarUsuario()
   }
