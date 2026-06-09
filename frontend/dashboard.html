@@ -223,8 +223,9 @@
 body.sidebar-open{overflow:hidden}
 .nav-item{text-decoration:none}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-  async function getCurrentProfile() {
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+async function getCurrentProfile() {
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) return null
     const { data: profile } = await supabaseClient
@@ -681,60 +682,75 @@ function dateObj(d) {
   return new Date(yyyy, mm - 1, dd);
 }
 
-// ─── Caminho base para os JSONs ──────────────────────────────────────────────
-// Serve via:  http://localhost:8000/redesign/dashboard.html
-// JSONs em:   http://localhost:8000/docs/data/
-const DATA_BASE = '../docs/data/';
+// TODO: substituir mock por dados reais do Supabase após importar algoritmo V1
 
 let lucroChart = null; // instância do Chart.js
 
-// ─── Banner de erro visível na página ────────────────────────────────────────
-function showError(msg) {
-  const content = document.querySelector('.content');
-  if (!content) return;
-  const banner = document.createElement('div');
-  banner.style.cssText = 'background:#2a1a1a;border:1px solid #ff5e6a;border-radius:8px;padding:14px 18px;margin-bottom:18px;color:#ff5e6a;font-size:13px;';
-  banner.innerHTML = '<strong>⚠ Erro ao carregar dados:</strong> ' + msg +
-    '<br><span style="color:#8b90a8;font-size:11px;margin-top:4px;display:block">' +
-    'Certifique-se de acessar via <code>http://localhost:8000/redesign/dashboard.html</code> ' +
-    'e que o servidor está rodando na raiz do projeto.</span>';
-  content.prepend(banner);
+// ─── Dados mockados temporários ──────────────────────────────────────────────
+// Estrutura espelha o formato do algoritmo V1 (gerar_site.py / docs/data/*.json)
+// Cada entrada representa um dia com lista de jogos e resultado confirmado.
+function getMockData() {
+  const hoje = new Date();
+  const fmtDate = d => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+  const d0 = new Date(hoje); d0.setDate(hoje.getDate() - 0);
+  const d1 = new Date(hoje); d1.setDate(hoje.getDate() - 1);
+  const d2 = new Date(hoje); d2.setDate(hoje.getDate() - 2);
+  const d3 = new Date(hoje); d3.setDate(hoje.getDate() - 3);
+  const d4 = new Date(hoje); d4.setDate(hoje.getDate() - 4);
+
+  const jogo = (jogo, hora, liga, mkt, score, ok, odd) => ({
+    jogo, hora, liga,
+    palpite_mkt: mkt, palpite_score: score, palpite_grade: score >= 95 ? 'A+' : score >= 90 ? 'A' : 'B',
+    resultado: ok !== null ? { [MKT_RESULT[mkt] || 'over15_ok']: ok } : null,
+    odds_o15: mkt === 'Over 1.5' ? odd : null,
+    odds_o25: mkt === 'Over 2.5' ? odd : null,
+    odds_cards_25: mkt === 'Cart 2.5' ? odd : null,
+    odds_corners_75: mkt === 'Esc 7.5' ? odd : null,
+  });
+
+  return {
+    [fmtDate(d4)]: { date: fmtDate(d4), resultado_confirmado: true, jogos: [
+      jogo('Arsenal x Chelsea',       '15:00', 'Premier League', 'Over 1.5', 97, true,  1.22),
+      jogo('Bayern x Dortmund',       '17:30', 'Bundesliga',     'Over 1.5', 94, true,  1.18),
+      jogo('PSG x Lyon',              '20:00', 'Ligue 1',        'Over 2.5', 91, true,  1.65),
+      jogo('Real Madrid x Sevilla',   '21:00', 'La Liga',        'Over 1.5', 96, true,  1.20),
+      jogo('Inter x Napoli',          '20:45', 'Serie A',        'Cart 2.5', 88, false, 1.80),
+    ]},
+    [fmtDate(d3)]: { date: fmtDate(d3), resultado_confirmado: true, jogos: [
+      jogo('Liverpool x Man City',    '16:30', 'Premier League', 'Over 1.5', 98, true,  1.19),
+      jogo('Atlético x Barcelona',    '21:00', 'La Liga',        'Over 2.5', 93, true,  1.72),
+      jogo('Juventus x Milan',        '20:45', 'Serie A',        'Over 1.5', 90, false, 1.25),
+      jogo('Ajax x PSV',              '18:45', 'Eredivisie',     'Esc 7.5',  87, true,  1.90),
+      jogo('Porto x Benfica',         '21:15', 'Primeira Liga',  'Over 1.5', 95, true,  1.21),
+    ]},
+    [fmtDate(d2)]: { date: fmtDate(d2), resultado_confirmado: true, jogos: [
+      jogo('Man United x Tottenham',  '20:00', 'Premier League', 'Over 1.5', 96, true,  1.20),
+      jogo('Flamengo x Palmeiras',    '19:00', 'Brasileirão',    'Over 1.5', 92, true,  1.28),
+      jogo('River x Boca',            '21:00', 'Arg. LPF',       'Cart 2.5', 89, true,  1.75),
+      jogo('Roma x Lazio',            '20:45', 'Serie A',        'Over 2.5', 91, false, 1.68),
+      jogo('Celtic x Rangers',        '12:30', 'Scottish Prem.', 'Over 1.5', 95, true,  1.22),
+    ]},
+    [fmtDate(d1)]: { date: fmtDate(d1), resultado_confirmado: true, jogos: [
+      jogo('Fluminense x Corinthians','17:00', 'Brasileirão',    'Over 1.5', 93, true,  1.26),
+      jogo('Sevilla x Betis',         '21:00', 'La Liga',        'Over 1.5', 97, true,  1.19),
+      jogo('Lille x Marseille',       '20:45', 'Ligue 1',        'Esc 7.5',  88, true,  1.95),
+      jogo('Sporting x Benfica',      '21:15', 'Primeira Liga',  'Over 2.5', 90, false, 1.70),
+    ]},
+    [fmtDate(d0)]: { date: fmtDate(d0), resultado_confirmado: false, jogos: [
+      jogo('Flamengo x Atlético-MG',  '18:30', 'Brasileirão',    'Over 1.5', 98, null,  1.20),
+      jogo('Man City x Arsenal',      '17:30', 'Premier League', 'Over 2.5', 95, null,  1.55),
+      jogo('Barcelona x Real Madrid', '21:00', 'La Liga',        'Over 1.5', 96, null,  1.18),
+      jogo('Borussia x Leverkusen',   '20:30', 'Bundesliga',     'Cart 2.5', 87, null,  1.82),
+      jogo('Napoli x Juventus',       '20:45', 'Serie A',        'Esc 7.5',  91, null,  1.88),
+    ]},
+  };
 }
 
-// ─── Função principal: carrega index.json e depois cada JSON de dia ─────────
-async function initDashboard() {
-  // 1. Carrega lista de datas disponíveis
-  let index;
-  try {
-    const idxResp = await fetch(DATA_BASE + 'index.json');
-    if (!idxResp.ok) throw new Error(`index.json retornou HTTP ${idxResp.status}`);
-    index = await idxResp.json();
-  } catch (e) {
-    console.error('[WinMetrics] Falha ao carregar index.json:', e);
-    showError('Não foi possível carregar <code>../docs/data/index.json</code>. ' + e.message);
-    return;
-  }
-
-  // 2. Carrega cada JSON de dia sequencialmente (evita sobrecarga no servidor local)
-  const ALL_DATA = {};
-  for (const item of index) {
-    const url = DATA_BASE + item.date + '.json';
-    try {
-      const r = await fetch(url);
-      if (!r.ok) { console.warn('[WinMetrics] Não carregou:', url, r.status); continue; }
-      const d = await r.json();
-      if (d && d.date) ALL_DATA[d.date] = d;
-    } catch (e) {
-      console.warn('[WinMetrics] Erro ao carregar', url, e.message);
-    }
-  }
-
-  if (Object.keys(ALL_DATA).length === 0) {
-    showError('Nenhum arquivo de dia foi carregado. Verifique o console para detalhes.');
-    return;
-  }
-
-  // 3. Calcula todas as métricas e atualiza o DOM
+// ─── Inicialização com dados mockados ────────────────────────────────────────
+function initDashboard() {
+  console.log('[WinMetrics] Carregando dados mockados temporários...');
+  // TODO: substituir mock por dados reais do Supabase após importar algoritmo V1
+  const ALL_DATA = getMockData();
   calcAndRender(ALL_DATA);
 }
 
