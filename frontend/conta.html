@@ -225,7 +225,66 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
 .atividade-detail{font-size:11.5px;color:var(--muted)}
 .atividade-time{font-size:11px;color:var(--dim);flex-shrink:0;padding-top:2px}
 
-/* benefits */
+/* ── AUTH MODAL ── */
+#wm-modal-overlay{
+  display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;
+}
+#wm-modal-overlay.open{display:flex}
+.wm-modal{
+  background:var(--bg1);border:1px solid var(--border2);
+  border-radius:16px;padding:0;width:100%;max-width:420px;
+  box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(108,99,255,.12);
+  overflow:hidden;position:relative;
+  animation:modalIn .2s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+.wm-modal-header{
+  padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between;
+}
+.wm-modal-logo{display:flex;align-items:center;gap:9px}
+.wm-modal-logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:#fff}
+.wm-modal-logo-text{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text)}
+.wm-modal-close{width:30px;height:30px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s;font-family:'DM Sans',sans-serif}
+.wm-modal-close:hover{border-color:var(--border2);color:var(--text)}
+.wm-modal-tabs{display:flex;gap:0;margin:18px 24px 0;background:var(--bg2);border-radius:9px;padding:3px}
+.wm-tab{flex:1;padding:8px;border-radius:7px;font-size:13px;font-weight:600;background:transparent;border:none;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.wm-tab.active{background:var(--bg3);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.wm-modal-body{padding:20px 24px 24px}
+.wm-field{margin-bottom:14px}
+.wm-field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;letter-spacing:.3px}
+.wm-field input{
+  width:100%;height:42px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:0 14px;color:var(--text);font-size:14px;
+  font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s;
+}
+.wm-field input:focus{border-color:var(--accent)}
+.wm-field input::placeholder{color:var(--dim)}
+.wm-btn-primary{
+  width:100%;height:44px;border-radius:9px;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  border:none;color:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:all .18s;box-shadow:0 4px 16px rgba(108,99,255,.3);
+  margin-top:4px;
+}
+.wm-btn-primary:hover{box-shadow:0 6px 24px rgba(108,99,255,.5);transform:translateY(-1px)}
+.wm-btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.wm-modal-link{text-align:center;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.wm-modal-link span{color:var(--accent2);cursor:pointer;font-weight:600}
+.wm-modal-link span:hover{text-decoration:underline}
+.wm-feedback{
+  display:none;border-radius:8px;padding:10px 14px;
+  font-size:13px;font-weight:500;margin-bottom:14px;
+  align-items:center;gap:9px;
+}
+.wm-feedback.show{display:flex}
+.wm-feedback.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#f87171}
+.wm-feedback.success{background:rgba(0,210,160,.1);border:1px solid rgba(0,210,160,.25);color:var(--green)}
+.wm-feedback.loading{background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);color:var(--accent2)}
+.wm-feedback svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+
 .benefits-list{padding:12px 16px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border)}
 .benefits-title{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
 .benefit-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
@@ -233,6 +292,64 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
 </style>
 </head>
 <body>
+
+<!-- ═══ AUTH MODAL ═══ -->
+<div id="wm-modal-overlay">
+  <div class="wm-modal">
+    <div class="wm-modal-header">
+      <div class="wm-modal-logo">
+        <div class="wm-modal-logo-icon">M</div>
+        <span class="wm-modal-logo-text">WinMetrics</span>
+      </div>
+      <button class="wm-modal-close" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="wm-modal-tabs">
+      <button class="wm-tab active" id="tab-entrar" onclick="_trocarAba('login')">Entrar</button>
+      <button class="wm-tab" id="tab-cadastro" onclick="_trocarAba('cadastro')">Criar conta</button>
+    </div>
+    <div class="wm-modal-body">
+
+      <!-- Feedback comum -->
+      <div class="wm-feedback" id="wm-feedback">
+        <svg viewBox="0 0 24 24" id="wm-feedback-icon"></svg>
+        <span id="wm-feedback-text"></span>
+      </div>
+
+      <!-- Aba: Entrar -->
+      <div id="painel-login">
+        <div class="wm-field">
+          <label>Email</label>
+          <input type="email" id="input-login-email" placeholder="seu@email.com" autocomplete="email">
+        </div>
+        <div class="wm-field">
+          <label>Senha</label>
+          <input type="password" id="input-login-senha" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="wm-btn-primary" id="btn-entrar" onclick="_executarLogin()">Entrar</button>
+        <div class="wm-modal-link">Não tem conta? <span onclick="_trocarAba('cadastro')">Criar conta</span></div>
+      </div>
+
+      <!-- Aba: Criar conta -->
+      <div id="painel-cadastro" style="display:none">
+        <div class="wm-field">
+          <label>Nome</label>
+          <input type="text" id="input-cad-nome" placeholder="Seu nome" autocomplete="name">
+        </div>
+        <div class="wm-field">
+          <label>Email</label>
+          <input type="email" id="input-cad-email" placeholder="seu@email.com" autocomplete="email">
+        </div>
+        <div class="wm-field">
+          <label>Senha</label>
+          <input type="password" id="input-cad-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+        </div>
+        <button class="wm-btn-primary" id="btn-cadastrar" onclick="_executarCadastro()">Criar conta</button>
+        <div class="wm-modal-link">Já tem conta? <span onclick="_trocarAba('login')">Entrar</span></div>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
@@ -459,8 +576,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
               <div class="login-detail" id="login-email-detail">--</div>
               <div class="login-access" id="login-email-access">--</div>
               <div class="login-actions">
-                <button class="btn-outline" onclick="loginUsuario()">Entrar com Email</button>
-                <button class="btn-outline" onclick="cadastrarUsuario()">Cadastrar</button>
+                <button class="btn-outline" onclick="abrirModal('login')">Entrar com Email</button>
+                <button class="btn-outline" onclick="abrirModal('cadastro')">Cadastrar</button>
                 <button class="btn-outline">Alterar senha</button>
                 <button class="btn-outline">Gerenciar</button>
               </div>
@@ -786,68 +903,140 @@ document.querySelectorAll('.nav-item:not(.active)').forEach(item => {
     SUPABASE_ANON_KEY
   )
 
-  async function cadastrarUsuario() {
-    const email = prompt('Digite seu email:')
-    const senha = prompt('Digite sua senha:')
+  async function cadastrarUsuario() { abrirModal('cadastro') }
 
-    if (!email || !senha) {
-      alert('Email e senha são obrigatórios.')
-      return
+  async function loginUsuario() { abrirModal('login') }
+
+  // ── Modal: controle ──────────────────────────────────────────
+  function abrirModal(aba) {
+    _limparFeedback()
+    document.getElementById('input-login-email').value = ''
+    document.getElementById('input-login-senha').value = ''
+    document.getElementById('input-cad-nome').value    = ''
+    document.getElementById('input-cad-email').value   = ''
+    document.getElementById('input-cad-senha').value   = ''
+    _trocarAba(aba)
+    document.getElementById('wm-modal-overlay').classList.add('open')
+  }
+
+  function fecharModal() {
+    document.getElementById('wm-modal-overlay').classList.remove('open')
+    _limparFeedback()
+  }
+
+  function _trocarAba(aba) {
+    const isLogin = aba === 'login'
+    document.getElementById('painel-login').style.display    = isLogin ? '' : 'none'
+    document.getElementById('painel-cadastro').style.display = isLogin ? 'none' : ''
+    document.getElementById('tab-entrar').classList.toggle('active', isLogin)
+    document.getElementById('tab-cadastro').classList.toggle('active', !isLogin)
+    _limparFeedback()
+  }
+
+  // ── Modal: feedback ──────────────────────────────────────────
+  function _mostrarFeedback(tipo, texto) {
+    const el   = document.getElementById('wm-feedback')
+    const txt  = document.getElementById('wm-feedback-text')
+    const icon = document.getElementById('wm-feedback-icon')
+    el.className = 'wm-feedback show ' + tipo
+    txt.textContent = texto
+    const icons = {
+      error:   '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+      success: '<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>',
+      loading: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'
     }
+    icon.innerHTML = icons[tipo] || ''
+  }
 
-    const { data, error } = await supabaseClient.auth.signUp({
-      email: email,
-      password: senha
-    })
+  function _limparFeedback() {
+    const el = document.getElementById('wm-feedback')
+    if (el) { el.className = 'wm-feedback' }
+    const txt = document.getElementById('wm-feedback-text')
+    if (txt) txt.textContent = ''
+  }
 
-    console.log('Cadastro email:', email)
-    console.log('Cadastro senha length:', senha?.length)
+  function _setBloqueio(bloqueado) {
+    document.getElementById('btn-entrar').disabled    = bloqueado
+    document.getElementById('btn-cadastrar').disabled = bloqueado
+  }
+
+  // ── Modal: executar login ────────────────────────────────────
+  async function _executarLogin() {
+    const email = document.getElementById('input-login-email').value.trim()
+    const senha = document.getElementById('input-login-senha').value
+    if (!email || !senha) { _mostrarFeedback('error', 'Preencha email e senha.'); return }
+
+    _setBloqueio(true)
+    _mostrarFeedback('loading', 'Autenticando...')
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha })
+    console.log('Login OK', data)
+    console.log('Login error:', error)
+
+    if (error) { _mostrarFeedback('error', error.message); _setBloqueio(false); return }
+
+    _mostrarFeedback('success', 'Login realizado com sucesso!')
+    _setBloqueio(false)
+    console.log('Verificando usuário...')
+    await verificarUsuario()
+    setTimeout(fecharModal, 900)
+  }
+
+  // ── Modal: executar cadastro ─────────────────────────────────
+  async function _executarCadastro() {
+    const nome  = document.getElementById('input-cad-nome').value.trim()
+    const email = document.getElementById('input-cad-email').value.trim()
+    const senha = document.getElementById('input-cad-senha').value
+    if (!email || !senha) { _mostrarFeedback('error', 'Preencha email e senha.'); return }
+    if (senha.length < 6) { _mostrarFeedback('error', 'A senha deve ter no mínimo 6 caracteres.'); return }
+
+    _setBloqueio(true)
+    _mostrarFeedback('loading', 'Criando conta...')
+
+    const { data, error } = await supabaseClient.auth.signUp({ email, password: senha })
     console.log('Cadastro data:', data)
     console.log('Cadastro error:', error)
 
     if (error) {
       console.error('error.message:', error.message)
-      console.error('error.status:', error.status)
-      console.error('error.code:', error.code)
-      console.error('error.name:', error.name)
-      alert(
-        'Erro no cadastro:\n' +
-        'message: ' + error.message + '\n' +
-        'status: '  + error.status  + '\n' +
-        'code: '    + error.code    + '\n' +
-        'name: '    + error.name
-      )
+      console.error('error.status:',  error.status)
+      console.error('error.code:',    error.code)
+      console.error('error.name:',    error.name)
+      _mostrarFeedback('error', error.message)
+      _setBloqueio(false)
       return
     }
 
     if (!data.user) {
-      alert('Cadastro não concluído. Verifique se o email já está em uso ou se a confirmação por email está ativada no projeto.')
+      _mostrarFeedback('error', 'Cadastro não concluído. Verifique se o email já está em uso ou se a confirmação por email está ativada.')
+      _setBloqueio(false)
       return
     }
 
-    alert('Cadastro realizado com sucesso!')
-    console.log('Verificando usuário...')
-    await verificarUsuario()
-  }
+    const nomeProfile = nome || email.split('@')[0]
+    console.log('auth.uid esperado:', data.user.id)
+    console.log('payload profile:', { id: data.user.id, email: data.user.email, name: nomeProfile })
 
-  async function loginUsuario() {
-    const email = prompt('Digite seu email:')
-    const senha = prompt('Digite sua senha:')
+    const { data: newProfile, error: insertError } = await supabaseClient
+      .from('profiles')
+      .insert({ id: data.user.id, email: data.user.email, name: nomeProfile, plan: 'free' })
+      .select('*')
+      .single()
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email: email,
-      password: senha
-    })
+    console.log('insert data:', newProfile)
+    console.log('insert error:', insertError)
 
-    if (error) {
-      alert(error.message)
-      return
+    if (insertError) {
+      console.error('Erro ao criar perfil:', insertError.message, insertError)
+    } else {
+      console.log('Profile criado', newProfile)
     }
 
-    alert('Login realizado com sucesso!')
-    console.log('Login OK', data)
+    _mostrarFeedback('success', 'Conta criada com sucesso!')
+    _setBloqueio(false)
     console.log('Verificando usuário...')
     await verificarUsuario()
+    setTimeout(fecharModal, 1200)
   }
 
   async function logoutUsuario() {
