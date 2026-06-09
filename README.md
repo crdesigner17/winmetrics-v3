@@ -19,3 +19,4 @@ Nova versão SaaS do WinMetrics Analytics.
 - Banco: Supabase
 - Dados: API-Football
 Redeploy
+Deploy V1
