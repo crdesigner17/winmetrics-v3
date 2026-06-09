@@ -18,3 +18,4 @@ Nova versão SaaS do WinMetrics Analytics.
 - Backend: Vercel API Routes
 - Banco: Supabase
 - Dados: API-Football
+Redeploy
