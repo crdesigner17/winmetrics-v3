@@ -53,6 +53,7 @@ const API_BASE      = 'https://v3.football.api-sports.io';
 const args      = process.argv.slice(2);
 const DRY_RUN   = args.includes('--dry-run');
 const FORCE     = args.includes('--force');
+const MOCK_TO_SUPABASE = args.includes('--mock-to-supabase');
 const dateArg   = args.find(a => a.startsWith('--date='))?.split('=')[1];
 const TODAY     = dateArg || new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
 
@@ -952,18 +953,20 @@ async function runExample() {
 // ENTRY POINT
 // ─────────────────────────────────────────────────────────────────
 
-if (!API_KEY) {
-  // Sem chave configurada → executa o exemplo de demonstração
-  runExample().catch(err => {
-    LOG.error('Erro no exemplo:', err.message);
-    process.exit(1);
-  });
-} else {
-  // Com chave configurada → executa o pipeline real
-  run().catch(err => {
-    LOG.error('Erro fatal:', err.message);
-    process.exit(1);
-  });
+if (!MOCK_TO_SUPABASE) {
+  if (!API_KEY) {
+    // Sem chave configurada → executa o exemplo de demonstração
+    runExample().catch(err => {
+      LOG.error('Erro no exemplo:', err.message);
+      process.exit(1);
+    });
+  } else {
+    // Com chave configurada → executa o pipeline real
+    run().catch(err => {
+      LOG.error('Erro fatal:', err.message);
+      process.exit(1);
+    });
+  }
 }
 
 module.exports = {
@@ -972,3 +975,419 @@ module.exports = {
   upsertFixture, upsertMetrics, upsertOdds, upsertPredictions, upsertSnapshot,
   blockedName, printFixtureLog, printSummary,
 };
+
+
+// ─────────────────────────────────────────────────────────────────
+// MODO --mock-to-supabase
+// Executa o pipeline completo com dados mockados (Flamengo x Palmeiras)
+// e grava no Supabase real. Para validação antes de conectar API-Football.
+//
+// Uso:
+//   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \
+//   node generate_predictions.js --mock-to-supabase
+// ─────────────────────────────────────────────────────────────────
+
+async function runMockToSupabase() {
+  console.log('\n' + '═'.repeat(64));
+  console.log(' WinMetrics — MOCK-TO-SUPABASE');
+  console.log(' Pipeline completo com dados mockados → Supabase real');
+  console.log('═'.repeat(64));
+
+  // ── Validação de ambiente ──────────────────────────────────────
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    LOG.error('SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórios neste modo.');
+    LOG.error('Exemplo:');
+    LOG.error('  SUPABASE_URL=https://xxx.supabase.co \\');
+    LOG.error('  SUPABASE_SERVICE_KEY=eyJ... \\');
+    LOG.error('  node generate_predictions.js --mock-to-supabase');
+    process.exit(1);
+  }
+
+  if (!supabase) {
+    LOG.error('Supabase client não inicializado. Verifique as variáveis de ambiente.');
+    process.exit(1);
+  }
+
+  LOG.info('Supabase conectado: ' + SUPABASE_URL);
+
+  // ── Dados mockados: Flamengo x Palmeiras ──────────────────────
+  LOG.info('Construindo dados mockados (Flamengo x Palmeiras)...');
+
+  const mockApiData = {
+    fixture: {
+      fixture: {
+        id: 1049201,
+        date: '2026-06-10T22:00:00+00:00',
+        status: { short: 'NS', long: 'Not Started' },
+      },
+      league: { id: 71, name: 'Brasileirão Série A', season: 2026 },
+      teams: {
+        home: { id: 119, name: 'Flamengo' },
+        away: { id: 121, name: 'Palmeiras' },
+      },
+      goals: { home: null, away: null },
+      score: { halftime: { home: null, away: null } },
+    },
+
+    homeStats: { response: {
+      fixtures: {
+        played: { home: 10, away: 9, total: 19 },
+        wins:   { total: 12 },
+        draws:  { total: 4  },
+        loses:  { total: 3  },
+      },
+      goals: {
+        for:     { average: { total: '1.8' }, total: { total: 34 } },
+        against: { average: { total: '0.9' }, total: { total: 17 } },
+      },
+    }},
+
+    awayStats: { response: {
+      fixtures: {
+        played: { home: 10, away: 9, total: 19 },
+        wins:   { total: 11 },
+        draws:  { total: 5  },
+        loses:  { total: 3  },
+      },
+      goals: {
+        for:     { average: { total: '1.6' }, total: { total: 30 } },
+        against: { average: { total: '1.0' }, total: { total: 19 } },
+      },
+    }},
+
+    homeGames: Array(10).fill(null).map((_, i) => ({
+      score: { halftime: { home: i % 3 === 0 ? 1 : 0, away: i % 4 === 0 ? 1 : 0 } },
+      statistics: [
+        { team: { id: 119 }, statistics: [
+          { type: 'Corner Kicks',  value: 5 + (i % 4) },
+          { type: 'Yellow Cards',  value: 2            },
+          { type: 'Red Cards',     value: 0            },
+          { type: 'Total Shots',   value: 13 + i       },
+          { type: 'Shots on Goal', value: 4 + (i % 2)  },
+        ]},
+        { team: { id: 900 + i }, statistics: [
+          { type: 'Corner Kicks',  value: 4 + (i % 3) },
+          { type: 'Yellow Cards',  value: 1 + (i % 2) },
+          { type: 'Red Cards',     value: 0            },
+          { type: 'Total Shots',   value: 9 + i        },
+          { type: 'Shots on Goal', value: 3            },
+        ]},
+      ],
+    })),
+
+    awayGames: Array(10).fill(null).map((_, i) => ({
+      score: { halftime: { home: i % 4 === 0 ? 1 : 0, away: i % 5 === 0 ? 1 : 0 } },
+      statistics: [
+        { team: { id: 121 }, statistics: [
+          { type: 'Corner Kicks',  value: 5 + (i % 3) },
+          { type: 'Yellow Cards',  value: 2 + (i % 2) },
+          { type: 'Red Cards',     value: i % 5 === 0 ? 1 : 0 },
+          { type: 'Total Shots',   value: 12 + i       },
+          { type: 'Shots on Goal', value: 4 + (i % 3)  },
+        ]},
+        { team: { id: 800 + i }, statistics: [
+          { type: 'Corner Kicks',  value: 3 + (i % 3) },
+          { type: 'Yellow Cards',  value: 2            },
+          { type: 'Red Cards',     value: 0            },
+          { type: 'Total Shots',   value: 10 + (i % 4) },
+          { type: 'Shots on Goal', value: 3            },
+        ]},
+      ],
+    })),
+
+    h2hGames: [
+      { goals: { home: 2, away: 1 } },
+      { goals: { home: 0, away: 0 } },
+      { goals: { home: 3, away: 2 } },
+      { goals: { home: 1, away: 1 } },
+      { goals: { home: 2, away: 0 } },
+      { goals: { home: 1, away: 2 } },
+      { goals: { home: 0, away: 1 } },
+      { goals: { home: 2, away: 2 } },
+      { goals: { home: 1, away: 0 } },
+      { goals: { home: 3, away: 1 } },
+    ],
+
+    predictions: { response: [{ predictions: {
+      percent: { home: '55%', draw: '25%', away: '20%' },
+    }, comparison: { goals: { home: '53%', away: '47%' } } }] },
+
+    odds: { response: [{ bookmakers: [{ id: 6, name: 'Bet365', bets: [
+      { id: 5, name: 'Goals Over/Under', values: [
+        { value: 'Over 1.5',  odd: '1.22' },
+        { value: 'Over 2.5',  odd: '1.72' },
+        { value: 'Under 3.5', odd: '1.44' },
+        { value: 'Under 4.5', odd: '1.12' },
+      ]},
+      { id: 8,  name: 'Both Teams Score', values: [{ value: 'Yes', odd: '1.85' }] },
+      { id: 45, name: 'Total Corners', values: [
+        { value: 'Over 7.5', odd: '1.90' },
+        { value: 'Over 8.5', odd: '2.35' },
+      ]},
+      { id: 46, name: 'Total Cards', values: [
+        { value: 'Over 2.5', odd: '1.75' },
+        { value: 'Over 3.5', odd: '2.90' },
+      ]},
+    ]}]}] },
+  };
+
+  const liga = { id: 71, season: 2026, name: 'Brasileirão Série A', tier: 'normal' };
+
+  // ── Fase 1: Mapear ────────────────────────────────────────────
+  LOG.info('Fase 1 — PackBallMapper.mapFixtureToPackBall()...');
+  const raw = PackBallMapper.mapFixtureToPackBall(mockApiData);
+  LOG.ok(`  fixture_id=${raw.fixture_id}  exg_tot=${((raw.exg_h||0)+(raw.exg_a||0)).toFixed(2)}  over15_g=${raw.over15_g}`);
+
+  const validation = PackBallMapper.validatePackBallInput(raw);
+  if (!validation.valid) {
+    LOG.error('Validação falhou:', validation.critical.join(', '));
+    process.exit(1);
+  }
+  LOG.ok('  Validação OK — ' + validation.info.join(' | '));
+
+  // ── Fase 2: Motor ─────────────────────────────────────────────
+  LOG.info('Fase 2 — PredictionEngine.processFixture()...');
+  const result = PredictionEngine.processFixture(raw);
+  LOG.ok(`  best_mkt="${result.best_mkt}"  score=${result.best_score?.toFixed(1)}  grade=${result.best_grade}  is_official=${result.is_official}`);
+
+  // ── Fase 3: Gravar no Supabase — PARA NO PRIMEIRO ERRO ────────
+  const inserted = {
+    fixtures: 0, match_metrics: 0, odds: 0,
+    predictions: 0, prediction_snapshots: 0,
+    ids: { prediction_snapshots: null },
+    errors: [],
+  };
+
+  // ── 3a. fixtures ──────────────────────────────────────────────
+  LOG.info('Fase 3a — INSERT fixtures...');
+  console.log('  Colunas:', [
+    'fixture_id','league_id','league_name','season','tier',
+    'match_date','home_team','away_team','home_team_id','away_team_id',
+    'status','updated_at',
+  ].join(', '));
+
+  try {
+    await upsertFixture(raw, liga);
+    inserted.fixtures = 1;
+    LOG.ok('  fixtures OK — fixture_id=' + raw.fixture_id);
+  } catch (err) {
+    inserted.errors.push({ table: 'fixtures', error: err.message });
+    LOG.error('  ERRO em fixtures:', err.message);
+    printMockSummary(inserted);
+    process.exit(1);
+  }
+
+  // ── 3b. match_metrics ─────────────────────────────────────────
+  LOG.info('Fase 3b — INSERT match_metrics...');
+  console.log('  Colunas:', [
+    'fixture_id','over15_g','over25_g','exg_h','exg_a','ppg_h','ppg_a',
+    'h2h_goals','avg_sc_h','avg_sc_a','af_avg','btts_h','btts_a','btts_cf',
+    'over05_ht','over15_ht','avg_corners','over65_c','over75_c','over85_c',
+    'avg_cards','over25_cards','over35_cards','avg_shots','avg_sot',
+    'under25_h','under25_a','exg_tot','ppg_avg','ppg_min','u25cf',
+    'prob_o15_poisson','prob_o25_poisson','prob_u35_poisson','prob_u45_poisson',
+    'ppg_n','af_n','exg_n','h2h_nv','cant_n','shots_n','cards_n','sot_n',
+    'odd_justa_15','odd_justa_25','odd_justa_btts','odd_justa_05ht',
+    'odd_justa_esc85','odd_justa_cart25','updated_at',
+  ].join(', '));
+
+  try {
+    await upsertMetrics(raw, result);
+    inserted.match_metrics = 1;
+    LOG.ok('  match_metrics OK — exg_tot=' + result.derivadas.exg_tot?.toFixed(3));
+  } catch (err) {
+    inserted.errors.push({ table: 'match_metrics', error: err.message });
+    LOG.error('  ERRO em match_metrics:', err.message);
+    printMockSummary(inserted);
+    process.exit(1);
+  }
+
+  // ── 3c. odds ──────────────────────────────────────────────────
+  LOG.info('Fase 3c — DELETE + INSERT odds...');
+  console.log('  Colunas: fixture_id, market, value, odd, bookmaker_id, bookmaker_name, updated_at');
+
+  const oddMap = {
+    'Over 1.5': raw.odd_o15, 'Over 2.5': raw.odd_o25, 'BTTS': raw.odd_btts,
+    'Over 0.5 HT': raw.odd_05ht, 'Under 3.5': raw.odd_u35, 'Under 4.5': raw.odd_u45,
+    'Esc 7.5': raw.odd_esc75, 'Esc 8.5': raw.odd_esc85,
+    'Cart 2.5': raw.odd_c25, 'Cart 3.5': raw.odd_c35,
+  };
+  const oddsToInsert = Object.entries(oddMap).filter(([,v]) => v !== null && v !== undefined);
+  console.log(`  Valores a inserir (${oddsToInsert.length} linhas):`);
+  oddsToInsert.forEach(([m, o]) => console.log(`    market="${m}"  odd=${o}`));
+
+  try {
+    await upsertOdds(raw);
+    inserted.odds = oddsToInsert.length;
+    LOG.ok(`  odds OK — ${oddsToInsert.length} linhas inseridas`);
+  } catch (err) {
+    inserted.errors.push({ table: 'odds', error: err.message });
+    LOG.error('  ERRO em odds:', err.message);
+    printMockSummary(inserted);
+    process.exit(1);
+  }
+
+  // ── 3d. predictions ───────────────────────────────────────────
+  LOG.info('Fase 3d — UPSERT predictions (10 mercados)...');
+  console.log('  Colunas: fixture_id, market, score, probability, grade, confidence,');
+  console.log('           passed_filter, under35_passed, is_best_market, odd, odd_justa, ev, created_at');
+  console.log('  Linhas a inserir:');
+  const MKT_TO_LABEL_LOCAL = {
+    over15:'Over 1.5', over25:'Over 2.5', btts:'BTTS', over05ht:'Over 0.5 HT',
+    under45:'Under 4.5', under35:'Under 3.5', esc75:'Esc 7.5', esc85:'Esc 8.5',
+    cards25:'Cart 2.5', cards35:'Cart 3.5',
+  };
+  Object.entries(MKT_TO_LABEL_LOCAL).forEach(([k, m]) => {
+    const sc = result.scores[k];
+    if (sc === null) return;
+    const isBest = m === result.best_mkt;
+    console.log(`    ${isBest?'★':' '} market="${m}"  score=${sc.toFixed(1)}  grade=${result.grades[k]}  is_best_market=${isBest}`);
+  });
+
+  try {
+    await upsertPredictions(result);
+    inserted.predictions = Object.values(result.scores).filter(v => v !== null).length;
+    LOG.ok(`  predictions OK — ${inserted.predictions} linhas, best_mkt="${result.best_mkt}"`);
+  } catch (err) {
+    inserted.errors.push({ table: 'predictions', error: err.message });
+    LOG.error('  ERRO em predictions:', err.message);
+    printMockSummary(inserted);
+    process.exit(1);
+  }
+
+  // ── 3e. prediction_snapshots ──────────────────────────────────
+  if (result.is_official) {
+    LOG.info('Fase 3e — UPSERT prediction_snapshots...');
+    console.log('  Colunas: fixture_id, match_name, home_team, away_team, league_name,');
+    console.log('           match_date, market, score, grade, confidence, odd, odd_justa,');
+    console.log('           ev, result_status, confirmed_at, ticket_type, created_at');
+    console.log(`  Valores:`);
+    console.log(`    fixture_id=${result.fixture_id}  match_name="${result.jogo}"`);
+    console.log(`    market="${result.best_mkt}"  score=${result.best_score?.toFixed(1)}  grade=${result.best_grade}`);
+    console.log(`    odd=${result.best_odd}  ev=${result.best_ev}  result_status=null`);
+
+    try {
+      const saved = await upsertSnapshot(result, raw);
+      if (saved) {
+        inserted.prediction_snapshots = 1;
+        LOG.ok(`  prediction_snapshots OK — snapshot criado`);
+
+        // Busca o ID gerado para mostrar no resumo
+        const { data: snap } = await supabase
+          .from('prediction_snapshots')
+          .select('id, created_at')
+          .eq('fixture_id', result.fixture_id)
+          .eq('market', result.best_mkt)
+          .single();
+        inserted.ids.prediction_snapshots = snap?.id || '(não recuperado)';
+        LOG.ok(`  ID gerado: ${inserted.ids.prediction_snapshots}`);
+      } else {
+        LOG.warn('  Snapshot não criado (já existia com resultado confirmado)');
+      }
+    } catch (err) {
+      inserted.errors.push({ table: 'prediction_snapshots', error: err.message });
+      LOG.error('  ERRO em prediction_snapshots:', err.message);
+      printMockSummary(inserted);
+      process.exit(1);
+    }
+  } else {
+    LOG.dim(`  prediction_snapshots: pulado (grade ${result.best_grade} não é A+/A)`);
+  }
+
+  // ── Verificação pós-gravação (SELECT de confirmação) ──────────
+  LOG.info('Verificação — lendo registros gravados...');
+
+  const checks = await Promise.allSettled([
+    supabase.from('fixtures').select('fixture_id,home_team,away_team,status').eq('fixture_id', raw.fixture_id).single(),
+    supabase.from('match_metrics').select('fixture_id,exg_h,exg_a,over15_g').eq('fixture_id', raw.fixture_id).single(),
+    supabase.from('odds').select('market,odd').eq('fixture_id', raw.fixture_id),
+    supabase.from('predictions').select('market,score,grade,is_best_market').eq('fixture_id', raw.fixture_id),
+    supabase.from('prediction_snapshots').select('id,market,score,grade').eq('fixture_id', raw.fixture_id),
+  ]);
+
+  const [chkFix, chkMet, chkOdds, chkPred, chkSnap] = checks;
+
+  console.log('\n  ┌─ fixtures:');
+  if (chkFix.status === 'fulfilled' && chkFix.value.data) {
+    const r = chkFix.value.data;
+    console.log(`  │  fixture_id=${r.fixture_id}  "${r.home_team} vs ${r.away_team}"  status="${r.status}"`);
+  } else {
+    console.log(`  │  ERRO: ${chkFix.value?.error?.message || chkFix.reason}`);
+  }
+
+  console.log('  ├─ match_metrics:');
+  if (chkMet.status === 'fulfilled' && chkMet.value.data) {
+    const r = chkMet.value.data;
+    console.log(`  │  fixture_id=${r.fixture_id}  exg_h=${r.exg_h}  exg_a=${r.exg_a}  over15_g=${r.over15_g}`);
+  } else {
+    console.log(`  │  ERRO: ${chkMet.value?.error?.message || chkMet.reason}`);
+  }
+
+  console.log('  ├─ odds:');
+  if (chkOdds.status === 'fulfilled' && chkOdds.value.data) {
+    chkOdds.value.data.forEach(o => console.log(`  │  market="${o.market}"  odd=${o.odd}`));
+  } else {
+    console.log(`  │  ERRO: ${chkOdds.value?.error?.message || chkOdds.reason}`);
+  }
+
+  console.log('  ├─ predictions:');
+  if (chkPred.status === 'fulfilled' && chkPred.value.data) {
+    chkPred.value.data.forEach(p =>
+      console.log(`  │  ${p.is_best_market?'★':' '} market="${p.market}"  score=${p.score}  grade=${p.grade}`)
+    );
+  } else {
+    console.log(`  │  ERRO: ${chkPred.value?.error?.message || chkPred.reason}`);
+  }
+
+  console.log('  └─ prediction_snapshots:');
+  if (chkSnap.status === 'fulfilled' && chkSnap.value.data && chkSnap.value.data.length > 0) {
+    chkSnap.value.data.forEach(s =>
+      console.log(`     id=${s.id}  market="${s.market}"  score=${s.score}  grade=${s.grade}`)
+    );
+  } else {
+    console.log(`     (nenhum — grade < A ou já confirmado)`);
+  }
+
+  printMockSummary(inserted);
+}
+
+function printMockSummary(inserted) {
+  const hr = '═'.repeat(64);
+  console.log('\n' + hr);
+  console.log(' RESUMO — mock-to-supabase');
+  console.log(hr);
+  console.log(` fixtures inseridos:            ${inserted.fixtures}`);
+  console.log(` match_metrics inseridos:       ${inserted.match_metrics}`);
+  console.log(` odds inseridas:                ${inserted.odds}`);
+  console.log(` predictions inseridas:         ${inserted.predictions}`);
+  console.log(` prediction_snapshots inseridos:${inserted.prediction_snapshots}`);
+  if (inserted.ids.prediction_snapshots) {
+    console.log(` snapshot id:                   ${inserted.ids.prediction_snapshots}`);
+  }
+  if (inserted.errors.length > 0) {
+    console.log('\n Erros encontrados:');
+    inserted.errors.forEach(e => console.log(`   [${e.table}] ${e.error}`));
+    console.log('\n Próximo passo recomendado:');
+    const tbl = inserted.errors[0].table;
+    console.log(`   1. Verificar se a tabela "${tbl}" existe no Supabase (SQL Editor)`);
+    console.log(`   2. Confirmar que o SUPABASE_SERVICE_KEY tem role service_role`);
+    console.log(`   3. Checar se RLS está bloqueando (policy "Service write ${tbl}" deve existir)`);
+    console.log(`   4. Rodar: frontend/database/winmetrics_schema.sql no SQL Editor`);
+  } else {
+    console.log('\n Próximo passo recomendado:');
+    console.log('   1. Conferir os registros no Supabase Dashboard → Table Editor');
+    console.log('   2. Confirmar que prediction_snapshots.market = "Esc 7.5"');
+    console.log('   3. Configurar API_FOOTBALL_KEY e rodar com --dry-run para validar o pipeline real');
+    console.log('   4. Em seguida, rodar sem flags para gravar com dados reais da API');
+  }
+  console.log(hr + '\n');
+}
+
+// ── Adiciona --mock-to-supabase ao entry point existente ──────────
+// (Este bloco substitui o if(!API_KEY) já existente via check adicional)
+if (MOCK_TO_SUPABASE) {
+  runMockToSupabase().catch(err => {
+    LOG.error('Erro fatal no mock-to-supabase:', err.message);
+    process.exit(1);
+  });
+}
