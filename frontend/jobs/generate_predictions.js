@@ -14,7 +14,12 @@
  *   6. Log detalhado por fixture
  *
  * Uso:
- *   node generate_predictions.js [--date YYYY-MM-DD] [--dry-run] [--force]
+ *   node generate_predictions.js [--date YYYY-MM-DD] [--days N] [--dry-run] [--force] [--only-new] [--limit N]
+ *
+ * Exemplos econômicos:
+ *   node generate_predictions.js --days=3 --only-new --dry-run
+ *   node generate_predictions.js --days=3 --only-new
+ *   node generate_predictions.js --date=2026-06-10 --force
  *
  * Variáveis de ambiente:
  *   SUPABASE_URL          — URL do projeto Supabase
@@ -53,9 +58,14 @@ const API_BASE      = 'https://v3.football.api-sports.io';
 const args      = process.argv.slice(2);
 const DRY_RUN   = args.includes('--dry-run');
 const FORCE     = args.includes('--force');
+const ONLY_NEW  = args.includes('--only-new');
 const MOCK_TO_SUPABASE = args.includes('--mock-to-supabase');
 const dateArg   = args.find(a => a.startsWith('--date='))?.split('=')[1];
+const daysArg   = args.find(a => a.startsWith('--days='))?.split('=')[1];
+const limitArg  = args.find(a => a.startsWith('--limit='))?.split('=')[1];
 const TODAY     = dateArg || new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
+const DAYS      = Math.max(1, Math.min(14, parseInt(daysArg || '1', 10) || 1));
+const LIMIT     = limitArg ? Math.max(1, parseInt(limitArg, 10) || 1) : null;
 
 // Ligas suportadas (§2.2)
 const LIGAS = [
@@ -169,6 +179,81 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
+function addDaysISO(dateISO, days) {
+  const d = new Date(dateISO + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function getTargetDates() {
+  return Array.from({ length: DAYS }, (_, i) => addDaysISO(TODAY, i));
+}
+
+function hoursAgo(iso) {
+  if (!iso) return Infinity;
+  return (Date.now() - new Date(iso).getTime()) / 36e5;
+}
+
+/**
+ * shouldSkipFixture(entry)
+ * Estratégia de economia da API:
+ * - roda apenas quando --only-new está ativo, existe Supabase e não está em --force
+ * - se já existe snapshot e status não mudou, pula
+ * - se já houve predictions nas últimas 6h, pula
+ */
+async function shouldSkipFixture(entry) {
+  if (!ONLY_NEW || FORCE || !supabase) {
+    return { skip: false, reason: null, savedCalls: 0 };
+  }
+
+  const fixtureId = entry.fixture?.fixture?.id;
+  const currentStatus = entry.fixture?.fixture?.status?.short || 'NS';
+
+  if (!fixtureId) return { skip: false, reason: null, savedCalls: 0 };
+
+  const [{ data: fixtureRow }, { data: snapshots }, { data: lastPred }] = await Promise.all([
+    supabase
+      .from('fixtures')
+      .select('fixture_id,status,updated_at')
+      .eq('fixture_id', fixtureId)
+      .maybeSingle(),
+    supabase
+      .from('prediction_snapshots')
+      .select('id,result_status,created_at')
+      .eq('fixture_id', fixtureId)
+      .limit(1),
+    supabase
+      .from('predictions')
+      .select('created_at')
+      .eq('fixture_id', fixtureId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const hasSnapshot = Array.isArray(snapshots) && snapshots.length > 0;
+  const statusUnchanged = fixtureRow?.status === currentStatus;
+
+  if (hasSnapshot && statusUnchanged) {
+    return {
+      skip: true,
+      reason: 'snapshot existente + status sem mudança',
+      savedCalls: 7,
+    };
+  }
+
+  if (lastPred?.created_at && hoursAgo(lastPred.created_at) < 6) {
+    return {
+      skip: true,
+      reason: `predictions atualizadas há ${hoursAgo(lastPred.created_at).toFixed(1)}h`,
+      savedCalls: 7,
+    };
+  }
+
+  return { skip: false, reason: null, savedCalls: 0 };
+}
+
+
 
 // ─────────────────────────────────────────────────────────────────
 // FASE 1 — BUSCAR FIXTURES DO DIA
@@ -192,49 +277,61 @@ function blockedName(name) {
  * @returns {Array} lista de fixtures com metadados da liga
  */
 async function fetchTodayFixtures() {
-  LOG.info(`Buscando fixtures para ${TODAY}...`);
+  const targetDates = getTargetDates();
+  LOG.info(`Buscando fixtures para ${targetDates.join(', ')}...`);
 
   const allFixtures = [];
 
-  // Busca paralela por liga (agrupa em lotes de 5 para não explodir rate limit)
+  // Busca por data e por liga. Lotes pequenos reduzem risco de rate limit.
   const BATCH = 5;
-  for (let i = 0; i < LIGAS.length; i += BATCH) {
-    const batch = LIGAS.slice(i, i + BATCH);
 
-    const results = await Promise.all(
-      batch.map(liga =>
-        apiFetch('/fixtures', {
-          league: liga.id,
-          season: liga.season,
-          date:   TODAY,
-        }).then(data => ({ liga, data }))
-      )
-    );
+  for (const targetDate of targetDates) {
+    LOG.info(`Data ${targetDate}: consultando ${LIGAS.length} ligas...`);
 
-    for (const { liga, data } of results) {
-      const fixtures = data?.response || [];
-      LOG.dim(`  ${liga.name}: ${fixtures.length} fixture(s)`);
+    for (let i = 0; i < LIGAS.length; i += BATCH) {
+      const batch = LIGAS.slice(i, i + BATCH);
 
-      for (const fx of fixtures) {
-        const homeName = fx?.teams?.home?.name || '';
-        const awayName = fx?.teams?.away?.name || '';
-        const matchName = `${homeName} vs ${awayName}`;
-        const status   = fx?.fixture?.status?.short || '';
+      const results = await Promise.all(
+        batch.map(liga =>
+          apiFetch('/fixtures', {
+            league: liga.id,
+            season: liga.season,
+            date:   targetDate,
+          }).then(data => ({ liga, data, targetDate }))
+        )
+      );
 
-        // Filtros §2.3
-        if (!VALID_STATUS.has(status))       continue;
-        if (blockedName(matchName))          continue;
-        if (blockedName(liga.name))          continue;
+      for (const { liga, data, targetDate } of results) {
+        const fixtures = data?.response || [];
+        LOG.dim(`  ${targetDate} · ${liga.name}: ${fixtures.length} fixture(s)`);
 
-        allFixtures.push({
-          fixture: fx,
-          liga,
-        });
+        for (const fx of fixtures) {
+          const homeName = fx?.teams?.home?.name || '';
+          const awayName = fx?.teams?.away?.name || '';
+          const matchName = `${homeName} vs ${awayName}`;
+          const status   = fx?.fixture?.status?.short || '';
+
+          // Filtros §2.3
+          if (!VALID_STATUS.has(status))       continue;
+          if (blockedName(matchName))          continue;
+          if (blockedName(liga.name))          continue;
+
+          allFixtures.push({
+            fixture: fx,
+            liga,
+            targetDate,
+          });
+        }
       }
-    }
 
-    // Pausa entre lotes
-    if (i + BATCH < LIGAS.length) await delay(300);
+      // Pausa entre lotes
+      if (i + BATCH < LIGAS.length) await delay(300);
+    }
+  }
+
+  if (LIMIT && allFixtures.length > LIMIT) {
+    LOG.warn(`Aplicando --limit=${LIMIT}: ${allFixtures.length} → ${LIMIT} fixtures.`);
+    allFixtures.length = LIMIT;
   }
 
   LOG.info(`Total: ${allFixtures.length} fixtures válidas encontradas.`);
@@ -672,7 +769,7 @@ function printFixtureLog(raw, result, savedSnapshot, validation) {
 async function run() {
   console.log('\n' + '═'.repeat(64));
   console.log(' WinMetrics Analytics — Generate Predictions');
-  console.log(` Data: ${TODAY}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}`);
+  console.log(` Data inicial: ${TODAY}  |  days: ${DAYS}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}  |  only-new: ${ONLY_NEW}  |  limit: ${LIMIT || 'sem limite'}`);
   console.log('═'.repeat(64) + '\n');
 
   // Validação de ambiente
@@ -691,8 +788,12 @@ async function run() {
   // Estatísticas globais
   const stats = {
     fixtures_total: 0, fixtures_ok: 0, fixtures_error: 0,
+    fixtures_skipped: 0,
     snapshots: 0, grades_ap: 0, grades_a: 0, grades_b: 0,
     markets_scored: 0, errors: [],
+    api_fixture_calls: LIGAS.length * DAYS,
+    api_detail_calls_estimated: 0,
+    api_calls_saved: 0,
   };
 
   // ── FASE 1: Buscar fixtures ──────────────────────────────────
@@ -709,7 +810,17 @@ async function run() {
     const fixtureId = entry.fixture?.fixture?.id;
 
     try {
+      // ── CACHE: pula detalhes se já processado recentemente ──
+      const cacheDecision = await shouldSkipFixture(entry);
+      if (cacheDecision.skip) {
+        stats.fixtures_skipped++;
+        stats.api_calls_saved += cacheDecision.savedCalls || 0;
+        LOG.dim(`Pulando fixture ${fixtureId} — ${cacheDecision.reason} (${cacheDecision.savedCalls} chamadas economizadas)`);
+        continue;
+      }
+
       // ── FASE 2: Coletar dados ──────────────────────────────
+      stats.api_detail_calls_estimated += 7;
       LOG.info(`Coletando fixture ${fixtureId} — ${entry.fixture?.teams?.home?.name} vs ${entry.fixture?.teams?.away?.name}`);
       const apiData = await fetchAllData(entry);
 
@@ -781,10 +892,13 @@ function printSummary(stats) {
   console.log('\n' + hr);
   console.log(' RESUMO FINAL');
   console.log(hr);
-  console.log(` Fixtures processadas: ${stats.fixtures_ok}/${stats.fixtures_total}  (${stats.fixtures_error} erros)`);
+  console.log(` Fixtures processadas: ${stats.fixtures_ok}/${stats.fixtures_total}  (${stats.fixtures_error} erros, ${stats.fixtures_skipped || 0} puladas por cache)`);
   console.log(` Mercados calculados:  ${stats.markets_scored}`);
   console.log(` Snapshots criados:    ${stats.snapshots}`);
   console.log(` Grades:  A+=${stats.grades_ap}  A=${stats.grades_a}  B=${stats.grades_b}`);
+  console.log(` API — chamadas fixtures: ${stats.api_fixture_calls || 0}`);
+  console.log(` API — chamadas detalhes estimadas: ${stats.api_detail_calls_estimated || 0}`);
+  console.log(` API — chamadas economizadas: ${stats.api_calls_saved || 0}`);
   if (stats.errors.length > 0) {
     console.log('\n Erros:');
     stats.errors.forEach(e => console.log(`   fixture ${e.fixtureId}: ${e.errors || e.error}`));
@@ -971,7 +1085,7 @@ if (!MOCK_TO_SUPABASE) {
 
 module.exports = {
   run, runExample,
-  fetchTodayFixtures, fetchAllData,
+  fetchTodayFixtures, fetchAllData, shouldSkipFixture, getTargetDates,
   upsertFixture, upsertMetrics, upsertOdds, upsertPredictions, upsertSnapshot,
   blockedName, printFixtureLog, printSummary,
 };
