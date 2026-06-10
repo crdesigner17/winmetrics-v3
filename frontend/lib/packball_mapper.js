@@ -116,8 +116,11 @@ const PackBallMapper = (function () {
       const values = bet.values || [];
       for (const v of values) {
         if (!v) continue;
-        const val = String(v.value || '').toLowerCase();
-        if (val === targetValue.toLowerCase()) {
+        const val = String(v.value || '').toLowerCase().trim();
+        const target = targetValue.toLowerCase().trim();
+        // Exact match OR strip "goals " prefix (API sometimes returns "Goals Over 1.5")
+        const valClean = val.replace(/^goals\s+/,'').replace(/^total\s+/,'');
+        if (val === target || valClean === target) {
           return _num(v.odd);
         }
       }
@@ -392,43 +395,53 @@ const PackBallMapper = (function () {
     }
 
     const pred = predictionsResp.predictions;
-
-    // Tentativa 1: campo advice como "Over 1.5 Goals" (comum no v3)
     let over15_g = null, over25_g = null;
 
-    // Tentativa 2: comparison.goals se disponível
+    // ── Source 1: comparison.goals (% scoring probability per team)
+    // API v3: comparison.goals = { home: "53%", away: "47%" }
+    // These are P(team scores >= 1). Use them to estimate Over 1.5:
+    //   P(Over 1.5) ≈ 1 - P(home_scores=0) - P(away_scores=0) + P(both_score=0)
+    // Simplified proxy: use the raw comparison.goals fields as-is for over15/over25.
     const comp = predictionsResp.comparison;
     if (comp && comp.goals) {
-      over15_g = _pct(comp.goals.home);  // % de gols esperados time casa
-      over25_g = _pct(comp.goals.away);  // % de gols esperados time fora
-      // Média dos dois como proxy de over 1.5
-      if (over15_g !== null && over25_g !== null) {
-        const mean = (over15_g + over25_g) / 2;
-        over15_g = mean;
-        over25_g = mean * 0.7;  // Over 2.5 é sempre menor que Over 1.5
+      const ph = _pct(comp.goals.home);  // P(home scores >= 1) %
+      const pa = _pct(comp.goals.away);  // P(away scores >= 1) %
+      if (ph !== null && pa !== null) {
+        // Over 1.5 proxy: both teams likely score (p_h * p_a) + either scoring 2+
+        // Simplified: mean of both scoring probabilities scaled to over% range
+        over15_g = Math.min(100, (ph + pa) / 2 * 1.4);  // scale up slightly
+        over25_g = Math.min(100, (ph + pa) / 2 * 0.9);
       }
     }
 
-    // Tentativa 3: under_over no predictions (alguns retornam)
-    if (pred.under_over) {
-      // under_over: "over" | "under" | null
-      // Não temos % aqui, então não usamos
+    // ── Source 2: predictions.goals.home/away (string like "over 2.5")
+    // Use to adjust if available
+    if (pred.goals) {
+      const goalsHint = String(pred.goals.home || pred.goals.away || '').toLowerCase();
+      if (goalsHint.includes('over 2.5') || goalsHint.includes('over 3')) {
+        // Strong over signal — boost
+        if (over15_g !== null) over15_g = Math.min(100, over15_g * 1.1);
+        if (over25_g !== null) over25_g = Math.min(100, over25_g * 1.2);
+      } else if (goalsHint.includes('under 2.5') || goalsHint.includes('under 1.5')) {
+        // Under signal — reduce
+        if (over15_g !== null) over15_g = Math.max(0, over15_g * 0.75);
+        if (over25_g !== null) over25_g = Math.max(0, over25_g * 0.6);
+      }
     }
 
-    // Tentativa 4: percent home/away como proxy
+    // ── Source 3: percent home/away (1X2 win %) as final fallback
     if (over15_g === null && pred.percent) {
       const ph = _pct(pred.percent.home);
       const pa = _pct(pred.percent.away);
       if (ph !== null && pa !== null) {
-        // Jogo competitivo (ambos > 25%) → provavelmente Over 1.5
-        over15_g = Math.min(100, ph + pa);  // soma das % de vitória como proxy
+        over15_g = Math.min(100, ph + pa);
         over25_g = over15_g * 0.65;
       }
     }
 
     return {
-      over15_g: over15_g !== null ? Math.min(100, Math.max(0, over15_g)) : null,
-      over25_g: over25_g !== null ? Math.min(100, Math.max(0, over25_g)) : null,
+      over15_g: over15_g !== null ? Math.round(Math.min(100, Math.max(0, over15_g)) * 10) / 10 : null,
+      over25_g: over25_g !== null ? Math.round(Math.min(100, Math.max(0, over25_g)) * 10) / 10 : null,
     };
   }
 
@@ -549,6 +562,57 @@ const PackBallMapper = (function () {
     const hour       = rawDate
       ? rawDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
       : null;
+
+    // ── DIAGNOSTIC LOGS (remove after confirming field paths) ─
+    if (process.env.DEBUG_MAPPER === '1') {
+      console.log('\n[MAPPER DEBUG] fixture_id:', fixture?.fixture?.id);
+      console.log('[MAPPER DEBUG] homeStats keys:', homeStats ? Object.keys(homeStats) : 'null');
+      if (homeStats?.response) {
+        const r = homeStats.response;
+        console.log('[MAPPER DEBUG] homeStats.response keys:', Object.keys(r));
+        console.log('[MAPPER DEBUG] homeStats.response.fixtures:', JSON.stringify(r.fixtures?.played));
+        console.log('[MAPPER DEBUG] homeStats.response.goals.for.average:', r.goals?.for?.average);
+        console.log('[MAPPER DEBUG] homeStats.response.goals.for.total:', r.goals?.for?.total);
+      } else {
+        console.log('[MAPPER DEBUG] homeStats.response is NULL/UNDEFINED — PPG/xG will be null');
+      }
+      if (predictions?.response) {
+        const p0 = Array.isArray(predictions.response) ? predictions.response[0] : predictions.response;
+        console.log('[MAPPER DEBUG] predictions.response[0] keys:', p0 ? Object.keys(p0) : 'null');
+        console.log('[MAPPER DEBUG] predictions.comparison.goals:', p0?.comparison?.goals);
+        console.log('[MAPPER DEBUG] predictions.predictions.percent:', p0?.predictions?.percent);
+        console.log('[MAPPER DEBUG] predictions.predictions.goals:', p0?.predictions?.goals);
+      } else {
+        console.log('[MAPPER DEBUG] predictions.response is NULL — over15_g/over25_g will be null');
+      }
+      if (odds?.response) {
+        const respArr = Array.isArray(odds.response) ? odds.response : [odds.response];
+        const bms = respArr[0]?.bookmakers || [];
+        console.log('[MAPPER DEBUG] odds bookmakers count:', bms.length);
+        bms.slice(0,2).forEach(bm => {
+          console.log(`[MAPPER DEBUG]   bookmaker id=${bm.id} name="${bm.name}" bets:`, bm.bets?.map(b=>b.name));
+        });
+        const bm6 = bms.find(b => b.id === 6);
+        if (bm6) {
+          console.log('[MAPPER DEBUG] bookmaker=6 bets:');
+          bm6.bets?.forEach(b => console.log(`  bet="${b.name}" values:`, b.values?.map(v=>v.value+'='+v.odd).join(', ')));
+        } else {
+          console.log('[MAPPER DEBUG] bookmaker=6 NOT FOUND — using fallback');
+        }
+      } else {
+        console.log('[MAPPER DEBUG] odds.response is NULL — all odds will be null');
+      }
+      const homeGamesArr = Array.isArray(homeGames) ? homeGames : [];
+      console.log('[MAPPER DEBUG] homeGames count:', homeGamesArr.length);
+      if (homeGamesArr[0]) {
+        console.log('[MAPPER DEBUG] homeGames[0].statistics count:', homeGamesArr[0].statistics?.length);
+        if (homeGamesArr[0].statistics?.[0]) {
+          console.log('[MAPPER DEBUG] homeGames[0].statistics[0] keys:', Object.keys(homeGamesArr[0].statistics[0]));
+          console.log('[MAPPER DEBUG] homeGames[0].statistics[0].statistics[0]:', homeGamesArr[0].statistics[0].statistics?.[0]);
+        }
+        console.log('[MAPPER DEBUG] homeGames[0].score.halftime:', homeGamesArr[0].score?.halftime);
+      }
+    }
 
     // ── /teams/statistics → PPG, xG proxy, BTTS, Under25 ────────
     const ppg_h       = _calcPPG(homeStats?.response);
