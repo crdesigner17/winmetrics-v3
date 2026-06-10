@@ -1,0 +1,974 @@
+#!/usr/bin/env node
+/**
+ * WinMetrics Analytics — Generate Predictions
+ * ─────────────────────────────────────────────
+ * Pipeline de geração de previsões reais.
+ * Implementação fiel ao coletar.py do PackBall v3.0 (seções 2–7).
+ *
+ * Fluxo:
+ *   1. Buscar fixtures do dia nas ligas suportadas
+ *   2. Coletar dados da API-Football (5 chamadas paralelas por jogo)
+ *   3. Mapear → PackBallMapper.mapFixtureToPackBall()
+ *   4. Calcular → PredictionEngine.processFixture()
+ *   5. Salvar → fixtures, match_metrics, odds, predictions, prediction_snapshots
+ *   6. Log detalhado por fixture
+ *
+ * Uso:
+ *   node generate_predictions.js [--date YYYY-MM-DD] [--dry-run] [--force]
+ *
+ * Variáveis de ambiente:
+ *   SUPABASE_URL          — URL do projeto Supabase
+ *   SUPABASE_SERVICE_KEY  — service_role key (bypass RLS)
+ *   API_FOOTBALL_KEY      — chave da API-Football v3
+ *
+ * Dependências (package.json):
+ *   @supabase/supabase-js ^2
+ *   node-fetch ^3   (ou Node 18+ nativo)
+ */
+
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────
+// IMPORTS
+// ─────────────────────────────────────────────────────────────────
+
+const path  = require('path');
+const { createClient } = require('@supabase/supabase-js');
+
+// Carrega os módulos locais relativos a este arquivo
+const PredictionEngine = require('../lib/prediction_engine_v1.js');
+const PackBallMapper   = require('../lib/packball_mapper.js');
+
+
+// ─────────────────────────────────────────────────────────────────
+// CONFIGURAÇÃO
+// ─────────────────────────────────────────────────────────────────
+
+const SUPABASE_URL  = process.env.SUPABASE_URL         || '';
+const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
+const API_KEY       = process.env.API_FOOTBALL_KEY     || '';
+const API_BASE      = 'https://v3.football.api-sports.io';
+
+// Flags de execução
+const args      = process.argv.slice(2);
+const DRY_RUN   = args.includes('--dry-run');
+const FORCE     = args.includes('--force');
+const dateArg   = args.find(a => a.startsWith('--date='))?.split('=')[1];
+const TODAY     = dateArg || new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
+
+// Ligas suportadas (§2.2)
+const LIGAS = [
+  { id: 2,   season: 2025, name: 'Champions League',    tier: 'elite'  },
+  { id: 39,  season: 2025, name: 'Premier League',      tier: 'elite'  },
+  { id: 140, season: 2025, name: 'La Liga',             tier: 'elite'  },
+  { id: 135, season: 2025, name: 'Serie A',             tier: 'elite'  },
+  { id: 78,  season: 2025, name: 'Bundesliga',          tier: 'elite'  },
+  { id: 61,  season: 2025, name: 'Ligue 1',             tier: 'elite'  },
+  { id: 88,  season: 2025, name: 'Eredivisie',          tier: 'normal' },
+  { id: 94,  season: 2025, name: 'Liga Portugal',       tier: 'normal' },
+  { id: 13,  season: 2026, name: 'Copa Libertadores',   tier: 'elite'  },
+  { id: 1,   season: 2026, name: 'FIFA World Cup',      tier: 'elite'  },
+  { id: 71,  season: 2026, name: 'Brasileirão Série A', tier: 'normal' },
+  { id: 72,  season: 2026, name: 'Brasileirão Série B', tier: 'normal' },
+  { id: 75,  season: 2026, name: 'Copa do Brasil',      tier: 'normal' },
+  { id: 10,  season: 2026, name: 'Friendlies',          tier: 'normal' },
+  { id: 960, season: 2025, name: 'UEFA Nations League', tier: 'normal' },
+];
+
+// Status de jogo aceitos §2.3
+const VALID_STATUS = new Set(['NS','1H','HT','2H','ET','P','LIVE','FT','AET','PEN']);
+
+// Termos que bloqueiam jogos sub-20/21 §2.3
+const BLOCKED_TERMS = ['U20','U21','U-20','U-21','Under-20','Under-21'];
+
+// Grades que geram snapshot (§7.1)
+const GRADES_OFICIAIS = new Set(['A+', 'A']);
+
+// Bilhete do dia: grade A+ E score >= 90 (§7.2)
+const TICKET_DIA_MIN_SCORE = 90;
+
+
+// ─────────────────────────────────────────────────────────────────
+// CLIENTES
+// ─────────────────────────────────────────────────────────────────
+
+const supabase = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false },
+    })
+  : null;
+
+
+// ─────────────────────────────────────────────────────────────────
+// LOGGER
+// ─────────────────────────────────────────────────────────────────
+
+const LOG = {
+  _ts:   () => new Date().toISOString().replace('T', ' ').slice(0, 19),
+  info:  (...a) => console.log (`\x1b[36m[INFO]\x1b[0m  ${LOG._ts()} `, ...a),
+  ok:    (...a) => console.log (`\x1b[32m[ OK ]\x1b[0m  ${LOG._ts()} `, ...a),
+  warn:  (...a) => console.warn(`\x1b[33m[WARN]\x1b[0m  ${LOG._ts()} `, ...a),
+  error: (...a) => console.error(`\x1b[31m[ERR ]\x1b[0m  ${LOG._ts()} `, ...a),
+  dim:   (...a) => console.log (`\x1b[90m[    ]\x1b[0m  ${LOG._ts()} `, ...a),
+};
+
+
+// ─────────────────────────────────────────────────────────────────
+// API-FOOTBALL — chamada base com retry
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * apiFetch(endpoint, params, retries)
+ * Chamada à API-Football com headers corretos e retry em rate limit.
+ *
+ * @param {string} endpoint  — ex: '/fixtures'
+ * @param {object} params    — query params
+ * @param {number} retries   — tentativas restantes
+ * @returns {object}         — { response: [...], errors: [...] }
+ */
+async function apiFetch(endpoint, params = {}, retries = 3) {
+  const url  = new URL(API_BASE + endpoint);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url.toString(), {
+        headers: {
+          'x-rapidapi-key':  API_KEY,
+          'x-rapidapi-host': 'v3.football.api-sports.io',
+        },
+      });
+
+      // Rate limit: aguarda e tenta de novo
+      if (res.status === 429) {
+        const wait = Math.pow(2, attempt) * 1000;
+        LOG.warn(`Rate limit em ${endpoint} — aguardando ${wait}ms...`);
+        await delay(wait);
+        continue;
+      }
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      }
+
+      return await res.json();
+
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await delay(1000 * attempt);
+      }
+    }
+  }
+
+  LOG.error(`apiFetch falhou após ${retries} tentativas: ${endpoint}`, lastErr?.message);
+  return { response: [], errors: [lastErr?.message] };
+}
+
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+
+// ─────────────────────────────────────────────────────────────────
+// FASE 1 — BUSCAR FIXTURES DO DIA
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * blockedName(name)
+ * Retorna true se o nome do jogo contiver termos de sub-20/21 (§2.3).
+ */
+function blockedName(name) {
+  if (!name) return false;
+  const upper = name.toUpperCase();
+  return BLOCKED_TERMS.some(t => upper.includes(t.toUpperCase()));
+}
+
+/**
+ * fetchTodayFixtures()
+ * Busca todos os fixtures do dia em todas as ligas suportadas.
+ * Filtra por status e blocked_name.
+ *
+ * @returns {Array} lista de fixtures com metadados da liga
+ */
+async function fetchTodayFixtures() {
+  LOG.info(`Buscando fixtures para ${TODAY}...`);
+
+  const allFixtures = [];
+
+  // Busca paralela por liga (agrupa em lotes de 5 para não explodir rate limit)
+  const BATCH = 5;
+  for (let i = 0; i < LIGAS.length; i += BATCH) {
+    const batch = LIGAS.slice(i, i + BATCH);
+
+    const results = await Promise.all(
+      batch.map(liga =>
+        apiFetch('/fixtures', {
+          league: liga.id,
+          season: liga.season,
+          date:   TODAY,
+        }).then(data => ({ liga, data }))
+      )
+    );
+
+    for (const { liga, data } of results) {
+      const fixtures = data?.response || [];
+      LOG.dim(`  ${liga.name}: ${fixtures.length} fixture(s)`);
+
+      for (const fx of fixtures) {
+        const homeName = fx?.teams?.home?.name || '';
+        const awayName = fx?.teams?.away?.name || '';
+        const matchName = `${homeName} vs ${awayName}`;
+        const status   = fx?.fixture?.status?.short || '';
+
+        // Filtros §2.3
+        if (!VALID_STATUS.has(status))       continue;
+        if (blockedName(matchName))          continue;
+        if (blockedName(liga.name))          continue;
+
+        allFixtures.push({
+          fixture: fx,
+          liga,
+        });
+      }
+    }
+
+    // Pausa entre lotes
+    if (i + BATCH < LIGAS.length) await delay(300);
+  }
+
+  LOG.info(`Total: ${allFixtures.length} fixtures válidas encontradas.`);
+  return allFixtures;
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// FASE 2 — COLETAR DADOS COMPLETOS POR FIXTURE
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * fetchAllData(fixtureEntry)
+ * Executa até 7 chamadas paralelas para um único fixture.
+ * Retorna o objeto apiData esperado pelo PackBallMapper.
+ *
+ * @param {{ fixture, liga }} fixtureEntry
+ * @returns {object} apiData
+ */
+async function fetchAllData({ fixture, liga }) {
+  const fixtureId = fixture?.fixture?.id;
+  const homeId    = fixture?.teams?.home?.id;
+  const awayId    = fixture?.teams?.away?.id;
+  const leagueId  = liga.id;
+  const season    = liga.season;
+
+  const [
+    homeStats,
+    awayStats,
+    homeGamesRaw,
+    awayGamesRaw,
+    h2hRaw,
+    predictionsRaw,
+    oddsRaw,
+  ] = await Promise.all([
+    // /teams/statistics (home)
+    apiFetch('/teams/statistics', { team: homeId, league: leagueId, season }),
+    // /teams/statistics (away)
+    apiFetch('/teams/statistics', { team: awayId, league: leagueId, season }),
+    // /fixtures?team=home&last=10 — últimos 10 jogos do time casa
+    apiFetch('/fixtures', { team: homeId, last: 10, status: 'FT' }),
+    // /fixtures?team=away&last=10 — últimos 10 jogos do time fora
+    apiFetch('/fixtures', { team: awayId, last: 10, status: 'FT' }),
+    // /fixtures/headtohead
+    apiFetch('/fixtures/headtohead', { h2h: `${homeId}-${awayId}`, last: 10 }),
+    // /predictions
+    apiFetch('/predictions', { fixture: fixtureId }),
+    // /odds (bookmaker=6)
+    apiFetch('/odds', { fixture: fixtureId, bookmaker: 6 }),
+  ]);
+
+  // Para cada jogo histórico, precisamos das estatísticas individuais
+  // Nota: a API retorna /fixtures?last=10 com statistics embedadas quando usamos
+  // o parâmetro correto. Se não vieram, buscamos separadamente.
+  const homeGames = homeGamesRaw?.response || [];
+  const awayGames = awayGamesRaw?.response || [];
+
+  return {
+    fixture,
+    homeStats:   homeStats?.response,   // objeto único (não array)
+    awayStats:   awayStats?.response,
+    homeGames,
+    awayGames,
+    h2hGames:    h2hRaw?.response     || [],
+    predictions: predictionsRaw,
+    odds:        oddsRaw,
+  };
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// FASE 4 — SALVAR NO SUPABASE
+// ─────────────────────────────────────────────────────────────────
+
+const MKT_TO_LABEL = {
+  over15:   'Over 1.5',
+  over25:   'Over 2.5',
+  btts:     'BTTS',
+  over05ht: 'Over 0.5 HT',
+  under45:  'Under 4.5',
+  under35:  'Under 3.5',
+  esc75:    'Esc 7.5',
+  esc85:    'Esc 8.5',
+  cards25:  'Cart 2.5',
+  cards35:  'Cart 3.5',
+};
+
+/**
+ * upsertFixture(raw, liga)
+ * Upsert na tabela fixtures.
+ */
+async function upsertFixture(raw, liga) {
+  const row = {
+    fixture_id:   raw.fixture_id,
+    league_id:    raw.league_id,
+    league_name:  raw.league_name,
+    season:       raw.season,
+    tier:         liga?.tier || 'normal',
+    match_date:   raw.match_date,
+    home_team:    raw.home_team,
+    away_team:    raw.away_team,
+    home_team_id: null,   // preenchido se disponível no raw
+    away_team_id: null,
+    status:       raw.status || 'NS',
+    updated_at:   new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('fixtures')
+    .upsert(row, { onConflict: 'fixture_id' });
+
+  if (error) throw new Error(`upsertFixture: ${error.message}`);
+}
+
+/**
+ * upsertMetrics(raw, result)
+ * Upsert na tabela match_metrics com variáveis brutas + derivadas.
+ */
+async function upsertMetrics(raw, result) {
+  const d = result.derivadas;
+  const n = result.normalizadas;
+
+  const row = {
+    fixture_id:    raw.fixture_id,
+    // Brutas
+    over15_g:      raw.over15_g,
+    over25_g:      raw.over25_g,
+    exg_h:         raw.exg_h,
+    exg_a:         raw.exg_a,
+    ppg_h:         raw.ppg_h,
+    ppg_a:         raw.ppg_a,
+    h2h_goals:     raw.h2h_goals,
+    avg_sc_h:      raw.avg_sc_h,
+    avg_sc_a:      raw.avg_sc_a,
+    af_avg:        d.af_avg,
+    btts_h:        raw.btts_h,
+    btts_a:        raw.btts_a,
+    btts_cf:       d.btts_cf,
+    over05_ht:     raw.over05_ht,
+    over15_ht:     raw.over15_ht,
+    avg_corners:   raw.avg_corners,
+    over65_c:      raw.over65_c,
+    over75_c:      raw.over75_c,
+    over85_c:      raw.over85_c,
+    avg_cards:     raw.avg_cards,
+    over25_cards:  raw.over25_cards,
+    over35_cards:  raw.over35_cards,
+    avg_shots:     raw.avg_shots,
+    avg_sot:       raw.avg_sot,
+    under25_h:     raw.under25_h,
+    under25_a:     raw.under25_a,
+    // Derivadas
+    exg_tot:       d.exg_tot,
+    ppg_avg:       d.ppg_avg,
+    ppg_min:       d.ppg_min,
+    u25cf:         d.u25cf,
+    // Poisson
+    prob_o15_poisson: result.poisson?.o15 ?? null,
+    prob_o25_poisson: result.poisson?.o25 ?? null,
+    prob_u35_poisson: result.poisson?.u35 ?? null,
+    prob_u45_poisson: result.poisson?.u45 ?? null,
+    // Normalizadas
+    ppg_n:    n.ppg_n,
+    af_n:     n.af_n,
+    exg_n:    n.exg_n,
+    h2h_nv:   n.h2h_nv,
+    cant_n:   n.cant_n,
+    shots_n:  n.shots_n,
+    cards_n:  n.cards_n,
+    sot_n:    n.sot_n,
+    // Odds justas (null por enquanto — calculadas futuramente)
+    odd_justa_15:     raw.odd_justa_15     ?? null,
+    odd_justa_25:     raw.odd_justa_25     ?? null,
+    odd_justa_btts:   raw.odd_justa_btts   ?? null,
+    odd_justa_05ht:   raw.odd_justa_05ht   ?? null,
+    odd_justa_esc85:  raw.odd_justa_esc85  ?? null,
+    odd_justa_cart25: raw.odd_justa_cart25 ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('match_metrics')
+    .upsert(row, { onConflict: 'fixture_id' });
+
+  if (error) throw new Error(`upsertMetrics: ${error.message}`);
+}
+
+/**
+ * upsertOdds(raw)
+ * Substitui todas as odds do fixture (delete + insert).
+ */
+async function upsertOdds(raw) {
+  const oddMap = {
+    'Over 1.5':    raw.odd_o15,
+    'Over 2.5':    raw.odd_o25,
+    'BTTS':        raw.odd_btts,
+    'Over 0.5 HT': raw.odd_05ht,
+    'Under 3.5':   raw.odd_u35,
+    'Under 4.5':   raw.odd_u45,
+    'Esc 7.5':     raw.odd_esc75,
+    'Esc 8.5':     raw.odd_esc85,
+    'Cart 2.5':    raw.odd_c25,
+    'Cart 3.5':    raw.odd_c35,
+  };
+
+  const rows = Object.entries(oddMap)
+    .filter(([_, v]) => v !== null && v !== undefined)
+    .map(([market, odd]) => ({
+      fixture_id:    raw.fixture_id,
+      market,
+      value:        'Over',   // simplificado — refinado futuramente
+      odd,
+      bookmaker_id: 6,
+      bookmaker_name: 'bet365',
+      updated_at:   new Date().toISOString(),
+    }));
+
+  if (rows.length === 0) return;
+
+  // Delete existentes + insert novos
+  await supabase.from('odds').delete().eq('fixture_id', raw.fixture_id);
+
+  const { error } = await supabase.from('odds').insert(rows);
+  if (error) throw new Error(`upsertOdds: ${error.message}`);
+}
+
+/**
+ * upsertPredictions(result)
+ * Salva todos os 10 mercados na tabela predictions.
+ * Marca is_best_market no mercado best_mkt.
+ */
+async function upsertPredictions(result) {
+  const rows = Object.entries(MKT_TO_LABEL).map(([key, market]) => {
+    const score = result.scores[key];
+    if (score === null || score === undefined) return null;
+
+    const grade      = result.grades[key];
+    const odd        = result.odds[key]  ?? null;
+    const ev         = result.evs[key]   ?? null;
+    const isBest     = market === result.best_mkt;
+
+    // Filtros específicos
+    let passedFilter   = false;
+    let under35Passed  = false;
+    if (key === 'over15')  passedFilter  = result.filters.over15_passed;
+    if (key === 'under35') under35Passed = result.filters.under35_passed;
+
+    return {
+      fixture_id:    result.fixture_id,
+      market,
+      score:         Math.round(score * 100) / 100,
+      probability:   Math.round(score * 100) / 100,  // score == probability no PackBall
+      grade,
+      confidence:    PredictionEngine.getConfidence(grade),
+      passed_filter:   passedFilter,
+      under35_passed:  under35Passed,
+      is_best_market:  isBest,
+      odd,
+      odd_justa:     null,
+      ev,
+      created_at:    new Date().toISOString(),
+    };
+  }).filter(Boolean);
+
+  if (rows.length === 0) return;
+
+  // Upsert: onConflict (fixture_id, market)
+  const { error } = await supabase
+    .from('predictions')
+    .upsert(rows, { onConflict: 'fixture_id,market' });
+
+  if (error) throw new Error(`upsertPredictions: ${error.message}`);
+}
+
+/**
+ * upsertSnapshot(result, raw)
+ * Cria/atualiza registro em prediction_snapshots.
+ * Apenas para grade A+ ou A (GRADES_OFICIAIS).
+ *
+ * O snapshot usa o best_mkt — mercado oficial congelado (§7.1).
+ * Preserva resultado se jogo já confirmado (FORCE=false).
+ *
+ * @returns {boolean} true se snapshot foi salvo
+ */
+async function upsertSnapshot(result, raw) {
+  if (!GRADES_OFICIAIS.has(result.best_grade)) return false;
+  if (!result.best_mkt) return false;
+
+  // §2.3: preserva resultado já confirmado se não FORCE
+  if (!FORCE) {
+    const { data: existing } = await supabase
+      .from('prediction_snapshots')
+      .select('id, result_status')
+      .eq('fixture_id', result.fixture_id)
+      .eq('market', result.best_mkt)
+      .single();
+
+    if (existing?.result_status && existing.result_status !== null) {
+      LOG.dim(`    Snapshot ${result.fixture_id} já confirmado (${existing.result_status}) — preservado.`);
+      return false;
+    }
+  }
+
+  // Determina ticket_type (§7.2)
+  let ticketType = null;
+  if (result.best_grade === 'A+' && result.best_score >= TICKET_DIA_MIN_SCORE) {
+    ticketType = 'b_dia';  // Bilhete do Dia
+  } else if (result.best_grade === 'A+') {
+    ticketType = 'b2';     // Elite
+  } else {
+    ticketType = 'b1';     // Premium 4X (Top 4 A+/A)
+  }
+
+  const row = {
+    fixture_id:   result.fixture_id,
+    match_name:   result.jogo,
+    home_team:    result.home_team,
+    away_team:    result.away_team,
+    league_name:  result.league_name,
+    match_date:   result.match_date,
+    market:       result.best_mkt,
+    score:        Math.round(result.best_score * 100) / 100,
+    grade:        result.best_grade,
+    confidence:   result.best_confidence,
+    odd:          result.best_odd  ?? null,
+    odd_justa:    null,
+    ev:           result.best_ev   ?? null,
+    result_status: null,    // preenchido pelo confirmar.py
+    confirmed_at: null,
+    ticket_type:  ticketType,
+    created_at:   new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('prediction_snapshots')
+    .upsert(row, { onConflict: 'fixture_id,market' });
+
+  if (error) throw new Error(`upsertSnapshot: ${error.message}`);
+  return true;
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// FASE 5 — LOG DETALHADO POR FIXTURE
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * printFixtureLog(raw, result, savedSnapshot, validation)
+ * Imprime um log completo e estruturado para um fixture processado.
+ */
+function printFixtureLog(raw, result, savedSnapshot, validation) {
+  const hr = '─'.repeat(64);
+
+  console.log(`\n${hr}`);
+  console.log(` ⚽  ${result.jogo}`);
+  console.log(`     ${result.league_name}  •  ${result.match_date?.slice(0,10)}  •  ${result.hour}`);
+  console.log(`     fixture_id: ${result.fixture_id}  |  status: ${raw.status}`);
+  console.log(hr);
+
+  // Variáveis-chave
+  const d = result.derivadas;
+  console.log(' 📊  Variáveis:');
+  console.log(`     xG:  h=${d.exg_h?.toFixed(2)??'null'} a=${d.exg_a?.toFixed(2)??'null'} tot=${d.exg_tot?.toFixed(2)??'null (sem xG)'}`);
+  console.log(`     PPG: h=${d.ppg_avg?.toFixed(2)??'null'} min=${d.ppg_min?.toFixed(2)??'null'}`);
+  console.log(`     H2H gols: ${raw.h2h_goals?.toFixed(1)??'null'}`);
+  console.log(`     BTTS cf: ${d.btts_cf?.toFixed(1)??'null'}%`);
+  console.log(`     Cantos: avg=${raw.avg_corners?.toFixed(1)??'null'}  over7.5=${raw.over75_c?.toFixed(0)??'null'}%`);
+  console.log(`     Cartões: avg=${raw.avg_cards?.toFixed(1)??'null'}  over2.5=${raw.over25_cards?.toFixed(0)??'null'}%`);
+  if (result.poisson) {
+    console.log(`     Poisson: o15=${result.poisson.o15.toFixed(1)}%  o25=${result.poisson.o25.toFixed(1)}%  u35=${result.poisson.u35.toFixed(1)}%`);
+  }
+
+  // Warnings de validação
+  if (validation.warnings.length > 0) {
+    console.log(` ⚠️   Avisos: ${validation.warnings.join(' | ')}`);
+  }
+
+  // Tabela de scores
+  console.log('\n 🎯  Scores por mercado:');
+  console.log(`     ${'Mercado'.padEnd(14)} ${'Score'.padStart(6)} ${'Grade'.padEnd(4)} ${'Odd'.padStart(6)} ${'EV'.padStart(8)}  Filtro`);
+  console.log(`     ${'-'.repeat(56)}`);
+
+  for (const [key, market] of Object.entries(MKT_TO_LABEL)) {
+    const sc  = result.scores[key];
+    if (sc === null || sc === undefined) continue;
+    const gr  = result.grades[key];
+    const odd = result.odds[key];
+    const ev  = result.evs[key];
+    const isBest = market === result.best_mkt;
+
+    let filtro = '';
+    if (key === 'over15')  filtro = result.filters.over15_passed  ? `✓ Via${result.filters.over15_via}` : '✗';
+    if (key === 'under35') filtro = result.filters.under35_passed ? '✓' : '✗';
+
+    const marker  = isBest ? ' ★' : '  ';
+    const grColor = gr === 'A+' ? '\x1b[32m' : gr === 'A' ? '\x1b[36m' : '\x1b[90m';
+
+    console.log(
+      `  ${marker} ${market.padEnd(14)} ` +
+      `${sc.toFixed(1).padStart(6)} ` +
+      `${grColor}${gr.padEnd(4)}\x1b[0m ` +
+      `${odd !== null ? odd.toFixed(2).padStart(6) : '   n/a'} ` +
+      `${ev !== null ? ((ev >= 0 ? '+' : '') + ev.toFixed(1) + '%').padStart(8) : '     n/a'}  ` +
+      `${filtro}`
+    );
+  }
+
+  // Resultado best_mkt
+  const grColor = result.best_grade === 'A+' ? '\x1b[32m' : result.best_grade === 'A' ? '\x1b[36m' : '\x1b[90m';
+  console.log(`\n     BEST MKT: ${grColor}${result.best_mkt}\x1b[0m  score=${result.best_score?.toFixed(1)}  grade=${grColor}${result.best_grade}\x1b[0m  conf="${result.best_confidence}"`);
+  if (result.best_odd) {
+    console.log(`     Odd: ${result.best_odd.toFixed(2)}  EV: ${result.best_ev !== null ? (result.best_ev >= 0 ? '+' : '') + result.best_ev.toFixed(1) + '%' : 'n/a'}`);
+  }
+
+  // Snapshot
+  if (result.is_official) {
+    const snap = savedSnapshot ? '\x1b[32m✓ snapshot salvo\x1b[0m' : '\x1b[33m⟳ snapshot preservado\x1b[0m';
+    console.log(`     ${snap}  (grade ${result.best_grade} — palpite oficial)`);
+  } else {
+    console.log(`     \x1b[90mNão gera snapshot (grade ${result.best_grade} < A)\x1b[0m`);
+  }
+
+  console.log(hr);
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// PIPELINE PRINCIPAL
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * run()
+ * Ponto de entrada do job. Executa o pipeline completo.
+ */
+async function run() {
+  console.log('\n' + '═'.repeat(64));
+  console.log(' WinMetrics Analytics — Generate Predictions');
+  console.log(` Data: ${TODAY}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}`);
+  console.log('═'.repeat(64) + '\n');
+
+  // Validação de ambiente
+  if (!API_KEY) {
+    LOG.error('API_FOOTBALL_KEY não configurada. Abortando.');
+    process.exit(1);
+  }
+  if (!DRY_RUN && (!SUPABASE_URL || !SUPABASE_KEY)) {
+    LOG.error('SUPABASE_URL ou SUPABASE_SERVICE_KEY não configurados. Use --dry-run para testar sem banco.');
+    process.exit(1);
+  }
+  if (DRY_RUN) {
+    LOG.warn('Modo DRY-RUN: nenhuma escrita no Supabase será feita.');
+  }
+
+  // Estatísticas globais
+  const stats = {
+    fixtures_total: 0, fixtures_ok: 0, fixtures_error: 0,
+    snapshots: 0, grades_ap: 0, grades_a: 0, grades_b: 0,
+    markets_scored: 0, errors: [],
+  };
+
+  // ── FASE 1: Buscar fixtures ──────────────────────────────────
+  const fixtureEntries = await fetchTodayFixtures();
+  stats.fixtures_total = fixtureEntries.length;
+
+  if (fixtureEntries.length === 0) {
+    LOG.warn('Nenhuma fixture encontrada para hoje. Encerrando.');
+    return;
+  }
+
+  // ── PROCESSAR CADA FIXTURE ───────────────────────────────────
+  for (const entry of fixtureEntries) {
+    const fixtureId = entry.fixture?.fixture?.id;
+
+    try {
+      // ── FASE 2: Coletar dados ──────────────────────────────
+      LOG.info(`Coletando fixture ${fixtureId} — ${entry.fixture?.teams?.home?.name} vs ${entry.fixture?.teams?.away?.name}`);
+      const apiData = await fetchAllData(entry);
+
+      // ── FASE 3: Mapear + validar + calcular ─────────────────
+      const raw        = PackBallMapper.mapFixtureToPackBall(apiData);
+      const validation = PackBallMapper.validatePackBallInput(raw);
+
+      if (!validation.valid) {
+        LOG.warn(`  Fixture ${fixtureId} inválida:`, validation.critical.join(', '));
+        stats.fixtures_error++;
+        stats.errors.push({ fixtureId, errors: validation.critical });
+        continue;
+      }
+
+      const result = PredictionEngine.processFixture(raw);
+
+      // Contabiliza grades
+      const g = result.best_grade;
+      if (g === 'A+') stats.grades_ap++;
+      else if (g === 'A') stats.grades_a++;
+      else if (g === 'B') stats.grades_b++;
+
+      const scoredMarkets = Object.values(result.scores).filter(s => s !== null).length;
+      stats.markets_scored += scoredMarkets;
+
+      // ── FASE 4: Salvar no Supabase ─────────────────────────
+      let savedSnapshot = false;
+
+      if (!DRY_RUN && supabase) {
+        await upsertFixture(raw, entry.liga);
+        await upsertMetrics(raw, result);
+        await upsertOdds(raw);
+        await upsertPredictions(result);
+        savedSnapshot = await upsertSnapshot(result, raw);
+
+        if (savedSnapshot) stats.snapshots++;
+        LOG.ok(`  Salvo: fixture ${fixtureId}  ${scoredMarkets} mercados  ${savedSnapshot ? 'snapshot ✓' : ''}`);
+      } else if (DRY_RUN) {
+        // Em dry-run: simula o snapshot se elegível
+        savedSnapshot = result.is_official;
+        if (savedSnapshot) stats.snapshots++;
+        LOG.ok(`  [DRY-RUN] ${fixtureId}  ${scoredMarkets} mercados  best=${result.best_mkt} grade=${result.best_grade}`);
+      }
+
+      // ── FASE 5: Log detalhado ──────────────────────────────
+      printFixtureLog(raw, result, savedSnapshot, validation);
+
+      stats.fixtures_ok++;
+
+    } catch (err) {
+      LOG.error(`  Erro no fixture ${fixtureId}:`, err.message);
+      stats.fixtures_error++;
+      stats.errors.push({ fixtureId, error: err.message });
+    }
+
+    // Pausa entre fixtures para respeitar rate limit
+    await delay(200);
+  }
+
+  // ── FASE 6: Resumo final ─────────────────────────────────────
+  printSummary(stats);
+}
+
+/**
+ * printSummary(stats)
+ */
+function printSummary(stats) {
+  const hr = '═'.repeat(64);
+  console.log('\n' + hr);
+  console.log(' RESUMO FINAL');
+  console.log(hr);
+  console.log(` Fixtures processadas: ${stats.fixtures_ok}/${stats.fixtures_total}  (${stats.fixtures_error} erros)`);
+  console.log(` Mercados calculados:  ${stats.markets_scored}`);
+  console.log(` Snapshots criados:    ${stats.snapshots}`);
+  console.log(` Grades:  A+=${stats.grades_ap}  A=${stats.grades_a}  B=${stats.grades_b}`);
+  if (stats.errors.length > 0) {
+    console.log('\n Erros:');
+    stats.errors.forEach(e => console.log(`   fixture ${e.fixtureId}: ${e.errors || e.error}`));
+  }
+  console.log(hr + '\n');
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// EXEMPLO COMPLETO — runExample()
+// Executa com dados mockados para demonstração sem API real
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * runExample()
+ * Demonstra o pipeline completo com dados mockados.
+ * Invocado automaticamente quando não há API_KEY configurada.
+ */
+async function runExample() {
+  console.log('\n' + '═'.repeat(64));
+  console.log(' MODO EXEMPLO — dados mockados (sem API real)');
+  console.log('═'.repeat(64));
+
+  // ── Entrada API-Football simulada ────────────────────────────
+  const mockApiData = {
+    fixture: {
+      fixture: { id: 1049201, date: '2026-06-10T22:00:00+00:00', status: { short: 'NS', long: 'Not Started' } },
+      league:  { id: 71, name: 'Brasileirão Série A', season: 2026 },
+      teams:   { home: { id: 119, name: 'Flamengo' }, away: { id: 121, name: 'Palmeiras' } },
+      goals:   { home: null, away: null },
+      score:   { halftime: { home: null, away: null } },
+    },
+    homeStats: { response: {
+      fixtures: { played: { total: 19 }, wins: { total: 12 }, draws: { total: 4 }, loses: { total: 3 } },
+      goals: { for: { average: { total: '1.8' }, total: { total: 34 } }, against: { average: { total: '0.9' }, total: { total: 17 } } },
+    }},
+    awayStats: { response: {
+      fixtures: { played: { total: 19 }, wins: { total: 11 }, draws: { total: 5 }, loses: { total: 3 } },
+      goals: { for: { average: { total: '1.6' }, total: { total: 30 } }, against: { average: { total: '1.0' }, total: { total: 19 } } },
+    }},
+    homeGames: Array(10).fill(null).map((_, i) => ({
+      score: { halftime: { home: i % 3 === 0 ? 1 : 0, away: i % 4 === 0 ? 1 : 0 } },
+      statistics: [
+        { team: { id: 119 }, statistics: [
+          { type: 'Corner Kicks', value: 5 + (i % 4) }, { type: 'Yellow Cards', value: 2 },
+          { type: 'Red Cards', value: 0 }, { type: 'Total Shots', value: 13 + i }, { type: 'Shots on Goal', value: 4 + (i % 2) },
+        ]},
+        { team: { id: 999 }, statistics: [
+          { type: 'Corner Kicks', value: 4 + (i % 3) }, { type: 'Yellow Cards', value: 1 + (i % 2) },
+          { type: 'Red Cards', value: 0 }, { type: 'Total Shots', value: 9 + i }, { type: 'Shots on Goal', value: 3 },
+        ]},
+      ],
+    })),
+    awayGames: Array(10).fill(null).map((_, i) => ({
+      score: { halftime: { home: i % 4 === 0 ? 1 : 0, away: i % 5 === 0 ? 1 : 0 } },
+      statistics: [
+        { team: { id: 121 }, statistics: [
+          { type: 'Corner Kicks', value: 5 + (i % 3) }, { type: 'Yellow Cards', value: 2 + (i % 2) },
+          { type: 'Red Cards', value: i % 5 === 0 ? 1 : 0 }, { type: 'Total Shots', value: 12 + i }, { type: 'Shots on Goal', value: 4 },
+        ]},
+        { team: { id: 800 }, statistics: [
+          { type: 'Corner Kicks', value: 3 }, { type: 'Yellow Cards', value: 2 },
+          { type: 'Red Cards', value: 0 }, { type: 'Total Shots', value: 10 }, { type: 'Shots on Goal', value: 3 },
+        ]},
+      ],
+    })),
+    h2hGames: [
+      { goals: { home: 2, away: 1 } }, { goals: { home: 0, away: 0 } }, { goals: { home: 3, away: 2 } },
+      { goals: { home: 1, away: 1 } }, { goals: { home: 2, away: 0 } }, { goals: { home: 1, away: 2 } },
+      { goals: { home: 0, away: 1 } }, { goals: { home: 2, away: 2 } }, { goals: { home: 1, away: 0 } },
+      { goals: { home: 3, away: 1 } },
+    ],
+    predictions: { response: [{ predictions: {
+      percent: { home: '55%', draw: '25%', away: '20%' },
+    }, comparison: { goals: { home: '53%', away: '47%' } }}]},
+    odds: { response: [{ bookmakers: [{ id: 6, name: 'Bet365', bets: [
+      { id: 5, name: 'Goals Over/Under', values: [
+        { value: 'Over 1.5', odd: '1.22' }, { value: 'Over 2.5', odd: '1.72' },
+        { value: 'Under 3.5', odd: '1.44' }, { value: 'Under 4.5', odd: '1.12' },
+      ]},
+      { id: 8, name: 'Both Teams Score', values: [{ value: 'Yes', odd: '1.85' }]},
+      { id: 45, name: 'Total Corners', values: [
+        { value: 'Over 7.5', odd: '1.90' }, { value: 'Over 8.5', odd: '2.35' },
+      ]},
+      { id: 46, name: 'Total Cards', values: [
+        { value: 'Over 2.5', odd: '1.75' }, { value: 'Over 3.5', odd: '2.90' },
+      ]},
+    ]}]}]},
+  };
+
+  console.log('\n📥  FASE 1 — Entrada API-Football (resumo):');
+  console.log(`    fixture_id: ${mockApiData.fixture.fixture.id}`);
+  console.log(`    jogo:       ${mockApiData.fixture.teams.home.name} vs ${mockApiData.fixture.teams.away.name}`);
+  console.log(`    liga:       ${mockApiData.fixture.league.name}`);
+  console.log(`    homeStats:  played=${mockApiData.homeStats.response.fixtures.played.total}  goals_for_avg=${mockApiData.homeStats.response.goals.for.average.total}`);
+  console.log(`    h2h:        ${mockApiData.h2hGames.length} jogos`);
+  console.log(`    odds:       ${mockApiData.odds.response[0].bookmakers[0].bets.reduce((a,b) => a + b.values.length, 0)} valores`);
+
+  // ── FASE 2: Mapear ───────────────────────────────────────────
+  const raw = PackBallMapper.mapFixtureToPackBall(mockApiData);
+  console.log('\n📦  FASE 2 — Objeto RAW (packball_mapper.js):');
+  console.log(JSON.stringify(raw, (k, v) => v !== null ? v : undefined, 2));
+
+  // ── FASE 3: Validar ──────────────────────────────────────────
+  const validation = PackBallMapper.validatePackBallInput(raw);
+  console.log('\n🔍  FASE 3 — Validação:');
+  console.log(`    valid: ${validation.valid}  critical: ${validation.critical.length}  warnings: ${validation.warnings.length}`);
+  validation.info.forEach(i => console.log(`    → ${i}`));
+  if (validation.warnings.length) validation.warnings.forEach(w => console.log(`    ⚠ ${w}`));
+
+  // ── FASE 4: Motor ────────────────────────────────────────────
+  const result = PredictionEngine.processFixture(raw);
+  console.log('\n🔢  FASE 4 — PredictionEngine.processFixture():');
+  console.log(`    exg_tot=${result.derivadas.exg_tot?.toFixed(2)}  ppg_avg=${result.derivadas.ppg_avg?.toFixed(2)}`);
+  if (result.poisson) {
+    console.log(`    Poisson: o15=${result.poisson.o15.toFixed(1)}%  o25=${result.poisson.o25.toFixed(1)}%  u35=${result.poisson.u35.toFixed(1)}%`);
+  }
+
+  // ── FASE 5: Log completo ─────────────────────────────────────
+  printFixtureLog(raw, result, result.is_official, validation);
+
+  // ── FASE 6: Registro Supabase (simulado) ─────────────────────
+  console.log('\n💾  FASE 5 — Registros que seriam salvos no Supabase:');
+
+  console.log('\n  fixtures:');
+  console.log(`    fixture_id=${raw.fixture_id}  league_id=${raw.league_id}  match_date=${raw.match_date?.slice(0,10)}`);
+  console.log(`    home="${raw.home_team}"  away="${raw.away_team}"  status="${raw.status}"`);
+
+  console.log('\n  match_metrics:');
+  console.log(`    fixture_id=${raw.fixture_id}  over15_g=${raw.over15_g}  exg_h=${raw.exg_h}  exg_a=${raw.exg_a}`);
+  console.log(`    ppg_h=${result.derivadas.ppg_avg?.toFixed(3)}  h2h_goals=${raw.h2h_goals}  avg_corners=${raw.avg_corners?.toFixed(1)}`);
+
+  console.log('\n  odds (linhas inseridas):');
+  const oddMap = {
+    'Over 1.5': raw.odd_o15, 'Over 2.5': raw.odd_o25, 'BTTS': raw.odd_btts,
+    'Esc 7.5': raw.odd_esc75, 'Esc 8.5': raw.odd_esc85, 'Cart 2.5': raw.odd_c25,
+  };
+  Object.entries(oddMap).filter(([,v])=>v).forEach(([m,o]) => console.log(`    ${m.padEnd(12)} odd=${o}`));
+
+  console.log('\n  predictions (todos os 10 mercados):');
+  Object.entries(MKT_TO_LABEL).forEach(([key, market]) => {
+    const sc = result.scores[key];
+    if (sc === null) return;
+    const gr = result.grades[key];
+    const isBest = market === result.best_mkt;
+    console.log(`    ${(isBest ? '★ ' : '  ')}${market.padEnd(14)} score=${sc.toFixed(1).padStart(5)}  grade=${gr}  is_best=${isBest}`);
+  });
+
+  if (result.is_official) {
+    console.log('\n  prediction_snapshots:');
+    console.log(`    fixture_id=${result.fixture_id}  match_name="${result.jogo}"`);
+    console.log(`    market="${result.best_mkt}"  score=${result.best_score?.toFixed(1)}  grade=${result.best_grade}`);
+    console.log(`    confidence="${result.best_confidence}"  odd=${result.best_odd}  ev=${result.best_ev}`);
+    console.log(`    result_status=null  (aguardando confirmar.js)`);
+  } else {
+    console.log(`\n  prediction_snapshots: não gerado (grade ${result.best_grade} < A)`);
+  }
+
+  console.log('\n' + '═'.repeat(64));
+  console.log(' Exemplo concluído. Configure API_FOOTBALL_KEY para execução real.');
+  console.log('═'.repeat(64) + '\n');
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// ENTRY POINT
+// ─────────────────────────────────────────────────────────────────
+
+if (!API_KEY) {
+  // Sem chave configurada → executa o exemplo de demonstração
+  runExample().catch(err => {
+    LOG.error('Erro no exemplo:', err.message);
+    process.exit(1);
+  });
+} else {
+  // Com chave configurada → executa o pipeline real
+  run().catch(err => {
+    LOG.error('Erro fatal:', err.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  run, runExample,
+  fetchTodayFixtures, fetchAllData,
+  upsertFixture, upsertMetrics, upsertOdds, upsertPredictions, upsertSnapshot,
+  blockedName, printFixtureLog, printSummary,
+};
