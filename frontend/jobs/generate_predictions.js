@@ -1106,6 +1106,14 @@ async function runExample() {
 // ─────────────────────────────────────────────────────────────────
 
 if (!MOCK_TO_SUPABASE) {
+  // ── Diagnóstico de variáveis de ambiente ─────────────────────
+  console.log('--- ENV CHECK ---');
+  console.log('API_FOOTBALL_KEY:    ', !!process.env.API_FOOTBALL_KEY, process.env.API_FOOTBALL_KEY ? '(set, length=' + process.env.API_FOOTBALL_KEY.length + ')' : '(EMPTY)');
+  console.log('SUPABASE_URL:        ', !!process.env.SUPABASE_URL,      process.env.SUPABASE_URL      ? '(set)' : '(EMPTY)');
+  console.log('SUPABASE_SERVICE_KEY:', !!process.env.SUPABASE_SERVICE_KEY, process.env.SUPABASE_SERVICE_KEY ? '(set)' : '(EMPTY)');
+  console.log('API_KEY (const):     ', !!API_KEY, '→ entra em', !API_KEY ? 'runExample()' : 'run()');
+  console.log('-----------------');
+
   if (!API_KEY) {
     // Sem chave configurada → executa o exemplo de demonstração
     runExample().catch(err => {
