@@ -393,23 +393,41 @@ async function fetchAllData({ fixture, liga }) {
     awayGamesRaw,
     h2hRaw,
     predictionsRaw,
-    oddsRaw,
   ] = await Promise.all([
     // /teams/statistics (home)
     apiFetch('/teams/statistics', { team: homeId, league: leagueId, season }),
     // /teams/statistics (away)
     apiFetch('/teams/statistics', { team: awayId, league: leagueId, season }),
-    // /fixtures?team=home&last=10 — últimos 10 jogos do time casa
+    // /fixtures?team=home&last=10
     apiFetch('/fixtures', { team: homeId, last: 10, status: 'FT' }),
-    // /fixtures?team=away&last=10 — últimos 10 jogos do time fora
+    // /fixtures?team=away&last=10
     apiFetch('/fixtures', { team: awayId, last: 10, status: 'FT' }),
     // /fixtures/headtohead
     apiFetch('/fixtures/headtohead', { h2h: `${homeId}-${awayId}`, last: 10 }),
     // /predictions
     apiFetch('/predictions', { fixture: fixtureId }),
-    // /odds (bookmaker=6)
-    apiFetch('/odds', { fixture: fixtureId, bookmaker: 6 }),
   ]);
+
+  // ── Odds com fallback real ────────────────────────────────
+  // Tentativa 1: bookmaker=6 (Bet365)
+  let oddsRaw = await apiFetch('/odds', { fixture: fixtureId, bookmaker: 6 });
+  const hasOdds1 = Array.isArray(oddsRaw?.response) && oddsRaw.response.length > 0;
+
+  if (!hasOdds1) {
+    LOG.dim(`  Odds bookmaker=6 vazias para fixture ${fixtureId} — tentando sem filtro de bookmaker...`);
+    // Tentativa 2: qualquer bookmaker
+    oddsRaw = await apiFetch('/odds', { fixture: fixtureId });
+    const hasOdds2 = Array.isArray(oddsRaw?.response) && oddsRaw.response.length > 0;
+
+    if (!hasOdds2) {
+      LOG.dim(`  Odds indisponíveis para este fixture — odd=null ev=null`);
+      oddsRaw = { response: [] };  // garante estrutura válida, não quebra pipeline
+    } else {
+      const bms = oddsRaw.response.flatMap(i => i?.bookmakers || []);
+      const names = [...new Set(bms.map(b => `${b.name}(${b.id})`))].join(', ');
+      LOG.dim(`  Odds via fallback — bookmakers: ${names}`);
+    }
+  }
 
   // ── ODDS AUDIT ────────────────────────────────────────────
   (function auditOdds() {
