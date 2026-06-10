@@ -486,10 +486,10 @@ async function getCurrentProfile() {
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <div class="user-pill" id="user-pill">
-        <div class="user-avatar">JS</div>
+        <div class="user-avatar" id="user-avatar-topbar">--</div>
         <div>
-          <span class="user-name">João Silva</span>
-          <span class="user-pro">PRO</span>
+          <span class="user-name" id="user-name-topbar">Carregando...</span>
+          <span class="user-pro" id="user-pro-topbar">--</span>
         </div>
         <svg style="width:13px;height:13px;stroke:var(--dim);fill:none" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
       
@@ -1029,6 +1029,41 @@ window.toggleSidebar = function () {
     setTimeout(syncDropdownHeader, 800);
   }
 })();
+
+<script>
+// Popula o user-pill do topbar com dados reais do Supabase (mesmo padrão de conta.html)
+async function verificarUsuario() {
+  const { data: authData } = await supabaseClient.auth.getUser()
+  const user = authData?.user
+  if (!user) {
+    _setTopbar('--', 'Visitante', 'GRATUITO')
+    return
+  }
+
+  // Buscar profile na tabela profiles
+  const { data: profile } = await supabaseClient
+    .from('profiles')
+    .select('id, email, name, plan')
+    .eq('id', user.id)
+    .single()
+
+  const email  = (profile && profile.email) || user.email || ''
+  const nome   = (profile && profile.name)  || email.split('@')[0] || 'Usuário'
+  const planRaw = ((profile && profile.plan) || 'free').toLowerCase()
+  const plano  = planRaw === 'pro' ? 'PRO' : planRaw === 'elite' ? 'ELITE' : 'GRATUITO'
+  const iniciais = nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
+
+  _setTopbar(iniciais || '?', nome, plano)
+}
+
+function _setTopbar(avatar, nome, plano) {
+  const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v }
+  s('user-avatar-topbar', avatar)
+  s('user-name-topbar', nome)
+  s('user-pro-topbar', plano)
+}
+
+document.addEventListener('DOMContentLoaded', verificarUsuario)
 </script>
 </body>
 </html>
