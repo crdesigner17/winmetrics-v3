@@ -351,6 +351,34 @@ async function fetchTodayFixtures() {
  * @param {{ fixture, liga }} fixtureEntry
  * @returns {object} apiData
  */
+async function enrichGamesWithStatistics(games, maxGames = 10) {
+  const list = (games || []).slice(0, maxGames);
+  const enriched = [];
+
+  for (const game of list) {
+    const fixtureId = game?.fixture?.id;
+
+    if (!fixtureId) {
+      enriched.push(game);
+      continue;
+    }
+
+    const statsRaw = await apiFetch('/fixtures/statistics', {
+      fixture: fixtureId,
+    });
+
+    enriched.push({
+      ...game,
+      statistics: statsRaw?.response || [],
+    });
+
+    // Pequena pausa para reduzir risco de rate limit ao enriquecer jogos históricos.
+    await delay(120);
+  }
+
+  return enriched;
+}
+
 async function fetchAllData({ fixture, liga }) {
   const fixtureId = fixture?.fixture?.id;
   const homeId    = fixture?.teams?.home?.id;
@@ -383,19 +411,29 @@ async function fetchAllData({ fixture, liga }) {
     apiFetch('/odds', { fixture: fixtureId, bookmaker: 6 }),
   ]);
 
-  // Para cada jogo histórico, precisamos das estatísticas individuais
-  // Nota: a API retorna /fixtures?last=10 com statistics embedadas quando usamos
-  // o parâmetro correto. Se não vieram, buscamos separadamente.
-  const homeGames = homeGamesRaw?.response || [];
-  const awayGames = awayGamesRaw?.response || [];
+  // /fixtures?team&last=10 não traz statistics embutido de forma confiável.
+  // Para cantos, cartões, chutes e SOT, enriquecemos cada fixture histórico
+  // com /fixtures/statistics?fixture=ID antes de enviar ao PackBallMapper.
+  const homeGamesBase = homeGamesRaw?.response || [];
+  const awayGamesBase = awayGamesRaw?.response || [];
+
+  const homeGames = await enrichGamesWithStatistics(homeGamesBase, 10);
+  const awayGames = await enrichGamesWithStatistics(awayGamesBase, 10);
 
   return {
     fixture,
-    homeStats:   homeStats?.response,   // objeto único (não array)
-    awayStats:   awayStats?.response,
+
+    // Manter o wrapper completo porque o PackBallMapper espera homeStats.response
+    // e awayStats.response. Antes era enviado apenas homeStats.response, causando
+    // ppg_h/exg_h/avg_sc_h/btts_h/under25_h nulos.
+    homeStats,
+    awayStats,
+
     homeGames,
     awayGames,
-    h2hGames:    h2hRaw?.response     || [],
+    h2hGames:    h2hRaw?.response || [],
+
+    // Manter resposta completa; o mapper já normaliza predictions.response[0].
     predictions: predictionsRaw,
     odds:        oddsRaw,
   };
