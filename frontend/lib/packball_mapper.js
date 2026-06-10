@@ -32,13 +32,15 @@ const PackBallMapper = (function () {
 
   // Nomes de mercado na API de odds (bookmaker=6, bet365-like)
   const ODD_MARKET_NAMES = {
-    over15:   ['Goals Over/Under', 'Total Goals', 'Match Goals'],
-    over25:   ['Goals Over/Under', 'Total Goals', 'Match Goals'],
-    btts:     ['Both Teams Score', 'Both Teams To Score', 'BTTS'],
-    corners75: ['Asian Corners', 'Total Corners', 'Corners Over/Under'],
-    corners85: ['Asian Corners', 'Total Corners', 'Corners Over/Under'],
-    cards25:  ['Total Cards', 'Booking Points', 'Cards Over/Under'],
-    cards35:  ['Total Cards', 'Booking Points', 'Cards Over/Under'],
+    over15:    ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
+    over25:    ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
+    under35:   ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
+    under45:   ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
+    btts:      ['Both Teams Score', 'Both Teams To Score', 'BTTS', 'Both Teams to Score'],
+    corners75: ['Asian Corners', 'Total Corners', 'Corners Over/Under', 'Corner Line'],
+    corners85: ['Asian Corners', 'Total Corners', 'Corners Over/Under', 'Corner Line'],
+    cards25:   ['Total Cards', 'Booking Points', 'Cards Over/Under', 'Total Bookings'],
+    cards35:   ['Total Cards', 'Booking Points', 'Cards Over/Under', 'Total Bookings'],
   };
 
   // Nomes de estatística nos objetos /fixtures/statistics
@@ -107,20 +109,36 @@ const PackBallMapper = (function () {
    */
   function _extractOdd(bets, marketNames, targetValue) {
     if (!Array.isArray(bets)) return null;
+    const target = targetValue.toLowerCase().trim();
+    // Pre-build normalised target variants
+    // e.g. "Over 1.5" → also match "Goals Over 1.5", "Total Over 1.5", "1.5"
+    const numPart = target.replace(/[^0-9.]/g, '');  // "1.5"
+    const overUnder = target.startsWith('over') ? 'over' : target.startsWith('under') ? 'under' : null;
+
     for (const bet of bets) {
       if (!bet || !bet.name) continue;
-      const nameMatch = marketNames.some(mn =>
-        bet.name.toLowerCase().includes(mn.toLowerCase())
-      );
+      const betNameLower = bet.name.toLowerCase();
+      const nameMatch = marketNames.some(mn => betNameLower.includes(mn.toLowerCase()));
       if (!nameMatch) continue;
+
       const values = bet.values || [];
       for (const v of values) {
-        if (!v) continue;
-        const val = String(v.value || '').toLowerCase().trim();
-        const target = targetValue.toLowerCase().trim();
-        // Exact match OR strip "goals " prefix (API sometimes returns "Goals Over 1.5")
-        const valClean = val.replace(/^goals\s+/,'').replace(/^total\s+/,'');
-        if (val === target || valClean === target) {
+        if (!v || v.value === null || v.value === undefined) continue;
+        const val = String(v.value).toLowerCase().trim();
+
+        // 1. Exact match
+        if (val === target) { return _num(v.odd); }
+
+        // 2. Strip common prefixes: "goals over 1.5" → "over 1.5"
+        const stripped = val
+          .replace(/^goals\s+/, '')
+          .replace(/^total\s+/, '')
+          .replace(/^match\s+/, '')
+          .trim();
+        if (stripped === target) { return _num(v.odd); }
+
+        // 3. Numeric + direction: val contains same number and same over/under direction
+        if (overUnder && numPart && val.includes(numPart) && val.includes(overUnder)) {
           return _num(v.odd);
         }
       }
@@ -460,44 +478,58 @@ const PackBallMapper = (function () {
       odd_05ht: null, odd_u35: null, odd_u45: null,
       odd_esc75: null, odd_esc85: null,
       odd_c25: null, odd_c35: null,
-      odd_justa_15: null, odd_justa_25: null,
+      odd_justa_15: null, odd_justa_25: null, odd_justa_btts: null,
+      odd_justa_05ht: null, odd_justa_esc85: null, odd_justa_cart25: null,
     };
 
     if (!oddsResponse) return nullOdds;
 
-    // Normaliza para array
-    const respArr = Array.isArray(oddsResponse) ? oddsResponse : [oddsResponse];
-    if (respArr.length === 0) return nullOdds;
+    // Handle all API response shapes:
+    // Shape A: { response: [ { bookmakers: [...] } ] }   ← standard
+    // Shape B: [ { bookmakers: [...] } ]                 ← already unwrapped
+    // Shape C: { bookmakers: [...] }                     ← single item
+    // Shape D: { response: [] }                          ← empty (no odds for fixture)
+    let items = [];
+    if (oddsResponse?.response) {
+      items = Array.isArray(oddsResponse.response) ? oddsResponse.response : [oddsResponse.response];
+    } else if (Array.isArray(oddsResponse)) {
+      items = oddsResponse;
+    } else if (oddsResponse?.bookmakers) {
+      items = [oddsResponse];
+    }
 
-    // Tenta bookmaker=6 primeiro, fallback para qualquer
-    let bets = null;
-    for (const item of respArr) {
-      const bookmakers = item.bookmakers || [];
-      const bm6 = bookmakers.find(b => b.id === 6);
-      if (bm6) { bets = bm6.bets; break; }
+    if (items.length === 0) return nullOdds;
+
+    // Flatten all bookmakers from all items
+    const allBookmakers = [];
+    for (const item of items) {
+      const bms = item?.bookmakers || [];
+      allBookmakers.push(...bms);
     }
-    if (!bets) {
-      // Fallback: primeiro bookmaker disponível
-      const bookmakers = respArr[0]?.bookmakers || [];
-      if (bookmakers.length > 0) bets = bookmakers[0].bets;
+    if (allBookmakers.length === 0) return nullOdds;
+
+    // Priority: bookmaker id=6 (Bet365), then any with most bets
+    let chosen = allBookmakers.find(b => b.id === 6);
+    if (!chosen) {
+      chosen = allBookmakers.reduce((best, bm) =>
+        (bm.bets?.length || 0) > (best.bets?.length || 0) ? bm : best
+      , allBookmakers[0]);
     }
-    if (!bets) return nullOdds;
+
+    const bets = chosen?.bets || [];
+    if (bets.length === 0) return nullOdds;
 
     return {
-      // Gols
-      odd_o15:  _extractOdd(bets, ODD_MARKET_NAMES.over15,    'Over 1.5'),
-      odd_o25:  _extractOdd(bets, ODD_MARKET_NAMES.over25,    'Over 2.5'),
-      odd_btts: _extractOdd(bets, ODD_MARKET_NAMES.btts,      'Yes'),
-      odd_05ht: null,  // Over 0.5 HT raramente disponível — sem mapeamento direto
-      odd_u35:  _extractOdd(bets, ODD_MARKET_NAMES.over25,    'Under 3.5'),
-      odd_u45:  _extractOdd(bets, ODD_MARKET_NAMES.over25,    'Under 4.5'),
-      // Escanteios
-      odd_esc75: _extractOdd(bets, ODD_MARKET_NAMES.corners75, 'Over 7.5'),
-      odd_esc85: _extractOdd(bets, ODD_MARKET_NAMES.corners85, 'Over 8.5'),
-      // Cartões
-      odd_c25:  _extractOdd(bets, ODD_MARKET_NAMES.cards25,   'Over 2.5'),
-      odd_c35:  _extractOdd(bets, ODD_MARKET_NAMES.cards35,   'Over 3.5'),
-      // Odds justas (não vêm da API — calculadas pelo motor, passamos null aqui)
+      odd_o15:   _extractOdd(bets, ODD_MARKET_NAMES.over15,   'Over 1.5'),
+      odd_o25:   _extractOdd(bets, ODD_MARKET_NAMES.over25,   'Over 2.5'),
+      odd_btts:  _extractOdd(bets, ODD_MARKET_NAMES.btts,     'Yes'),
+      odd_05ht:  null,  // raramente disponível
+      odd_u35:   _extractOdd(bets, ODD_MARKET_NAMES.under35,  'Under 3.5'),
+      odd_u45:   _extractOdd(bets, ODD_MARKET_NAMES.under45,  'Under 4.5'),
+      odd_esc75: _extractOdd(bets, ODD_MARKET_NAMES.corners75,'Over 7.5'),
+      odd_esc85: _extractOdd(bets, ODD_MARKET_NAMES.corners85,'Over 8.5'),
+      odd_c25:   _extractOdd(bets, ODD_MARKET_NAMES.cards25,  'Over 2.5'),
+      odd_c35:   _extractOdd(bets, ODD_MARKET_NAMES.cards35,  'Over 3.5'),
       odd_justa_15: null, odd_justa_25: null, odd_justa_btts: null,
       odd_justa_05ht: null, odd_justa_esc85: null, odd_justa_cart25: null,
     };
