@@ -411,6 +411,117 @@ async function fetchAllData({ fixture, liga }) {
     apiFetch('/odds', { fixture: fixtureId, bookmaker: 6 }),
   ]);
 
+  // ── ODDS AUDIT ────────────────────────────────────────────
+  (function auditOdds() {
+    const resp = oddsRaw?.response;
+    console.log('\n╔══════════════════════════════════════════════════════');
+    console.log(`║ ODDS AUDIT — fixture ${fixtureId}`);
+    console.log('╠══════════════════════════════════════════════════════');
+    console.log(`║ URL chamada: GET /odds?fixture=${fixtureId}&bookmaker=6`);
+    console.log(`║ oddsRaw keys: ${oddsRaw ? Object.keys(oddsRaw).join(', ') : 'null'}`);
+
+    if (!resp) {
+      console.log('║ response: AUSENTE (oddsRaw.response = undefined)');
+      console.log('╚══════════════════════════════════════════════════════\n');
+      return;
+    }
+
+    if (!Array.isArray(resp) || resp.length === 0) {
+      console.log(`║ response.length: ${Array.isArray(resp) ? 0 : '(não é array) ' + typeof resp}`);
+      console.log('║ ⚠  RESPONSE VAZIO — API não retornou odds para este fixture');
+      console.log('╚══════════════════════════════════════════════════════\n');
+      return;
+    }
+
+    console.log(`║ response.length: ${resp.length}`);
+
+    resp.forEach((item, idx) => {
+      const bms = item?.bookmakers || [];
+      console.log(`║ response[${idx}].bookmakers.length: ${bms.length}`);
+
+      if (bms.length === 0) {
+        console.log(`║   ⚠  Nenhum bookmaker em response[${idx}]`);
+        return;
+      }
+
+      bms.forEach(bm => {
+        const bets = bm?.bets || [];
+        console.log(`║   Bookmaker: ${bm.name} (id=${bm.id})  bets.length=${bets.length}`);
+
+        bets.forEach(bet => {
+          const vals = bet?.values || [];
+          console.log(`║     Market: "${bet.name}"  values.length=${vals.length}`);
+          vals.forEach(v => {
+            console.log(`║       value="${v.value}"  odd=${v.odd}`);
+          });
+        });
+      });
+    });
+
+    // ── Mostrar qual bookmaker seria selecionado e por quê ──
+    const allBms = resp.flatMap(i => i?.bookmakers || []);
+    const bm6 = allBms.find(b => b.id === 6);
+    const chosen = bm6 || (allBms.length > 0
+      ? allBms.reduce((best, bm) => (bm.bets?.length||0) > (best.bets?.length||0) ? bm : best, allBms[0])
+      : null);
+
+    console.log('╠══════════════════════════════════════════════════════');
+    if (!chosen) {
+      console.log('║ ⚠  Nenhum bookmaker válido encontrado → todas odds null');
+    } else {
+      console.log(`║ Bookmaker SELECIONADO: ${chosen.name} (id=${chosen.id})${bm6 ? ' [id=6 encontrado]' : ' [FALLBACK — id=6 ausente]'}`);
+      const bets = chosen.bets || [];
+
+      // ── Cross-reference: expected markets vs found ──
+      const EXPECTED = [
+        { label: 'Over 1.5',   marketHints: ['Goals Over/Under','Total Goals','Match Goals','Over/Under'], value: 'Over 1.5'  },
+        { label: 'Over 2.5',   marketHints: ['Goals Over/Under','Total Goals','Match Goals','Over/Under'], value: 'Over 2.5'  },
+        { label: 'Under 3.5',  marketHints: ['Goals Over/Under','Total Goals','Match Goals','Over/Under'], value: 'Under 3.5' },
+        { label: 'Under 4.5',  marketHints: ['Goals Over/Under','Total Goals','Match Goals','Over/Under'], value: 'Under 4.5' },
+        { label: 'BTTS',       marketHints: ['Both Teams Score','Both Teams To Score','BTTS'],              value: 'Yes'       },
+        { label: 'Esc Over 7.5',marketHints: ['Asian Corners','Total Corners','Corners Over/Under','Corner Line'], value: 'Over 7.5' },
+        { label: 'Esc Over 8.5',marketHints: ['Asian Corners','Total Corners','Corners Over/Under','Corner Line'], value: 'Over 8.5' },
+        { label: 'Cart Over 2.5',marketHints: ['Total Cards','Booking Points','Cards Over/Under','Total Bookings'], value: 'Over 2.5' },
+        { label: 'Cart Over 3.5',marketHints: ['Total Cards','Booking Points','Cards Over/Under','Total Bookings'], value: 'Over 3.5' },
+      ];
+
+      console.log('╠══════════════════════════════════════════════════════');
+      console.log('║ CROSS-REFERENCE: esperado → encontrado');
+      console.log('║');
+      for (const exp of EXPECTED) {
+        // Find matching bet
+        const matchedBet = bets.find(b =>
+          exp.marketHints.some(h => b.name?.toLowerCase().includes(h.toLowerCase()))
+        );
+        if (!matchedBet) {
+          console.log(`║  ❌ Esperado market "${exp.label}"  → nenhum market encontrado`);
+          console.log(`║     (buscou por: ${exp.marketHints.slice(0,2).join(', ')})`);
+          continue;
+        }
+
+        const target = exp.value.toLowerCase().trim();
+        const matchedVal = (matchedBet.values || []).find(v => {
+          const val = String(v.value||'').toLowerCase().trim();
+          const stripped = val.replace(/^goals\s+/,'').replace(/^total\s+/,'').replace(/^match\s+/,'');
+          const numPart = target.replace(/[^0-9.]/g,'');
+          const dir = target.startsWith('over') ? 'over' : target.startsWith('under') ? 'under' : null;
+          return val === target || stripped === target || (dir && numPart && val.includes(numPart) && val.includes(dir));
+        });
+
+        if (matchedVal) {
+          console.log(`║  ✅ Esperado: "${exp.label}" (value="${exp.value}")`);
+          console.log(`║     Recebido: market="${matchedBet.name}"  value="${matchedVal.value}"  odd=${matchedVal.odd}`);
+        } else {
+          const availableVals = (matchedBet.values||[]).map(v=>v.value).join(', ');
+          console.log(`║  ❌ Esperado: "${exp.label}" (value="${exp.value}")`);
+          console.log(`║     Market encontrado: "${matchedBet.name}"  MAS value="${exp.value}" NÃO encontrado`);
+          console.log(`║     Values disponíveis: ${availableVals}`);
+        }
+      }
+    }
+    console.log('╚══════════════════════════════════════════════════════\n');
+  })();
+
   // /fixtures?team&last=10 não traz statistics embutido de forma confiável.
   // Para cantos, cartões, chutes e SOT, enriquecemos cada fixture histórico
   // com /fixtures/statistics?fixture=ID antes de enviar ao PackBallMapper.
