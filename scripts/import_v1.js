@@ -121,6 +121,8 @@ function buildFixture(jogo, matchDateISO) {
     goals_away:     res.gols_away  ?? null,
     home_team_logo: null,
     away_team_logo: null,
+    best_risk:      jogo.best_risk     ?? null,
+    confidence:     jogo.best_risk     ?? null,  // alias para compatibilidade V3
     source:         'v1_import',
     updated_at:     new Date().toISOString(),
   };
