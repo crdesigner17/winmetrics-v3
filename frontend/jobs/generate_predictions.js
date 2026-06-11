@@ -675,21 +675,20 @@ const MKT_ALT_LABELS = {
  * Upsert na tabela fixtures.
  */
 async function upsertFixture(raw, liga) {
+  // V1_COMPAT: apenas colunas que existem no schema criado para o V1.
+  // league_id, season, tier, home_team_id, away_team_id removidos —
+  // não existem no schema base e causam erro de coluna inexistente.
   const row = {
-    fixture_id:   raw.fixture_id,
-    league_id:    raw.league_id,
-    league_name:  raw.league_name,
-    season:       raw.season,
-    tier:         liga?.tier || 'normal',
-    match_date:   raw.match_date,
+    fixture_id:     raw.fixture_id,
+    league_name:    raw.league_name,
+    match_date:     raw.match_date,
     home_team:      raw.home_team,
     away_team:      raw.away_team,
     home_team_logo: raw.home_team_logo || null,
     away_team_logo: raw.away_team_logo || null,
-    home_team_id:   null,
-    away_team_id:   null,
-    status:       raw.status || 'NS',
-    updated_at:   new Date().toISOString(),
+    status:         raw.status || 'NS',
+    source:         'generate_predictions',
+    updated_at:     new Date().toISOString(),
   };
 
   const { error } = await supabase
@@ -849,23 +848,19 @@ async function upsertPredictions(result) {
     if (key === 'over15')  passedFilter  = result.filters.over15_passed;
     if (key === 'under35') under35Passed = result.filters.under35_passed;
 
+    // V1_COMPAT: apenas colunas que existem no schema base.
+    // Removidos: probability, confidence, odd_justa, ev,
+    //            original_market, is_alternative_line — ausentes no schema.
     return {
-      fixture_id:    result.fixture_id,
+      fixture_id:      result.fixture_id,
       market,
-      score:         Math.round(score * 100) / 100,
-      probability:   Math.round(score * 100) / 100,
+      score:           Math.round(score * 100) / 100,
       grade,
-      confidence:    PredictionEngine.getConfidence(grade),
       passed_filter:   passedFilter,
       under35_passed:  under35Passed,
       is_best_market:  isBest,
       odd,
-      odd_justa:     null,
-      ev,
-      // Metadados de linha alternativa
-      original_market:      altInfo ? altInfo.original_market : null,
-      is_alternative_line:  altInfo ? true : false,
-      created_at:    new Date().toISOString(),
+      created_at:      new Date().toISOString(),
     };
   }).filter(Boolean);
 
@@ -927,32 +922,26 @@ async function upsertSnapshot(result, raw) {
   // altInfoSnap: metadados de linha alternativa para este mercado
   const altInfoSnap = _altForCanonical || null;
 
+  // V1_COMPAT: apenas colunas que existem no schema base criado para o V1.
+  // Removidos: confidence, odd_justa, ev, ticket_type, confirmed_at,
+  //            original_market, final_market, original_line, final_line,
+  //            is_alternative_line — ausentes no schema e causam erro de coluna.
   const row = {
-    fixture_id:   result.fixture_id,
-    match_name:        result.jogo,
-    home_team:         result.home_team,
-    away_team:         result.away_team,
-    home_team_logo:    raw.home_team_logo || null,
-    away_team_logo:    raw.away_team_logo || null,
-    league_name:  result.league_name,
-    match_date:   result.match_date,
-    market:       canonicalMarket,        // sempre o nome V1: 'Esc 7.5', não 'Esc 9.5'
-    score:        Math.round(result.best_score * 100) / 100,
-    grade:        result.best_grade,
-    confidence:   result.best_confidence,
-    odd:          result.best_odd  ?? null,
-    odd_justa:    null,
-    ev:           result.best_ev   ?? null,
-    result_status: null,
-    confirmed_at: null,
-    ticket_type:  ticketType,
-    // Metadados de linha alternativa (somente para referência — não substituem market)
-    original_market:      altInfoSnap ? altInfoSnap.original_market : null,
-    final_market:         altInfoSnap ? altInfoSnap.final_market    : null,
-    original_line:        altInfoSnap ? altInfoSnap.original_line   : null,
-    final_line:           altInfoSnap ? altInfoSnap.final_line      : null,
-    is_alternative_line:  altInfoSnap ? true                        : false,
-    created_at:   new Date().toISOString(),
+    fixture_id:     result.fixture_id,
+    match_name:     result.jogo,
+    home_team:      result.home_team,
+    away_team:      result.away_team,
+    home_team_logo: raw.home_team_logo || null,
+    away_team_logo: raw.away_team_logo || null,
+    league_name:    result.league_name,
+    match_date:     result.match_date,
+    market:         canonicalMarket,    // sempre nome V1 canônico
+    score:          Math.round(result.best_score * 100) / 100,
+    grade:          result.best_grade,
+    odd:            result.best_odd  ?? null,
+    result_status:  null,
+    source:         'generate_predictions',
+    created_at:     new Date().toISOString(),
   };
 
   const { error } = await supabase
