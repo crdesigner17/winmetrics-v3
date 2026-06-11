@@ -442,26 +442,29 @@ const PackBallMapper = (function () {
     const pred = predictionsResp.predictions;
     let over15_g = null, over25_g = null;
 
-    // ── Source 1: comparison.goals (% scoring probability per team)
-    // API v3: comparison.goals = { home: "53%", away: "47%" }
-    // These are P(team scores >= 1). Use them to estimate Over 1.5:
-    //   P(Over 1.5) ≈ 1 - P(home_scores=0) - P(away_scores=0) + P(both_score=0)
-    // Simplified proxy: use the raw comparison.goals fields as-is for over15/over25.
+    // ── Source 0: predictions.under_over (campo direto — idêntico ao V1 coletar.py)
+    // API v3: pred.under_over = { "over": {"1.5": "78%", "2.5": "45%"}, "under": {...} }
+    // Este campo existe em ligas premium (Copa do Mundo, Premier League, etc.)
+    const uo = pred.under_over || {};
+    const uoOver = typeof uo.over === 'object' ? uo.over : {};
+    const _uo15 = _pct(uoOver['1.5'] ?? uo['1.5'] ?? null);
+    const _uo25 = _pct(uoOver['2.5'] ?? uo['2.5'] ?? null);
+    if (_uo15 !== null) over15_g = _uo15;
+    if (_uo25 !== null) over25_g = _uo25;
+
+    // ── Source 1: comparison.goals — só se under_over não disponível
     const comp = predictionsResp.comparison;
-    if (comp && comp.goals) {
-      const ph = _pct(comp.goals.home);  // P(home scores >= 1) %
-      const pa = _pct(comp.goals.away);  // P(away scores >= 1) %
+    if (over15_g === null && comp && comp.goals) {
+      const ph = _pct(comp.goals.home);
+      const pa = _pct(comp.goals.away);
       if (ph !== null && pa !== null) {
-        // Over 1.5 proxy: both teams likely score (p_h * p_a) + either scoring 2+
-        // Simplified: mean of both scoring probabilities scaled to over% range
-        over15_g = Math.min(100, (ph + pa) / 2 * 1.4);  // scale up slightly
+        over15_g = Math.min(100, (ph + pa) / 2 * 1.4);
         over25_g = Math.min(100, (ph + pa) / 2 * 0.9);
       }
     }
 
-    // ── Source 2: predictions.goals.home/away (string like "over 2.5")
-    // Use to adjust if available
-    if (pred.goals) {
+    // ── Source 2: predictions.goals.home/away hint
+    if (over15_g !== null && pred.goals) {
       const goalsHint = String(pred.goals.home || pred.goals.away || '').toLowerCase();
       if (goalsHint.includes('over 2.5') || goalsHint.includes('over 3')) {
         // Strong over signal — boost
@@ -634,9 +637,16 @@ const PackBallMapper = (function () {
     const season      = _num(league.season);
     const status      = fix.status?.short || 'NS';
 
-    // Data e hora separadas
+    // Data e hora — match_date salvo como início do dia BRT (UTC-3)
+    // Jogos às 21h/22h BRT ficam em 00:xx UTC do dia seguinte na API.
+    // Convertendo para data BRT garante que aparecem no dia correto no frontend.
     const rawDate   = fix.date ? new Date(fix.date) : null;
-    const match_date = rawDate ? rawDate.toISOString() : null;
+    const match_date = rawDate ? (() => {
+      const brt = new Date(rawDate.getTime() - 3 * 60 * 60 * 1000);
+      const ymd = brt.toISOString().slice(0, 10);
+      const [y, m, d] = ymd.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1, d, 3, 0, 0)).toISOString();
+    })() : null;
     const hour       = rawDate
       ? rawDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
       : null;
