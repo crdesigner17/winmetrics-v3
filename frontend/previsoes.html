@@ -1047,14 +1047,16 @@ function brtDateStr(date) {
 
 // Converte "YYYY-MM-DD" (data BRT) para ISO UTC correspondente
 function brtDayToISO(ymd, endOfDay) {
-  // "YYYY-MM-DD" em BRT = "YYYY-MM-DDT03:00:00Z" (início) ou "YYYY-MM-DDT02:59:59Z" (fim do dia anterior)
+  // A API-Football armazena match_date em UTC puro (ex: "2026-06-11T00:00:00Z").
+  // Jogos noturnos do Brasil (21h, 22h BRT) ficam em 00:xx UTC do dia seguinte
+  // na data UTC, mas pertencem ao dia BRT anterior.
+  // Solução: usar o dia UTC completo (00:00 a 23:59 UTC) para capturar todos os jogos
+  // cuja data UTC coincide com a data BRT selecionada.
   const [y, m, d] = ymd.split('-').map(Number);
   if (!endOfDay) {
-    // Início do dia BRT = 00:00 BRT = 03:00 UTC
-    return new Date(Date.UTC(y, m - 1, d, 3, 0, 0)).toISOString();
+    return new Date(Date.UTC(y, m - 1, d, 0, 0, 0)).toISOString();
   } else {
-    // Fim do dia BRT = 23:59:59 BRT = 02:59:59 UTC do dia seguinte
-    return new Date(Date.UTC(y, m - 1, d + 1, 2, 59, 59)).toISOString();
+    return new Date(Date.UTC(y, m - 1, d, 23, 59, 59)).toISOString();
   }
 }
 
