@@ -41,8 +41,9 @@ const path  = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 // Carrega os módulos locais relativos a este arquivo
-const PredictionEngine = require('../lib/prediction_engine_v1.js');
-const PackBallMapper   = require('../lib/packball_mapper.js');
+const PredictionEngine       = require('../lib/prediction_engine_v1.js');
+const PackBallMapper         = require('../lib/packball_mapper.js');
+const AltLineResolver        = require('../lib/alternative_line_resolver.js');
 
 
 // ─────────────────────────────────────────────────────────────────
@@ -586,6 +587,17 @@ const MKT_TO_LABEL = {
   cards35:  'Cart 3.5',
 };
 
+// Labels alternativos de mercado (linha alternativa resolve em tempo de execução)
+// Usado para exibição no log e no banco — gerado pelo AltLineResolver
+const MKT_ALT_LABELS = {
+  // Escanteios
+  'Esc 9.5':  'esc75', 'Esc 10.5': 'esc75',
+  'Esc 9.5_85': 'esc85', 'Esc 10.5_85': 'esc85',
+  // Cartões
+  'Cart 4.5': 'cards25', 'Cart 5.5': 'cards25',
+  'Cart 4.5_35': 'cards35', 'Cart 5.5_35': 'cards35',
+};
+
 /**
  * upsertFixture(raw, liga)
  * Upsert na tabela fixtures.
@@ -729,16 +741,32 @@ async function upsertOdds(raw) {
  * upsertPredictions(result)
  * Salva todos os 10 mercados na tabela predictions.
  * Marca is_best_market no mercado best_mkt.
+ * Se houver linha alternativa, usa o label real (ex: Esc 9.5) e
+ * salva os metadados original_market / final_market / is_alternative_line.
  */
 async function upsertPredictions(result) {
-  const rows = Object.entries(MKT_TO_LABEL).map(([key, market]) => {
+  // Monta mapa de overrides de label a partir de altLines
+  const altLabelByKey = {};
+  for (const alt of (result.altLines || [])) {
+    altLabelByKey[alt.mkt_key] = {
+      final_market:    alt.final_market,
+      original_market: alt.original_market,
+      is_alternative_line: true,
+    };
+  }
+
+  const rows = Object.entries(MKT_TO_LABEL).map(([key, marketDefault]) => {
     const score = result.scores[key];
     if (score === null || score === undefined) return null;
 
     const grade      = result.grades[key];
     const odd        = result.odds[key]  ?? null;
     const ev         = result.evs[key]   ?? null;
-    const isBest     = market === result.best_mkt;
+
+    // Aplica label alternativo se houver
+    const altInfo    = altLabelByKey[key];
+    const market     = altInfo ? altInfo.final_market : marketDefault;
+    const isBest     = market === result.best_mkt || marketDefault === result.best_mkt;
 
     // Filtros específicos
     let passedFilter   = false;
@@ -750,7 +778,7 @@ async function upsertPredictions(result) {
       fixture_id:    result.fixture_id,
       market,
       score:         Math.round(score * 100) / 100,
-      probability:   Math.round(score * 100) / 100,  // score == probability no PackBall
+      probability:   Math.round(score * 100) / 100,
       grade,
       confidence:    PredictionEngine.getConfidence(grade),
       passed_filter:   passedFilter,
@@ -759,13 +787,15 @@ async function upsertPredictions(result) {
       odd,
       odd_justa:     null,
       ev,
+      // Metadados de linha alternativa
+      original_market:      altInfo ? altInfo.original_market : null,
+      is_alternative_line:  altInfo ? true : false,
       created_at:    new Date().toISOString(),
     };
   }).filter(Boolean);
 
   if (rows.length === 0) return;
 
-  // Upsert: onConflict (fixture_id, market)
   const { error } = await supabase
     .from('predictions')
     .upsert(rows, { onConflict: 'fixture_id,market' });
@@ -812,6 +842,9 @@ async function upsertSnapshot(result, raw) {
     ticketType = 'b1';     // Premium 4X (Top 4 A+/A)
   }
 
+  // Resolve metadados de linha alternativa para este best_mkt
+  const altInfoSnap = (result.altLines || []).find(a => a.final_market === result.best_mkt);
+
   const row = {
     fixture_id:   result.fixture_id,
     match_name:   result.jogo,
@@ -826,9 +859,15 @@ async function upsertSnapshot(result, raw) {
     odd:          result.best_odd  ?? null,
     odd_justa:    null,
     ev:           result.best_ev   ?? null,
-    result_status: null,    // preenchido pelo confirmar.py
+    result_status: null,
     confirmed_at: null,
     ticket_type:  ticketType,
+    // Metadados de linha alternativa
+    original_market:      altInfoSnap ? altInfoSnap.original_market : null,
+    final_market:         altInfoSnap ? altInfoSnap.final_market    : null,
+    original_line:        altInfoSnap ? altInfoSnap.original_line   : null,
+    final_line:           altInfoSnap ? altInfoSnap.final_line      : null,
+    is_alternative_line:  altInfoSnap ? true                        : false,
     created_at:   new Date().toISOString(),
   };
 
@@ -911,6 +950,19 @@ function printFixtureLog(raw, result, savedSnapshot, validation) {
   console.log(`\n     BEST MKT: ${grColor}${result.best_mkt}\x1b[0m  score=${result.best_score?.toFixed(1)}  grade=${grColor}${result.best_grade}\x1b[0m  conf="${result.best_confidence}"`);
   if (result.best_odd) {
     console.log(`     Odd: ${result.best_odd.toFixed(2)}  EV: ${result.best_ev !== null ? (result.best_ev >= 0 ? '+' : '') + result.best_ev.toFixed(1) + '%' : 'n/a'}`);
+  }
+
+  // Linhas alternativas usadas
+  if (result.altLines && result.altLines.length > 0) {
+    console.log('\n \x1b[33m🔀  Linhas alternativas:\x1b[0m');
+    for (const alt of result.altLines) {
+      console.log(
+        `     ${alt.original_market} → \x1b[33m${alt.final_market}\x1b[0m` +
+        `  odd=${alt.odd_used}  score=${alt.score?.toFixed(1)}` +
+        `  ev=${alt.ev !== null ? (alt.ev >= 0 ? '+' : '') + alt.ev + '%' : 'n/a'}` +
+        `  [linha alternativa — gap=${alt.final_line - alt.original_line}]`
+      );
+    }
   }
 
   // Snapshot
@@ -1010,7 +1062,25 @@ async function run() {
         continue;
       }
 
-      const result = PredictionEngine.processFixture(raw);
+      // ── LINHA ALTERNATIVA (Esc / Cartões) ──────────────────────
+      // Resolve linhas alternativas ANTES do engine, mas APÓS o mapper.
+      // Não altera scores nem fórmulas — apenas preenche raw.odd_* ausentes
+      // com a odd de uma linha próxima, e registra metadados de auditoria.
+      // Uma primeira passagem do engine (sem odds) gera os scores que
+      // servem de critério de aceitação da linha alternativa.
+      const _rawScoresForAlt = PredictionEngine.processFixture(raw).scores;
+      const { raw: rawPatched, labelOverrides, altLines } = AltLineResolver.resolveAlternativeLines(
+        raw,
+        apiData.odds,
+        _rawScoresForAlt
+      );
+
+      if (altLines.length > 0) {
+        AltLineResolver.logAltLines(altLines, raw.fixture_id, LOG);
+      }
+
+      const _resultBase = PredictionEngine.processFixture(rawPatched);
+      const result = AltLineResolver.applyLabelOverrides(_resultBase, labelOverrides, altLines);
 
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
@@ -1194,8 +1264,16 @@ async function runExample() {
   validation.info.forEach(i => console.log(`    → ${i}`));
   if (validation.warnings.length) validation.warnings.forEach(w => console.log(`    ⚠ ${w}`));
 
-  // ── FASE 4: Motor ────────────────────────────────────────────
-  const result = PredictionEngine.processFixture(raw);
+  // ── FASE 4: Motor (com resolver de linha alternativa) ────────
+  const _scoresEx = PredictionEngine.processFixture(raw).scores;
+  const { raw: rawPatchedEx, labelOverrides: loEx, altLines: altLinesEx } =
+    AltLineResolver.resolveAlternativeLines(raw, mockApiData.odds, _scoresEx);
+  if (altLinesEx.length > 0) {
+    console.log('\n🔀  Linhas alternativas resolvidas:');
+    AltLineResolver.logAltLines(altLinesEx, raw.fixture_id, { info: console.log });
+  }
+  const _baseEx = PredictionEngine.processFixture(rawPatchedEx);
+  const result  = AltLineResolver.applyLabelOverrides(_baseEx, loEx, altLinesEx);
   console.log('\n🔢  FASE 4 — PredictionEngine.processFixture():');
   console.log(`    exg_tot=${result.derivadas.exg_tot?.toFixed(2)}  ppg_avg=${result.derivadas.ppg_avg?.toFixed(2)}`);
   if (result.poisson) {
@@ -1453,8 +1531,13 @@ async function runMockToSupabase() {
   LOG.ok('  Validação OK — ' + validation.info.join(' | '));
 
   // ── Fase 2: Motor ─────────────────────────────────────────────
-  LOG.info('Fase 2 — PredictionEngine.processFixture()...');
-  const result = PredictionEngine.processFixture(raw);
+  LOG.info('Fase 2 — PredictionEngine.processFixture() (com linha alternativa)...');
+  const _scoresMock = PredictionEngine.processFixture(raw).scores;
+  const { raw: rawPatchedMock, labelOverrides: loMock, altLines: altLinesMock } =
+    AltLineResolver.resolveAlternativeLines(raw, mockApiData.odds, _scoresMock);
+  if (altLinesMock.length > 0) AltLineResolver.logAltLines(altLinesMock, raw.fixture_id, LOG);
+  const _baseMock = PredictionEngine.processFixture(rawPatchedMock);
+  const result    = AltLineResolver.applyLabelOverrides(_baseMock, loMock, altLinesMock);
   LOG.ok(`  best_mkt="${result.best_mkt}"  score=${result.best_score?.toFixed(1)}  grade=${result.best_grade}  is_official=${result.is_official}`);
 
   // ── Fase 3: Gravar no Supabase — PARA NO PRIMEIRO ERRO ────────
