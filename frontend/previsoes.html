@@ -1091,11 +1091,8 @@ async function fetchSnapshots(page) {
   let q = supabaseClient
     .from('prediction_snapshots')
     .select(
-      'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, league, match_date, ' +
-      'market, score, grade, confidence, odd, odd_value, ev, result_status, ticket_type, ' +
-      'original_line, final_line, is_alternative_line, ' +
-      'goals_home, goals_away, placar, best_risk, via, ' +
-      'fixtures(goals_home, goals_away)',
+      'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, ' +
+      'market, prediction, score, grade, odd, match_date, status, source',
       { count: 'exact' }
     )
     .order('score', { ascending: false })
@@ -1137,13 +1134,13 @@ async function fetchPredictions(fixtureIds) {
 async function fetchLeagues() {
   const { data, error } = await supabaseClient
     .from('prediction_snapshots')
-    .select('league_name, league')
-    .or('league_name.not.is.null,league.not.is.null')
+    .select('league_name')
+    .not('league_name', 'is', null)
     .order('league_name');
   if (error || !data) return [];
   const seen = new Set();
   return data
-    .map(r => r.league_name || r.league)
+    .map(r => r.league_name)
     .filter(l => l && l.trim() && !seen.has(l) && seen.add(l));
 }
 
@@ -1204,13 +1201,11 @@ function confBadge(conf) {
 }
 
 function getConf(snap) {
-  // Tenta confidence (V3), depois best_risk (V1 via import)
-  return snap.confidence || snap.best_risk || null;
+  return null;
 }
 
 function getOdd(snap) {
-  // Aceita odd (V3 canônico), odd_value (legado import_v1), oddVal (V1 direto)
-  const v = snap.odd ?? snap.odd_value ?? snap.oddVal ?? null;
+  const v = snap.odd ?? null;
   return v !== null ? Number(v) : null;
 }
 
@@ -1231,7 +1226,7 @@ function formatDate(isoDate) {
 }
 
 function formatResult(snap) {
-  const status = snap.result_status;
+  const status = snap.status;
   if (!status || status === 'pending' || status === 'null') {
     return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">—</span>';
   }
@@ -1243,8 +1238,8 @@ function formatResult(snap) {
 
 function formatPlacar(snap) {
   // Tenta join com fixtures primeiro, depois fallback nos campos diretos do snapshot
-  const gh = snap.fixtures?.goals_home ?? snap.goals_home ?? null;
-  const ga = snap.fixtures?.goals_away ?? snap.goals_away ?? null;
+  const gh = null;
+  const ga = null;
   if (gh === null || ga === null) return '-';
   return `${gh} - ${ga}`;
 }
@@ -1302,12 +1297,11 @@ function renderRows(snapshots, predictionsMap) {
     const hora      = formatHour(snap.match_date);
     const data      = formatDate(snap.match_date);
     const label     = palpiteLabel(snap);
-    const isAlt     = !!snap.is_alternative_line;
-    const altBadge  = isAlt ? badgeAlt() : '';
+    const altBadge  = '';
     const alts      = getAlternativas(snap.fixture_id, label, predictionsMap);
-    const leagueName = snap.league_name || snap.league || '';
-    const homeTeam   = snap.home_team   || snap.home   || '';
-    const awayTeam   = snap.away_team   || snap.away   || '';
+    const leagueName = snap.league_name || '';
+    const homeTeam   = snap.home_team   || '';
+    const awayTeam   = snap.away_team   || '';
 
     // Escudo: usa URL da API-Football se disponível, senão mostra iniciais
     function logoCell(url, name) {
