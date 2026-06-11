@@ -668,10 +668,12 @@ async function upsertFixture(raw, liga) {
     season:       raw.season,
     tier:         liga?.tier || 'normal',
     match_date:   raw.match_date,
-    home_team:    raw.home_team,
-    away_team:    raw.away_team,
-    home_team_id: null,   // preenchido se disponível no raw
-    away_team_id: null,
+    home_team:      raw.home_team,
+    away_team:      raw.away_team,
+    home_team_logo: raw.home_team_logo || null,
+    away_team_logo: raw.away_team_logo || null,
+    home_team_id:   null,
+    away_team_id:   null,
     status:       raw.status || 'NS',
     updated_at:   new Date().toISOString(),
   };
@@ -905,9 +907,11 @@ async function upsertSnapshot(result, raw) {
 
   const row = {
     fixture_id:   result.fixture_id,
-    match_name:   result.jogo,
-    home_team:    result.home_team,
-    away_team:    result.away_team,
+    match_name:        result.jogo,
+    home_team:         result.home_team,
+    away_team:         result.away_team,
+    home_team_logo:    raw.home_team_logo || null,
+    away_team_logo:    raw.away_team_logo || null,
     league_name:  result.league_name,
     match_date:   result.match_date,
     market:       result.best_mkt,
