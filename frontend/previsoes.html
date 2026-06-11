@@ -1047,16 +1047,19 @@ function brtDateStr(date) {
 
 // Converte "YYYY-MM-DD" (data BRT) para ISO UTC correspondente
 function brtDayToISO(ymd, endOfDay) {
-  // A API-Football armazena match_date em UTC puro (ex: "2026-06-11T00:00:00Z").
-  // Jogos noturnos do Brasil (21h, 22h BRT) ficam em 00:xx UTC do dia seguinte
-  // na data UTC, mas pertencem ao dia BRT anterior.
-  // Solução: usar o dia UTC completo (00:00 a 23:59 UTC) para capturar todos os jogos
-  // cuja data UTC coincide com a data BRT selecionada.
+  // BRT = UTC-3
+  // 00:00 BRT = 03:00 UTC do mesmo dia
+  // 23:59 BRT = 02:59 UTC do dia seguinte
+  // Portanto, para capturar um dia inteiro em BRT:
+  //   início = YYYY-MM-DD 03:00:00 UTC
+  //   fim    = YYYY-MM-DD+1 02:59:59 UTC
   const [y, m, d] = ymd.split('-').map(Number);
   if (!endOfDay) {
-    return new Date(Date.UTC(y, m - 1, d, 0, 0, 0)).toISOString();
+    // 00:00 BRT = 03:00 UTC
+    return new Date(Date.UTC(y, m - 1, d, 3, 0, 0)).toISOString();
   } else {
-    return new Date(Date.UTC(y, m - 1, d, 23, 59, 59)).toISOString();
+    // 23:59:59 BRT = 02:59:59 UTC do dia seguinte
+    return new Date(Date.UTC(y, m - 1, d + 1, 2, 59, 59)).toISOString();
   }
 }
 
@@ -1102,6 +1105,7 @@ async function fetchSnapshots(page) {
       'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, match_date, ' +
       'market, score, grade, confidence, odd, ev, result_status, ticket_type, ' +
       'original_market, final_market, original_line, final_line, is_alternative_line, ' +
+      'goals_home, goals_away, placar, ' +
       'fixtures(goals_home, goals_away)',
       { count: 'exact' }
     )
@@ -1234,9 +1238,11 @@ function formatResult(snap) {
 }
 
 function formatPlacar(snap) {
-  const fx = snap.fixtures;
-  if (!fx || fx.goals_home === null || fx.goals_away === null) return '-';
-  return `${fx.goals_home} - ${fx.goals_away}`;
+  // Tenta join com fixtures primeiro, depois fallback nos campos diretos do snapshot
+  const gh = snap.fixtures?.goals_home ?? snap.goals_home ?? null;
+  const ga = snap.fixtures?.goals_away ?? snap.goals_away ?? null;
+  if (gh === null || ga === null) return '-';
+  return `${gh} - ${ga}`;
 }
 
 function renderAlts(alts) {
