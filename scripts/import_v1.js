@@ -140,11 +140,20 @@ function buildSnapshot(palpite, jogo, matchDateISO) {
     fixture_id:     palpite.fixture_id,
     match_name:     palpite.jogo,
     match_date:     matchDateISO,
-    league:         palpite.liga,
+
+    // Campos canônicos esperados pelo frontend V3
+    league_name:    palpite.liga,
+    home_team:      palpite.home     ?? jogo.home  ?? null,
+    away_team:      palpite.away     ?? jogo.away  ?? null,
     market:         palpite.mkt,
+    odd:            palpite.oddVal   ?? null,
+
+    // Campos legados mantidos para compatibilidade
+    league:         palpite.liga,
+    odd_value:      palpite.oddVal   ?? null,
+
     grade:          palpite.grade,
     score:          palpite.score,
-    odd_value:      palpite.oddVal   ?? null,
     result_status:  resultStatus,
     confirmed_at:   resultStatus ? new Date().toISOString() : null,
 
