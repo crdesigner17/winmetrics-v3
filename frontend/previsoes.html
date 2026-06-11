@@ -341,13 +341,26 @@
 
   /* winscore */
   .winscore-ring {
-    width: 38px; height: 38px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12.5px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
-    position: relative; margin: 0 auto;
+    font-size: 13px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
+    position: relative; margin: 0 auto; flex-shrink: 0;
   }
-  /* drawn via SVG circle inside */
+
+  /* ── RESULTADO badges ── */
+  .result-green {
+    display: inline-block; padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    background: rgba(0,210,160,.15); color: #00d2a0;
+    border: 1px solid rgba(0,210,160,.3);
+  }
+  .result-red {
+    display: inline-block; padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    background: rgba(255,94,106,.12); color: #ff5e6a;
+    border: 1px solid rgba(255,94,106,.3);
+  }
 
   /* ev+ */
   .ev-val { font-size: 14px; font-weight: 700; color: var(--green); font-family: 'Rajdhani', sans-serif; }
@@ -1173,15 +1186,15 @@ function badgeAlt() {
 }
 
 function ringHtml(val, color) {
-  const r = 16, c = 2 * Math.PI * r;
+  const r = 18, c = 2 * Math.PI * r;
   const dash = (val / 100) * c;
   return `<div class="winscore-ring">
-    <svg width="38" height="38" viewBox="0 0 38 38" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">
-      <circle cx="19" cy="19" r="${r}" fill="none" stroke="#2a2f44" stroke-width="2.5"/>
-      <circle cx="19" cy="19" r="${r}" fill="none" stroke="${color}" stroke-width="2.5"
+    <svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">
+      <circle cx="22" cy="22" r="${r}" fill="none" stroke="#2a2f44" stroke-width="3"/>
+      <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="3"
         stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" stroke-linecap="round"/>
     </svg>
-    <span style="position:relative;z-index:1;font-size:12px;font-weight:700;">${val}</span>
+    <span style="position:relative;z-index:1;font-size:13px;font-weight:700;color:${color}">${val}</span>
   </div>`;
 }
 
@@ -1209,10 +1222,13 @@ function formatDate(isoDate) {
 
 function formatResult(snap) {
   const status = snap.result_status;
-  if (!status) return '<span style="color:var(--text-muted);font-size:12px">Pendente</span>';
-  if (status === 'green') return '<span class="result-green">GREEN</span>';
-  if (status === 'red')   return '<span class="result-red">RED</span>';
-  return '<span style="color:var(--text-muted);font-size:12px">Void</span>';
+  if (!status || status === 'pending' || status === 'null') {
+    return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">—</span>';
+  }
+  if (status === 'green') return '<span class="result-green">✓ GREEN</span>';
+  if (status === 'red')   return '<span class="result-red">✗ RED</span>';
+  if (status === 'void')  return '<span style="color:var(--text-muted);font-size:11px;border:1px solid var(--border);padding:3px 8px;border-radius:5px">VOID</span>';
+  return '<span style="color:var(--text-muted);font-size:11px">' + status + '</span>';
 }
 
 function formatPlacar(snap) {
