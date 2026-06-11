@@ -734,7 +734,7 @@ async function processarFixture(fix, liga, teamCache, fixtureCache) {
 
     avg_shots_h: rsH.avg_shots ?? null, avg_shots_a: rsA.avg_shots ?? null,
     avg_sot_h:   rsH.avg_sot   ?? null, avg_sot_a:   rsA.avg_sot   ?? null,
-    avg_sot,
+    avg_sot:     avgSot,
     avg_shots:   avgShots,
 
     avg_corners,
