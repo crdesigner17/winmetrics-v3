@@ -509,7 +509,8 @@ const PackBallMapper = (function () {
     if (allBookmakers.length === 0) return nullOdds;
 
     // Priority: bookmaker id=6 (Bet365), then any with most bets
-    let chosen = allBookmakers.find(b => b.id === 6);
+    // Use Number() to handle cases where the API returns id as string "6"
+    let chosen = allBookmakers.find(b => Number(b.id) === 6);
     if (!chosen) {
       chosen = allBookmakers.reduce((best, bm) =>
         (bm.bets?.length || 0) > (best.bets?.length || 0) ? bm : best
@@ -517,9 +518,14 @@ const PackBallMapper = (function () {
     }
 
     const bets = chosen?.bets || [];
-    if (bets.length === 0) return nullOdds;
+    if (bets.length === 0) {
+      if (process.env.DEBUG_ODDS === '1') {
+        console.log(`[ODDS_TRACE] chosen bookmaker id=${chosen?.id} name="${chosen?.name}" has 0 bets → nullOdds`);
+      }
+      return nullOdds;
+    }
 
-    return {
+    const extracted = {
       odd_o15:   _extractOdd(bets, ODD_MARKET_NAMES.over15,   'Over 1.5'),
       odd_o25:   _extractOdd(bets, ODD_MARKET_NAMES.over25,   'Over 2.5'),
       odd_btts:  _extractOdd(bets, ODD_MARKET_NAMES.btts,     'Yes'),
@@ -533,6 +539,17 @@ const PackBallMapper = (function () {
       odd_justa_15: null, odd_justa_25: null, odd_justa_btts: null,
       odd_justa_05ht: null, odd_justa_esc85: null, odd_justa_cart25: null,
     };
+
+    if (process.env.DEBUG_ODDS === '1') {
+      const oddsFound = Object.entries(extracted).filter(([k, v]) => v !== null && !k.startsWith('odd_justa'));
+      const oddsNull  = Object.entries(extracted).filter(([k, v]) => v === null && !k.startsWith('odd_justa'));
+      console.log(`[ODDS_TRACE] bookmaker="${chosen.name}"(id=${chosen.id}) bets=${bets.length}`);
+      console.log(`[ODDS_TRACE] ✅ extraídas (${oddsFound.length}): ${oddsFound.map(([k,v])=>`${k}=${v}`).join(' | ')}`);
+      if (oddsNull.length > 0)
+        console.log(`[ODDS_TRACE] ❌ não encontradas (${oddsNull.length}): ${oddsNull.map(([k])=>k).join(', ')}`);
+    }
+
+    return extracted;
   }
 
 
@@ -682,6 +699,11 @@ const PackBallMapper = (function () {
     const allOdds = _extractAllOdds(
       Array.isArray(odds?.response) ? odds.response : odds
     );
+
+    if (process.env.DEBUG_ODDS === '1') {
+      const nonNull = Object.entries(allOdds).filter(([k, v]) => v !== null && !k.startsWith('odd_justa'));
+      console.log(`[MAPPER] fixture_id=${fixture_id} — allOdds non-null: ${nonNull.length} → ${nonNull.map(([k,v])=>`${k}=${v}`).join(', ') || 'NONE'}`);
+    }
 
     // ── Montar objeto raw ────────────────────────────────────────
     return {
