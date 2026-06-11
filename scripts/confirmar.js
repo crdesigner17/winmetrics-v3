@@ -139,7 +139,7 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
         ? json.errors
         : Object.values(json?.errors || {});
       const quotaError = apiErrors.some(e =>
-        typeof e === 'string' && /limit|quota|exceeded|subscribe/i.test(e)
+        typeof e === 'string' && /daily.*(limit|quota|exceeded)|quota.*exceeded|requests.*limit.*exceeded|upgrade.*plan/i.test(e)
       );
       if (quotaError) {
         LOG.error('Quota da API esgotada. Encerrando confirmar.');
