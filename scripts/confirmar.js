@@ -238,8 +238,8 @@ function calcResultStatus(market, resultado) {
 async function fetchSnapshotsPendentes(dateStr) {
   // Converte YYYY-MM-DD BRT para range UTC
   const [y, m, d] = dateStr.split('-').map(Number);
-  const start = new Date(Date.UTC(y, m - 1, d, 3, 0, 0)).toISOString();
-  const end   = new Date(Date.UTC(y, m - 1, d + 1, 2, 59, 59)).toISOString();
+  const start = new Date(Date.UTC(y, m - 1, d, 0, 0, 0)).toISOString();
+  const end   = new Date(Date.UTC(y, m - 1, d, 23, 59, 59)).toISOString();
 
   let q = supabase
     .from('prediction_snapshots')
