@@ -277,11 +277,12 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     margin-bottom: 18px;
   }
 
-  table { width: 100%; border-collapse: collapse; }
+  table { width: 100%; min-width: 1040px; border-collapse: collapse; table-layout: fixed; }
   thead tr {
     background: var(--bg-card2);
     border-bottom: 1px solid var(--border);
@@ -304,6 +305,18 @@
   tbody tr:hover { background: var(--bg-hover); }
 
   td { padding: 13px 16px; font-size: 13.5px; vertical-align: middle; }
+  th.col-star, td.col-star { width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; }
+  th.col-game, td.col-game { width: 28%; text-align: left; }
+  th.col-date, td.col-date { width: 82px; text-align: center; }
+  th.col-pick, td.col-pick { width: 150px; text-align: center; }
+  th.col-alts, td.col-alts { width: 130px; text-align: center; }
+  th.col-score, td.col-score { width: 84px; text-align: center; }
+  th.col-odd, td.col-odd { width: 126px; text-align: center; }
+  th.col-scoreboard, td.col-scoreboard { width: 78px; text-align: center; }
+  th.col-result, td.col-result { width: 92px; text-align: center; }
+  th.col-confidence, td.col-confidence { width: 122px; text-align: center; }
+  .table-wrap thead th:not(.col-game),
+  .table-wrap tbody td:not(.col-game) { text-align: center; }
 
   /* star */
   .star-btn { cursor: pointer; color: var(--text-muted); transition: color .15s; }
@@ -311,24 +324,31 @@
   .star-btn svg { width: 16px; height: 16px; }
 
   /* game cell */
-  .game-cell { display: flex; align-items: center; gap: 10px; }
-  .team-logos { display: flex; align-items: center; position: relative; width: 50px; flex-shrink: 0; }
-  .team-logo {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: var(--bg-card2);
-    border: 2px solid var(--bg-card);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; overflow: hidden;
-  }
-  .team-logo:last-child { position: absolute; left: 18px; }
-  .team-logo img { width: 100%; height: 100%; object-fit: cover; }
-
-  .game-info {}
-  .game-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+  .game-cell { display: flex; align-items: center; min-width: 0; }
+  .game-info { min-width: 0; }
+  .game-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .game-sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 1px; }
 
   /* mercado */
   .mercado-cell { font-size: 13px; color: var(--text-secondary); }
+  .best-pick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 104px;
+    max-width: 100%;
+    padding: 7px 12px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, rgba(0,210,160,.18), rgba(108,99,255,.16));
+    border: 1px solid rgba(0,210,160,.42);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: normal;
+    text-align: center;
+  }
 
   /* prob */
   .prob-cell { min-width: 90px; }
@@ -338,13 +358,21 @@
 
   /* odd */
   .odd-val { font-size: 15px; font-weight: 600; color: var(--purple); font-family: 'Rajdhani', sans-serif; }
+  .odd-unavailable {
+    display: inline-block;
+    max-width: 100%;
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    line-height: 1.25;
+    white-space: normal;
+  }
 
   /* winscore */
   .winscore-ring {
-    width: 44px; height: 44px;
+    width: 36px; height: 36px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
     position: relative; margin: 0 auto; flex-shrink: 0;
   }
 
@@ -367,8 +395,11 @@
 
   /* confiança badge */
   .conf-badge {
-    display: inline-block; padding: 4px 11px; border-radius: 6px;
-    font-size: 12px; font-weight: 700; letter-spacing: .3px;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 90px;
+    padding: 7px 12px; border-radius: 7px;
+    font-size: 13px; font-weight: 800; letter-spacing: .3px;
+    font-family: 'Rajdhani', sans-serif;
   }
   .conf-elite { background: rgba(124,58,237,.25); color: #c4b5fd; border: 1px solid rgba(124,58,237,.4); }
   .conf-alta { background: var(--alta); color: var(--alta-text); border: 1px solid rgba(0,210,160,.3); }
@@ -917,14 +948,16 @@ async function getCurrentProfile() {
       <table>
         <thead>
           <tr>
-            <th style="width:32px"></th>
-            <th>JOGO</th>
-            <th>MERCADO</th>
-            <th class="center">PROB. IA <span class="sort-arrow">↓</span></th>
-            <th class="center">ODD</th>
-            <th class="center">WIN SCORE ⓘ</th>
-            <th class="center">EV+ ⓘ</th>
-            <th class="center">CONFIANÇA</th>
+            <th class="col-star"></th>
+            <th class="col-game">JOGO</th>
+            <th class="col-date center">DATA</th>
+            <th class="col-pick center">MELHOR PALPITE</th>
+            <th class="col-alts center">ALTERNATIVAS</th>
+            <th class="col-score center">WIN SCORE</th>
+            <th class="col-odd center">ODD</th>
+            <th class="col-scoreboard center">PLACAR</th>
+            <th class="col-result center">RESULTADO</th>
+            <th class="col-confidence center">CONFIANÇA</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -1178,15 +1211,15 @@ function badgeAlt() {
 }
 
 function ringHtml(val, color) {
-  const r = 18, c = 2 * Math.PI * r;
+  const r = 15, c = 2 * Math.PI * r;
   const dash = (val / 100) * c;
   return `<div class="winscore-ring">
-    <svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">
-      <circle cx="22" cy="22" r="${r}" fill="none" stroke="#2a2f44" stroke-width="3"/>
-      <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+    <svg width="36" height="36" viewBox="0 0 36 36" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">
+      <circle cx="18" cy="18" r="${r}" fill="none" stroke="#2a2f44" stroke-width="3"/>
+      <circle cx="18" cy="18" r="${r}" fill="none" stroke="${color}" stroke-width="3"
         stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" stroke-linecap="round"/>
     </svg>
-    <span style="position:relative;z-index:1;font-size:13px;font-weight:700;color:${color}">${val}</span>
+    <span style="position:relative;z-index:1;font-size:12px;font-weight:700;color:${color}">${val}</span>
   </div>`;
 }
 
@@ -1194,14 +1227,14 @@ function confBadge(conf) {
   // Suporta valores do V3 (Elite/Alta) e do V1 (Confiança Alta/Média/Moderado)
   if (!conf) return `<span class="conf-badge conf-media">—</span>`;
   const c = conf.toLowerCase();
-  if (c === 'elite' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
-  if (c === 'alta' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Alta</span>`;
+  if (c === 'elite' || c === 'a+' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
+  if (c === 'alta' || c === 'a' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Alta</span>`;
   if (c === 'confiança média' || c === 'moderado') return `<span class="conf-badge conf-media">Média</span>`;
   return `<span class="conf-badge conf-media">—</span>`;
 }
 
 function getConf(snap) {
-  return null;
+  return snap.confidence || snap.best_confidence || snap.conf || snap.grade || null;
 }
 
 function getOdd(snap) {
@@ -1290,7 +1323,7 @@ function renderRows(snapshots, predictionsMap) {
   tbody.innerHTML = snapshots.map(snap => {
     const score  = Number(snap.score) || 0;
     const odd    = getOdd(snap);
-    const oddStr = odd !== null ? odd.toFixed(2) : '—';
+    const oddStr = odd !== null ? odd.toFixed(2) : 'ODD não disponível';
     const ev     = snap.ev !== null && snap.ev !== undefined
       ? (snap.ev >= 0 ? '+' : '') + Number(snap.ev).toFixed(1) + '%'
       : 'n/a';
@@ -1300,45 +1333,30 @@ function renderRows(snapshots, predictionsMap) {
     const altBadge  = '';
     const alts      = getAlternativas(snap.fixture_id, label, predictionsMap);
     const leagueName = snap.league_name || '';
-    const homeTeam   = snap.home_team   || '';
-    const awayTeam   = snap.away_team   || '';
-
-    // Escudo: usa URL da API-Football se disponível, senão mostra iniciais
-    function logoCell(url, name) {
-      if (url) {
-        return `<div class="team-logo"><img src="${url}" alt="${name}" style="width:100%;height:100%;object-fit:contain;border-radius:50%" onerror="this.parentElement.innerHTML='<span style=\"font-size:11px;font-weight:700;color:var(--text-secondary)\">' + (name||'').slice(0,3).toUpperCase() + '</span>'" /></div>`;
-      }
-      return `<div class="team-logo" style="font-size:11px;font-weight:700;color:var(--text-secondary)">${(name||'').slice(0,3).toUpperCase()}</div>`;
-    }
-
     return `
   <tr>
-    <td><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
-    <td>
+    <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
+    <td class="col-game">
       <div class="game-cell">
-        <div class="team-logos">
-          ${logoCell(snap.home_team_logo, homeTeam)}
-          ${logoCell(snap.away_team_logo, awayTeam)}
-        </div>
         <div class="game-info">
           <div class="game-name">${snap.match_name || ''}</div>
           <div class="game-sub">${leagueName} • ${hora}</div>
         </div>
       </div>
     </td>
-    <td class="center" style="font-size:12px;color:var(--text-secondary);white-space:nowrap">
+    <td class="col-date" style="font-size:12px;color:var(--text-secondary);white-space:nowrap">
       <div style="font-weight:600;color:var(--text-primary)">${data}</div>
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
-    <td class="mercado-cell">
-      <span style="font-weight:600">${label}</span>${altBadge}
+    <td class="col-pick mercado-cell">
+      <span class="best-pick">${label}</span>${altBadge}
     </td>
-    <td style="padding:10px 12px;">${renderAlts(alts)}</td>
-    <td class="center">${ringHtml(score, ringColor(score))}</td>
-    <td class="center"><span class="odd-val">${oddStr}</span></td>
-    <td class="center">${formatPlacar(snap)}</td>
-    <td class="center">${formatResult(snap)}</td>
-    <td class="center">${confBadge(getConf(snap))}</td>
+    <td class="col-alts" style="padding:10px 12px;">${renderAlts(alts)}</td>
+    <td class="col-score">${ringHtml(score, ringColor(score))}</td>
+    <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
+    <td class="col-scoreboard">${formatPlacar(snap)}</td>
+    <td class="col-result">${formatResult(snap)}</td>
+    <td class="col-confidence">${confBadge(getConf(snap))}</td>
   </tr>`;
   }).join('');
 }
@@ -1584,16 +1602,16 @@ function initFilterModal() {
 document.addEventListener('DOMContentLoaded', () => {
   const thead = document.querySelector('thead tr');
   if (thead) thead.innerHTML = `
-    <th style="width:32px"></th>
-    <th>JOGO</th>
-    <th class="center">DATA</th>
-    <th>PALPITE</th>
-    <th>ALTERNATIVAS</th>
-    <th class="center">WIN SCORE ⓘ</th>
-    <th class="center">ODD</th>
-    <th class="center">PLACAR</th>
-    <th class="center">RESULTADO</th>
-    <th class="center">CONFIANÇA</th>
+    <th class="col-star"></th>
+    <th class="col-game">JOGO</th>
+    <th class="col-date center">DATA</th>
+    <th class="col-pick center">MELHOR PALPITE</th>
+    <th class="col-alts center">ALTERNATIVAS</th>
+    <th class="col-score center">WIN SCORE</th>
+    <th class="col-odd center">ODD</th>
+    <th class="col-scoreboard center">PLACAR</th>
+    <th class="col-result center">RESULTADO</th>
+    <th class="col-confidence center">CONFIANÇA</th>
   `;
 
   initTabs();
