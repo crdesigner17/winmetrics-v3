@@ -1105,10 +1105,11 @@ async function fetchSnapshots(page) {
       'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, match_date, ' +
       'market, score, grade, confidence, odd, ev, result_status, ticket_type, ' +
       'original_market, final_market, original_line, final_line, is_alternative_line, ' +
-      'goals_home, goals_away, placar, ' +
+      'goals_home, goals_away, placar, best_risk, via, ' +
       'fixtures(goals_home, goals_away)',
       { count: 'exact' }
     )
+    .order('match_date', { ascending: false })
     .order('score', { ascending: false })
     .in('grade', ['A+', 'A'])
     .range(offset, offset + PAGE_SIZE - 1);
@@ -1205,9 +1206,18 @@ function ringHtml(val, color) {
 }
 
 function confBadge(conf) {
-  if (conf === 'Elite') return `<span class="conf-badge conf-elite">Elite</span>`;
-  if (conf === 'Alta')  return `<span class="conf-badge conf-alta">Alta</span>`;
-  return `<span class="conf-badge conf-media">Moderado</span>`;
+  // Suporta valores do V3 (Elite/Alta) e do V1 (Confiança Alta/Média/Moderado)
+  if (!conf) return `<span class="conf-badge conf-media">—</span>`;
+  const c = conf.toLowerCase();
+  if (c === 'elite' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
+  if (c === 'alta' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Alta</span>`;
+  if (c === 'confiança média' || c === 'moderado') return `<span class="conf-badge conf-media">Média</span>`;
+  return `<span class="conf-badge conf-media">—</span>`;
+}
+
+function getConf(snap) {
+  // Tenta confidence (V3), depois best_risk (V1 via import)
+  return snap.confidence || snap.best_risk || null;
 }
 
 const ringColor = v => v >= 90 ? '#a78bfa' : v >= 85 ? '#6c63ff' : '#00d2a0';
@@ -1335,7 +1345,7 @@ function renderRows(snapshots, predictionsMap) {
     <td class="center"><span class="ev-val" style="color:${snap.ev >= 0 ? 'var(--green)' : '#ff5e6a'}">${ev}</span></td>
     <td class="center">${formatPlacar(snap)}</td>
     <td class="center">${formatResult(snap)}</td>
-    <td class="center">${confBadge(snap.confidence)}</td>
+    <td class="center">${confBadge(getConf(snap))}</td>
   </tr>`;
   }).join('');
 }
