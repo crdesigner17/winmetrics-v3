@@ -657,6 +657,12 @@ const PredictionEngine = (function () {
    *   ]
    *   best = max(candidatos, key=lambda x: x[1] if x[2] else 0)
    *
+   * V1 COMPAT: passed_filtro (over15_passed) afeta APENAS a elegibilidade
+   * do Over 1.5. Todos os outros mercados têm eligible=true.
+   * O resultado do selectBestMkt (best_mkt) é válido para snapshot
+   * independentemente do over15_passed — se outro mercado venceu, é esse
+   * que vai para o banco, sem nenhuma barreira adicional.
+   *
    * Nota: a documentação lista 8 candidatos (inclui Over 1.5 e Under 3.5
    * com filtros, mas não inclui Esc 8.5 e Cart 3.5 explicitamente).
    * Esc 8.5 e Cart 3.5 são scores calculados mas não estão nos candidatos
