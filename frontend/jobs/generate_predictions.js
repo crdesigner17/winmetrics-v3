@@ -70,28 +70,64 @@ const LIMIT     = limitArg ? Math.max(1, parseInt(limitArg, 10) || 1) : null;
 
 // Ligas suportadas (§2.2)
 const LIGAS = [
-  { id: 2,   season: 2025, name: 'Champions League',    tier: 'elite'  },
-  { id: 39,  season: 2025, name: 'Premier League',      tier: 'elite'  },
-  { id: 140, season: 2025, name: 'La Liga',             tier: 'elite'  },
-  { id: 135, season: 2025, name: 'Serie A',             tier: 'elite'  },
-  { id: 78,  season: 2025, name: 'Bundesliga',          tier: 'elite'  },
-  { id: 61,  season: 2025, name: 'Ligue 1',             tier: 'elite'  },
-  { id: 88,  season: 2025, name: 'Eredivisie',          tier: 'normal' },
-  { id: 94,  season: 2025, name: 'Liga Portugal',       tier: 'normal' },
-  { id: 13,  season: 2026, name: 'Copa Libertadores',   tier: 'elite'  },
-  { id: 1,   season: 2026, name: 'FIFA World Cup',      tier: 'elite'  },
-  { id: 71,  season: 2026, name: 'Brasileirão Série A', tier: 'normal' },
-  { id: 72,  season: 2026, name: 'Brasileirão Série B', tier: 'normal' },
-  { id: 75,  season: 2026, name: 'Copa do Brasil',      tier: 'normal' },
-  { id: 10,  season: 2026, name: 'Friendlies',          tier: 'normal' },
-  { id: 960, season: 2025, name: 'UEFA Nations League', tier: 'normal' },
+  // ── Tier elite ────────────────────────────────────────────────
+  { id: 2,   season: 2025, name: 'Champions League',          tier: 'elite'  },
+  { id: 3,   season: 2025, name: 'UEFA Europa League',        tier: 'elite'  },
+  { id: 39,  season: 2025, name: 'Premier League',            tier: 'elite'  },
+  { id: 140, season: 2025, name: 'La Liga',                   tier: 'elite'  },
+  { id: 135, season: 2025, name: 'Serie A',                   tier: 'elite'  },
+  { id: 78,  season: 2025, name: 'Bundesliga',                tier: 'elite'  },
+  { id: 61,  season: 2025, name: 'Ligue 1',                   tier: 'elite'  },
+  { id: 13,  season: 2026, name: 'Copa Libertadores',         tier: 'elite'  },
+  { id: 1,   season: 2026, name: 'FIFA World Cup',            tier: 'elite'  },
+  { id: 15,  season: 2025, name: 'FIFA Club World Cup',       tier: 'elite'  },
+  // ── Tier normal — Europa ──────────────────────────────────────
+  { id: 848, season: 2025, name: 'UEFA Europa Conference League', tier: 'normal' },
+  { id: 40,  season: 2025, name: 'Championship',              tier: 'normal' },
+  { id: 141, season: 2025, name: 'La Liga 2',                 tier: 'normal' },
+  { id: 79,  season: 2025, name: '2. Bundesliga',             tier: 'normal' },
+  { id: 62,  season: 2025, name: 'Ligue 2',                   tier: 'normal' },
+  { id: 88,  season: 2025, name: 'Eredivisie',                tier: 'normal' },
+  { id: 119, season: 2025, name: 'Eerste Divisie',            tier: 'normal' },
+  { id: 94,  season: 2025, name: 'Liga Portugal',             tier: 'normal' },
+  { id: 207, season: 2025, name: 'Super League',              tier: 'normal' },
+  { id: 203, season: 2025, name: 'Super Lig',                 tier: 'normal' },
+  { id: 283, season: 2025, name: 'Superliga',                 tier: 'normal' },
+  { id: 197, season: 2025, name: '1. HNL',                    tier: 'normal' },
+  { id: 103, season: 2026, name: 'Eliteserien',               tier: 'normal' },
+  { id: 307, season: 2025, name: 'Pro League',                tier: 'normal' },
+  { id: 323, season: 2024, name: 'Euro Qualification',        tier: 'normal' },
+  // ── Tier normal — Américas ────────────────────────────────────
+  { id: 11,  season: 2026, name: 'Copa Sudamericana',         tier: 'normal' },
+  { id: 9,   season: 2024, name: 'Copa America',              tier: 'normal' },
+  { id: 71,  season: 2026, name: 'Brasileirão Série A',       tier: 'normal' },
+  { id: 72,  season: 2026, name: 'Brasileirão Série B',       tier: 'normal' },
+  { id: 75,  season: 2026, name: 'Copa do Brasil',            tier: 'normal' },
+  { id: 73,  season: 2026, name: 'Brasileirão Série C',       tier: 'normal' },
+  { id: 475, season: 2026, name: 'Copa do Nordeste',          tier: 'normal' },
+  { id: 474, season: 2026, name: 'Carioca Serie A',           tier: 'normal' },
+  { id: 477, season: 2026, name: 'Paulista A1',               tier: 'normal' },
+  { id: 478, season: 2026, name: 'Mineiro 1',                 tier: 'normal' },
+  { id: 128, season: 2026, name: 'Liga Profesional de Fútbol', tier: 'normal' },
+  { id: 136, season: 2025, name: 'Serie B',                   tier: 'normal' },
+  // ── Tier normal — Mundial / Amistosos ─────────────────────────
+  { id: 10,  season: 2026, name: 'Friendlies',                tier: 'normal' },
+  { id: 960, season: 2025, name: 'UEFA Nations League',       tier: 'normal' },
 ];
 
 // Status de jogo aceitos §2.3
 const VALID_STATUS = new Set(['NS','1H','HT','2H','ET','P','LIVE','FT','AET','PEN']);
 
 // Termos que bloqueiam jogos sub-20/21 §2.3
-const BLOCKED_TERMS = ['U20','U21','U-20','U-21','Under-20','Under-21'];
+const BLOCKED_TERMS = [
+  'women','womens','feminino','feminina','femenino','femenina',
+  'ladies','frauenliga','wpsl','nwsl',
+  'u17','u18','u19','u20','u21','u23',
+  'u-17','u-18','u-19','u-20','u-21','u-23',
+  'under 17','under 18','under 19','under 20','under 21','under 23',
+  'under-17','under-18','under-19','under-20','under-21','under-23',
+  'youth','academy','reserve','reserves','reserva','amateur',
+];
 
 // Grades que geram snapshot (§7.1)
 const GRADES_OFICIAIS = new Set(['A+', 'A']);
