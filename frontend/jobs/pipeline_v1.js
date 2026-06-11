@@ -137,6 +137,23 @@ const supabase = SUPABASE_URL && SUPABASE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } })
   : null;
 
+function compactSnapshotForRealSchema(snapshot) {
+  return {
+    fixture_id:      snapshot.fixture_id,
+    match_name:      snapshot.match_name,
+    home_team:       snapshot.home_team,
+    away_team:       snapshot.away_team,
+    home_team_logo:  snapshot.home_team_logo ?? null,
+    away_team_logo:  snapshot.away_team_logo ?? null,
+    league_name:     snapshot.league_name,
+    market:          snapshot.market,
+    score:           snapshot.score,
+    grade:           snapshot.grade,
+    odd:             snapshot.odd ?? null,
+    match_date:      snapshot.match_date,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────
 // HELPERS MATEMÁTICOS — idênticos ao V1
 // ─────────────────────────────────────────────────────────────────
@@ -797,7 +814,14 @@ async function salvarNoSupabase(jogo, matchDateISO) {
   // quando outro mercado (ex: Esc 7.5, Cart 2.5) venceu a seleção.
   if (!['A+', 'A'].includes(jogo.best_grade)) return false;
 
-  const { error } = await supabase.from('prediction_snapshots').upsert({
+  const { error: delErr } = await supabase
+    .from('prediction_snapshots')
+    .delete()
+    .eq('fixture_id', jogo.fixture_id);
+
+  if (delErr) { LOG.error(`Snapshot delete error: ${delErr.message}`); return false; }
+
+  const { error } = await supabase.from('prediction_snapshots').insert(compactSnapshotForRealSchema({
     fixture_id:   jogo.fixture_id,
     match_name:   jogo.jogo,
     match_date:   matchDateISO,
@@ -808,7 +832,7 @@ async function salvarNoSupabase(jogo, matchDateISO) {
     market:       jogo.best_mkt,
     grade:        jogo.best_grade,
     score:        jogo.best_score,
-    odd_value:    jogo.odds_h ?? null,
+    odd:          jogo.odds_h ?? null,
     result_status: null,
 
     score_over15: jogo.score_15,
@@ -838,7 +862,7 @@ async function salvarNoSupabase(jogo, matchDateISO) {
     away_team_logo: jogo.away_team_logo,
     source:         'pipeline_v1',
     created_at:     new Date().toISOString(),
-  }, { onConflict: 'fixture_id,market' });
+  }));
 
   if (error) { LOG.error(`Snapshot error: ${error.message}`); return false; }
   return true;
