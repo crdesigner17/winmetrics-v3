@@ -1,13 +1,15 @@
 {
   "name": "winmetrics-v3-pipeline",
   "version": "1.0.0",
-  "description": "WinMetrics V3 — Pipeline de geração de previsões",
+  "description": "WinMetrics V3 \u2014 Pipeline de gera\u00e7\u00e3o de previs\u00f5es",
   "main": "frontend/jobs/generate_predictions.js",
   "scripts": {
     "pipeline": "node frontend/jobs/generate_predictions.js",
     "pipeline:dry": "node frontend/jobs/generate_predictions.js --dry-run",
     "backfill": "node scripts/backfill.js",
-    "confirmar": "node scripts/confirmar.js"
+    "confirmar": "node scripts/confirmar.js",
+    "import_v1": "node scripts/import_v1.js",
+    "pipeline_v1": "node frontend/jobs/pipeline_v1.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
