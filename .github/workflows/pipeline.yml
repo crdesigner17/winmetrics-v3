@@ -3,10 +3,10 @@ name: WinMetrics V3 — Pipeline
 on:
   schedule:
     # Roda a cada 6h — distribui a carga e retoma logo após créditos voltarem
-    - cron: '47 3  * * *'   # 03:47 UTC = 00:47 BRT
-    - cron: '47 9  * * *'   # 09:47 UTC = 06:47 BRT
-    - cron: '47 15 * * *'   # 15:47 UTC = 12:47 BRT
-    - cron: '47 21 * * *'   # 21:47 UTC = 18:47 BRT
+    - cron: '55 3  * * *'   # 03:55 UTC = 00:55 BRT
+    - cron: '55 9  * * *'   # 09:55 UTC = 06:55 BRT
+    - cron: '55 15 * * *'   # 15:55 UTC = 12:55 BRT
+    - cron: '55 21 * * *'   # 21:55 UTC = 18:55 BRT
 
   push:
     branches: [main]
