@@ -68,6 +68,20 @@ const TODAY     = dateArg || new Date().toISOString().slice(0, 10);  // YYYY-MM-
 const DAYS      = Math.max(1, Math.min(14, parseInt(daysArg || '1', 10) || 1));
 const LIMIT     = limitArg ? Math.max(1, parseInt(limitArg, 10) || 1) : null;
 
+// ─────────────────────────────────────────────────────────────────
+// MODO COMPATÍVEL V1
+// Ativado por padrão enquanto V1 for fonte de verdade.
+// Desative com --no-v1-compat apenas quando o V3 estiver validado.
+//
+// Com V1_COMPAT_MODE = true:
+//   • Linhas alternativas NÃO são aplicadas (AltLineResolver ignorado)
+//   • market salvo = nome canônico V1 (mkt original, sem final_market)
+//   • passou_filtro afeta apenas a elegibilidade do Over 1.5
+//   • Sem filtros extras por probability / confidence / edge / odd
+//   • Sem filtros por status ou league
+// ─────────────────────────────────────────────────────────────────
+const V1_COMPAT_MODE = !args.includes('--no-v1-compat');
+
 // Ligas suportadas (§2.2)
 const LIGAS = [
   // ── Tier elite ────────────────────────────────────────────────
@@ -1073,6 +1087,11 @@ async function run() {
   if (DRY_RUN) {
     LOG.warn('Modo DRY-RUN: nenhuma escrita no Supabase será feita.');
   }
+  if (V1_COMPAT_MODE) {
+    LOG.info('V1_COMPAT_MODE ativo: AltLineResolver desabilitado, market = nome canônico V1.');
+  } else {
+    LOG.warn('V1_COMPAT_MODE desativado (--no-v1-compat): linhas alternativas habilitadas.');
+  }
 
   // Estatísticas globais
   const stats = {
@@ -1133,24 +1152,35 @@ async function run() {
       }
 
       // ── LINHA ALTERNATIVA (Esc / Cartões) ──────────────────────
-      // Resolve linhas alternativas ANTES do engine, mas APÓS o mapper.
-      // Não altera scores nem fórmulas — apenas preenche raw.odd_* ausentes
-      // com a odd de uma linha próxima, e registra metadados de auditoria.
-      // Uma primeira passagem do engine (sem odds) gera os scores que
-      // servem de critério de aceitação da linha alternativa.
-      const _rawScoresForAlt = PredictionEngine.processFixture(raw).scores;
-      const { raw: rawPatched, labelOverrides, altLines } = AltLineResolver.resolveAlternativeLines(
-        raw,
-        apiData.odds,
-        _rawScoresForAlt
-      );
+      // V1_COMPAT_MODE: AltLineResolver desativado.
+      // O mercado exibido deve ser sempre o nome canônico V1 (mkt original).
+      // Linhas alternativas só são aplicadas quando --no-v1-compat for passado.
+      let result;
+      if (V1_COMPAT_MODE) {
+        // Modo compatível: engine direto, sem override de label nem alt lines
+        result = PredictionEngine.processFixture(raw);
+        result.altLines = [];  // garante que altLines exista e esteja vazio
+      } else {
+        // Modo V3 nativo: resolve linhas alternativas antes do engine
+        // Resolve linhas alternativas ANTES do engine, mas APÓS o mapper.
+        // Não altera scores nem fórmulas — apenas preenche raw.odd_* ausentes
+        // com a odd de uma linha próxima, e registra metadados de auditoria.
+        // Uma primeira passagem do engine (sem odds) gera os scores que
+        // servem de critério de aceitação da linha alternativa.
+        const _rawScoresForAlt = PredictionEngine.processFixture(raw).scores;
+        const { raw: rawPatched, labelOverrides, altLines } = AltLineResolver.resolveAlternativeLines(
+          raw,
+          apiData.odds,
+          _rawScoresForAlt
+        );
 
-      if (altLines.length > 0) {
-        AltLineResolver.logAltLines(altLines, raw.fixture_id, LOG);
+        if (altLines.length > 0) {
+          AltLineResolver.logAltLines(altLines, raw.fixture_id, LOG);
+        }
+
+        const _resultBase = PredictionEngine.processFixture(rawPatched);
+        result = AltLineResolver.applyLabelOverrides(_resultBase, labelOverrides, altLines);
       }
-
-      const _resultBase = PredictionEngine.processFixture(rawPatched);
-      const result = AltLineResolver.applyLabelOverrides(_resultBase, labelOverrides, altLines);
 
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
