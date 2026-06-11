@@ -1,0 +1,141 @@
+name: WinMetrics V3 — Import V1 + Pipeline V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Ação a executar'
+        required: true
+        type: choice
+        options:
+          - import_v1        # Importar JSONs do V1 para Supabase
+          - pipeline_v1      # Pipeline novo (coleta igual ao V1)
+          - pipeline_v1_hoje # Pipeline novo para hoje
+        default: 'import_v1'
+      date:
+        description: '[pipeline_v1] Data YYYY-MM-DD'
+        required: false
+        default: ''
+      force:
+        description: 'Forçar reimportação/reprocessamento?'
+        required: false
+        default: 'false'
+        type: boolean
+      dry_run:
+        description: 'Dry-run (não salva no banco)?'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  import-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.inputs.action == 'import_v1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Importar JSONs V1 → Supabase
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          FORCE_FLAG=""
+          DRY_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_FLAG="--dry-run"
+          fi
+          echo "▶ Importando JSONs V1 da pasta v1_data/..."
+          node scripts/import_v1.js --dir=./v1_data $FORCE_FLAG $DRY_FLAG
+
+  pipeline-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: github.event.inputs.action == 'pipeline_v1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Rodar Pipeline V1
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          DATE=$(echo "${{ github.event.inputs.date }}" | tr -d '[:space:]')
+          if [ -z "$DATE" ]; then
+            DATE=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
+          fi
+          FORCE_FLAG=""
+          DRY_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_FLAG="--dry-run"
+          fi
+          echo "▶ Pipeline V1 para: $DATE"
+          node frontend/jobs/pipeline_v1.js --date="$DATE" $FORCE_FLAG $DRY_FLAG
+          EXIT=$?
+          if [ $EXIT -eq 2 ]; then
+            echo "⛔ Quota da API esgotada."
+            exit 0
+          fi
+          exit $EXIT
+
+  pipeline-v1-hoje:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: |
+      github.event.inputs.action == 'pipeline_v1_hoje' ||
+      github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Rodar Pipeline V1 — Hoje
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          DATE=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
+          echo "▶ Pipeline V1 para hoje: $DATE"
+          node frontend/jobs/pipeline_v1.js --date="$DATE"
+          EXIT=$?
+          if [ $EXIT -eq 2 ]; then
+            echo "⛔ Quota da API esgotada."
+            exit 0
+          fi
+          exit $EXIT
