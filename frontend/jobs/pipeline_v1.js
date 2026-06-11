@@ -5,6 +5,17 @@
  * Replica exatamente a lógica do V1 coletar.py + processar.py.
  * Coleta dados da API-Football, calcula scores e salva no Supabase.
  *
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  V1_COMPAT_MODE = true  (padrão)                            ║
+ * ║  Regras obrigatórias enquanto V1 é fonte de verdade:        ║
+ * ║  1. Não recalcular score/grade importados do V1             ║
+ * ║  2. Não aplicar final_market nem linhas alternativas        ║
+ * ║  3. passou_filtro afeta APENAS a elegibilidade do Over 1.5  ║
+ * ║     como candidato ao best_mkt — não bloqueia o snapshot    ║
+ * ║  4. Sem filtros extras por probability/confidence/edge/odd  ║
+ * ║  5. Sem filtros por status/league                           ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ *
  * Endpoints utilizados (idêntico ao V1):
  *   /fixtures              → fixtures do dia por liga
  *   /fixtures/headtohead   → H2H últimos 10 jogos
@@ -780,15 +791,20 @@ async function salvarNoSupabase(jogo, matchDateISO) {
     updated_at:     new Date().toISOString(),
   }, { onConflict: 'fixture_id' });
 
-  // Só salva snapshots com grade A ou A+
+  // V1 COMPAT: salva snapshot para qualquer grade A+ ou A.
+  // passou_filtro é filtro exclusivo do Over 1.5 como candidato ao best_mkt
+  // (aplicado em calcularScores via candidatos[]). Não bloqueia o snapshot
+  // quando outro mercado (ex: Esc 7.5, Cart 2.5) venceu a seleção.
   if (!['A+', 'A'].includes(jogo.best_grade)) return false;
-  if (!jogo.passou_filtro) return false;
 
   const { error } = await supabase.from('prediction_snapshots').upsert({
     fixture_id:   jogo.fixture_id,
     match_name:   jogo.jogo,
     match_date:   matchDateISO,
-    league:       jogo.liga,
+    league_name:  jogo.liga,          // campo canônico esperado pelo frontend V3
+    league:       jogo.liga,          // campo legado mantido
+    home_team:    jogo.home,          // campo canônico
+    away_team:    jogo.away,          // campo canônico
     market:       jogo.best_mkt,
     grade:        jogo.best_grade,
     score:        jogo.best_score,
@@ -890,7 +906,7 @@ async function run() {
             stats.snapshots++;
             LOG.ok(`  ✓ ${jogo.jogo} | ${jogo.best_mkt} | ${jogo.best_grade} | score=${jogo.best_score}`);
           }
-        } else if (['A+', 'A'].includes(jogo.best_grade) && jogo.passou_filtro) {
+        } else if (['A+', 'A'].includes(jogo.best_grade)) {
           LOG.ok(`  [DRY] ${jogo.jogo} | ${jogo.best_mkt} | ${jogo.best_grade} | score=${jogo.best_score}`);
           stats.snapshots++;
         }
