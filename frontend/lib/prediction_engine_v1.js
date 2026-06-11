@@ -30,10 +30,10 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
 
   const GRADE_THRESHOLDS = {
-    'A+': 85,
-    'A':  75,
-    'B':  65,
-    'C':  50,
+    'A+': 88,
+    'A':  80,
+    'B':  70,
+    'C':  60,
   };
   // D = qualquer score abaixo de 50
 
