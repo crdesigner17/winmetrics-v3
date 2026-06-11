@@ -665,26 +665,23 @@ body.sidebar-open{overflow:hidden}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ── Instância única do Supabase — todas as funções da página reutilizam esta ──
+const SUPABASE_URL      = 'https://kpcxjmydlmqxmvnawdyo.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b';
+const supabaseClient    = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+<script>
 async function getCurrentProfile() {
-    // Usa o client já declarado no bloco principal, ou cria instância local
-    const _sb = (typeof supabaseClient !== 'undefined') ? supabaseClient
-      : window.supabase.createClient(
-          'https://kpcxjmydlmqxmvnawdyo.supabase.co',
-          'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
-        );
-    const { data: { user } } = await _sb.auth.getUser();
+    const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) return null;
-    const { data: profile } = await _sb
+    const { data: profile } = await supabaseClient
       .from('profiles').select('*').eq('id', user.id).single();
     return profile;
   }
 </script>
 <script>
 (function() {
-  var SUPABASE_URL = 'https://kpcxjmydlmqxmvnawdyo.supabase.co';
-  var SUPABASE_ANON_KEY = 'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b';
-  var _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  _sb.auth.getSession().then(function(r) {
+  supabaseClient.auth.getSession().then(function(r) {
     if (!r.data || !r.data.session) {
       window.location.replace('index.html');
     }
@@ -986,12 +983,8 @@ async function getCurrentProfile() {
 <script>
 // ══════════════════════════════════════════════════════════════
 // WinMetrics V3 — Melhores Previsões — dados reais do Supabase
-// Suporte a linhas alternativas (is_alternative_line / final_market)
 // ══════════════════════════════════════════════════════════════
-
-const SUPABASE_URL      = 'https://kpcxjmydlmqxmvnawdyo.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b';
-const supabaseClient    = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// supabaseClient declarado no <head> — instância única reutilizada aqui.
 
 // ── Regra oficial de Alternativas (V1) ────────────────────────
 const MKT_MIN = {
@@ -1620,12 +1613,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function logoutUsuario() {
     try {
-      var _sbClient = (typeof supabaseClient !== 'undefined') ? supabaseClient
-        : window.supabase.createClient(
-            'https://kpcxjmydlmqxmvnawdyo.supabase.co',
-            'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
-          );
-      await _sbClient.auth.signOut();
+      await supabaseClient.auth.signOut();
     } catch(e) {
       console.warn('signOut error:', e);
     }
