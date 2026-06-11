@@ -58,6 +58,14 @@ const DRY_RUN = args.includes('--dry-run');
 // LIGAS — idêntico ao V1 coletar.py
 // ─────────────────────────────────────────────────────────────────
 
+// Ligas confirmadas nos JSONs V1 atuais:
+// Bundesliga, Champions League, Copa do Brasil, Copa Libertadores,
+// Copa Uruguay, Eredivisie, FIFA World Cup, Friendlies, La Liga,
+// Liga Portugal, Liga Profesional de Futebol, Ligue 1, Premier League,
+// Serie A, Serie B, Superliga.
+//
+// Copa Uruguay existe nos dados V1, mas os JSONs nao trazem league_id.
+// Adicionar aqui assim que o ID correto da API-Football for confirmado.
 const LIGAS = [
   // Europa (season=2025)
   { id: 2,   nome: 'Champions League',          tier: 'elite',  season: 2025 },
@@ -737,7 +745,7 @@ async function processarFixture(fix, liga, teamCache, fixtureCache) {
     avg_sot:     avgSot,
     avg_shots:   avgShots,
 
-    avg_corners,
+    avg_corners: avgCorners,
     avg_corners_h: avgCornersH ?? null,
     avg_corners_a: avgCornersA ?? null,
     over65_c:  avgOver('over65_c'),
@@ -746,7 +754,7 @@ async function processarFixture(fix, liga, teamCache, fixtureCache) {
     over95_c:  avgOver('over95_c'),
     over105_c: avgOver('over105_c'),
 
-    avg_cards,
+    avg_cards:   avgCards,
     avg_cards_h: avgCardsH ?? null,
     avg_cards_a: avgCardsA ?? null,
     over25_cards: avgOver('over25_cards'),
