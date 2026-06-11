@@ -1084,7 +1084,7 @@ async function fetchSnapshots(page) {
   let q = supabaseClient
     .from('prediction_snapshots')
     .select(
-      'fixture_id, match_name, home_team, away_team, league_name, match_date, ' +
+      'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, match_date, ' +
       'market, score, grade, confidence, odd, ev, result_status, ticket_type, ' +
       'original_market, final_market, original_line, final_line, is_alternative_line, ' +
       'fixtures(goals_home, goals_away)',
@@ -1200,6 +1200,13 @@ function formatHour(isoDate) {
   });
 }
 
+function formatDate(isoDate) {
+  if (!isoDate) return '--';
+  return new Date(isoDate).toLocaleDateString('pt-BR', {
+    day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo'
+  });
+}
+
 function formatResult(snap) {
   const status = snap.result_status;
   if (!status) return '<span style="color:var(--text-muted);font-size:12px">Pendente</span>';
@@ -1233,7 +1240,7 @@ function renderEmpty() {
     filterDateStart           ? `no intervalo selecionado` : 'no período selecionado';
 
   document.getElementById('tableBody').innerHTML = `
-    <tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
+    <tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
       <div style="font-size:32px;margin-bottom:10px">📭</div>
       <div style="font-size:14px;margin-bottom:8px">Nenhuma previsão encontrada ${filterLabel}.</div>
       <div style="font-size:12px;color:var(--text-muted);max-width:360px;margin:0 auto;line-height:1.6">
@@ -1247,7 +1254,7 @@ function renderEmpty() {
 
 function renderError(msg) {
   document.getElementById('tableBody').innerHTML = `
-    <tr><td colspan="9" style="text-align:center;padding:48px;color:#ff5e6a">
+    <tr><td colspan="10" style="text-align:center;padding:48px;color:#ff5e6a">
       <div style="font-size:14px">⚠ Erro ao carregar dados: ${msg}</div>
     </td></tr>`;
 }
@@ -1263,10 +1270,19 @@ function renderRows(snapshots, predictionsMap) {
       ? (snap.ev >= 0 ? '+' : '') + Number(snap.ev).toFixed(1) + '%'
       : 'n/a';
     const hora   = formatHour(snap.match_date);
+    const data   = formatDate(snap.match_date);
     const label  = palpiteLabel(snap);
     const isAlt  = !!snap.is_alternative_line;
     const altBadge = isAlt ? badgeAlt() : '';
     const alts = getAlternativas(snap.fixture_id, label, predictionsMap);
+
+    // Escudo: usa URL da API-Football se disponível, senão mostra iniciais
+    function logoCell(url, name) {
+      if (url) {
+        return `<div class="team-logo"><img src="${url}" alt="${name}" style="width:100%;height:100%;object-fit:contain;border-radius:50%" onerror="this.parentElement.innerHTML='<span style=\"font-size:11px;font-weight:700;color:var(--text-secondary)\">' + (name||'').slice(0,3).toUpperCase() + '</span>'" /></div>`;
+      }
+      return `<div class="team-logo" style="font-size:11px;font-weight:700;color:var(--text-secondary)">${(name||'').slice(0,3).toUpperCase()}</div>`;
+    }
 
     return `
   <tr>
@@ -1274,14 +1290,18 @@ function renderRows(snapshots, predictionsMap) {
     <td>
       <div class="game-cell">
         <div class="team-logos">
-          <div class="team-logo" style="font-size:11px;font-weight:700;color:var(--text-secondary)">${(snap.home_team||'').slice(0,3).toUpperCase()}</div>
-          <div class="team-logo" style="font-size:11px;font-weight:700;color:var(--text-secondary)">${(snap.away_team||'').slice(0,3).toUpperCase()}</div>
+          ${logoCell(snap.home_team_logo, snap.home_team)}
+          ${logoCell(snap.away_team_logo, snap.away_team)}
         </div>
         <div class="game-info">
           <div class="game-name">${snap.match_name || ''}</div>
           <div class="game-sub">${snap.league_name || ''} • ${hora}</div>
         </div>
       </div>
+    </td>
+    <td class="center" style="font-size:12px;color:var(--text-secondary);white-space:nowrap">
+      <div style="font-weight:600;color:var(--text-primary)">${data}</div>
+      <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
     <td class="mercado-cell">
       <span style="font-weight:600">${label}</span>${altBadge}
@@ -1340,7 +1360,7 @@ function renderPagination(total, page) {
 // ── Carregamento principal ────────────────────────────────────
 async function loadPrevisoes() {
   const tbody = document.getElementById('tableBody');
-  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
+  tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
     <div style="font-size:14px">Carregando previsões...</div></td></tr>`;
 
   try {
@@ -1539,6 +1559,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (thead) thead.innerHTML = `
     <th style="width:32px"></th>
     <th>JOGO</th>
+    <th class="center">DATA</th>
     <th>PALPITE</th>
     <th>ALTERNATIVAS</th>
     <th class="center">WIN SCORE ⓘ</th>
