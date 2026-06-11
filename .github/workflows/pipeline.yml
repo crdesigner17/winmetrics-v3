@@ -65,7 +65,7 @@ jobs:
           cache: 'npm'
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install
 
       # ── MODO: backfill (schedule + push + dispatch backfill) ─────
       - name: Backfill automático
