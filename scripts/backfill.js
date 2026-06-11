@@ -53,7 +53,7 @@ async function main() {
   const toDate = addDays(today, FUTURE_DAYS);
   const dates  = getDatesRange(FROM_DATE, toDate);
 
-  const pipelinePath = path.resolve(__dirname, '../frontend/jobs/generate_predictions.js');
+  const pipelinePath = path.resolve(__dirname, '../frontend/jobs/pipeline_v1.js');
 
   console.log('\n' + hr('═'));
   console.log(' WinMetrics V3 — Backfill + Futuro');
@@ -79,7 +79,6 @@ async function main() {
 
     const flags = [
       `--date=${date}`,
-      '--days=1',
       FORCE ? '--force' : '--only-new',
       DRY_RUN ? '--dry-run' : '',
     ].filter(Boolean);

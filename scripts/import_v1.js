@@ -198,6 +198,23 @@ function buildSnapshot(palpite, jogo, matchDateISO) {
   };
 }
 
+function compactSnapshotForRealSchema(snapshot) {
+  return {
+    fixture_id:      snapshot.fixture_id,
+    match_name:      snapshot.match_name,
+    home_team:       snapshot.home_team,
+    away_team:       snapshot.away_team,
+    home_team_logo:  snapshot.home_team_logo ?? null,
+    away_team_logo:  snapshot.away_team_logo ?? null,
+    league_name:     snapshot.league_name,
+    market:          snapshot.market,
+    score:           snapshot.score,
+    grade:           snapshot.grade,
+    odd:             snapshot.odd,
+    match_date:      snapshot.match_date,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────
 // PROCESSAR UM ARQUIVO JSON
 // ─────────────────────────────────────────────────────────────────
@@ -242,7 +259,7 @@ async function processFile(filePath, stats) {
     const matchDateISO = v1DateToISO(dateStr, jogo.hora);
 
     // ── Verificar se já existe (se não for --force)
-    if (!FORCE && !DRY_RUN && supabase) {
+    if (false && !FORCE && !DRY_RUN && supabase) {
       const { data: existing } = await supabase
         .from('prediction_snapshots')
         .select('id')
@@ -275,10 +292,22 @@ async function processFile(filePath, stats) {
     }
 
     // ── Upsert prediction_snapshot
-    const snapshotData = buildSnapshot(palpite, jogo, matchDateISO);
+    const { error: delErr } = await supabase
+      .from('prediction_snapshots')
+      .delete()
+      .eq('fixture_id', palpite.fixture_id);
+
+    if (delErr) {
+      LOG.error(`    Snapshot delete error: ${delErr.message}`);
+      stats.errors++;
+      continue;
+    }
+
+    // V1 e fonte de verdade: grava um unico palpite por fixture.
+    const snapshotData = compactSnapshotForRealSchema(buildSnapshot(palpite, jogo, matchDateISO));
     const { error: snapErr } = await supabase
       .from('prediction_snapshots')
-      .upsert(snapshotData, { onConflict: 'fixture_id,market' });
+      .insert(snapshotData);
 
     if (snapErr) {
       LOG.error(`    Snapshot error: ${snapErr.message}`);
