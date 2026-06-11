@@ -389,6 +389,33 @@ const PackBallMapper = (function () {
     return totals.length > 0 ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
   }
 
+  // Igual ao V1 coletar.py — calcula % over15/over25/btts dos jogos H2H
+  function _calcH2HStats(h2hGames) {
+    if (!Array.isArray(h2hGames) || h2hGames.length === 0) {
+      return { h2h_goals: null, h2h_over15: null, h2h_over25: null, h2h_btts: null };
+    }
+    const recent = h2hGames.slice(0, LAST_N);
+    let goalsTotal = 0, o15 = 0, o25 = 0, bttsCount = 0, n = 0;
+    for (const g of recent) {
+      const gh = _num(g?.goals?.home);
+      const ga = _num(g?.goals?.away);
+      if (gh === null || ga === null) continue;
+      const total = gh + ga;
+      goalsTotal += total;
+      if (total >= 2) o15++;
+      if (total >= 3) o25++;
+      if (gh > 0 && ga > 0) bttsCount++;
+      n++;
+    }
+    if (n === 0) return { h2h_goals: null, h2h_over15: null, h2h_over25: null, h2h_btts: null };
+    return {
+      h2h_goals:  Math.round(goalsTotal / n * 100) / 100,
+      h2h_over15: Math.round(o15 / n * 1000) / 10,
+      h2h_over25: Math.round(o25 / n * 1000) / 10,
+      h2h_btts:   Math.round(bttsCount / n * 1000) / 10,
+    };
+  }
+
   /**
    * _extractPredictionsOdds(predictionsResponse)
    * /predictions retorna percent.home, percent.draw, percent.away (1X2)
@@ -688,12 +715,46 @@ const PackBallMapper = (function () {
     } = merged;
 
     // ── /fixtures/headtohead → H2H goals ────────────────────────
-    const h2h_goals = _calcH2HGoals(h2hGames);
+    const h2hStats  = _calcH2HStats(h2hGames);
+    const h2h_goals = h2hStats.h2h_goals;
 
     // ── /predictions → over15_g, over25_g ───────────────────────
-    const { over15_g, over25_g } = _extractPredictionsOdds(
+    // Fallback idêntico ao V1 coletar.py:
+    //   1. /predictions endpoint (se disponível — só ligas premium)
+    //   2. h2h_over15 calculado dos jogos H2H (igual ao V1)
+    //   3. avg_scored de cada time como estimativa final
+    let { over15_g, over25_g } = _extractPredictionsOdds(
       Array.isArray(predictions?.response) ? predictions.response[0] : predictions
     );
+
+    // Fallback 2 — h2h (V1: "if o15g is None and h2h.get('h2h_over15') is not None")
+    if (over15_g === null && h2hStats.h2h_over15 !== null) {
+      over15_g = h2hStats.h2h_over15;
+    }
+    if (over25_g === null && h2hStats.h2h_over25 !== null) {
+      over25_g = h2hStats.h2h_over25;
+    }
+
+    // Fallback 3 — avg_scored (V1: "xg_h = ts_h.get('avg_scored')")
+    // Quando predictions E h2h são nulos, estima over15_g via Poisson simples
+    // P(gols >= 2) ≈ 1 - P(0) - P(1) onde lambda = avg_sc_h + avg_sc_a
+    if (over15_g === null && avg_sc_h !== null && avg_sc_a !== null) {
+      const lambda = avg_sc_h + avg_sc_a;
+      if (lambda > 0) {
+        const p0 = Math.exp(-lambda);
+        const p1 = p0 * lambda;
+        over15_g = Math.round((1 - p0 - p1) * 1000) / 10;  // % com 1 decimal
+      }
+    }
+    if (over25_g === null && avg_sc_h !== null && avg_sc_a !== null) {
+      const lambda = avg_sc_h + avg_sc_a;
+      if (lambda > 0) {
+        const p0 = Math.exp(-lambda);
+        const p1 = p0 * lambda;
+        const p2 = p1 * lambda / 2;
+        over25_g = Math.round((1 - p0 - p1 - p2) * 1000) / 10;
+      }
+    }
 
     // ── /odds → todas as odds ────────────────────────────────────
     const allOdds = _extractAllOdds(
