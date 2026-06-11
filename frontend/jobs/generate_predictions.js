@@ -478,7 +478,7 @@ async function fetchAllData({ fixture, liga }) {
 
     // ── Mostrar qual bookmaker seria selecionado e por quê ──
     const allBms = resp.flatMap(i => i?.bookmakers || []);
-    const bm6 = allBms.find(b => b.id === 6);
+    const bm6 = allBms.find(b => Number(b.id) === 6);
     const chosen = bm6 || (allBms.length > 0
       ? allBms.reduce((best, bm) => (bm.bets?.length||0) > (best.bets?.length||0) ? bm : best, allBms[0])
       : null);
@@ -993,6 +993,14 @@ async function run() {
 
       // ── FASE 3: Mapear + validar + calcular ─────────────────
       const raw        = PackBallMapper.mapFixtureToPackBall(apiData);
+
+      // ODDS PIPELINE TRACE — remove after debugging
+      if (process.env.DEBUG_ODDS === '1') {
+        const oddFields = ['odd_o15','odd_o25','odd_btts','odd_u35','odd_u45','odd_esc75','odd_esc85','odd_c25','odd_c35'];
+        const rawOdds = oddFields.map(f => `${f}=${raw[f]}`).join(' | ');
+        console.log(`[PIPELINE] raw após mapper — ${rawOdds}`);
+      }
+
       const validation = PackBallMapper.validatePackBallInput(raw);
 
       if (!validation.valid) {
@@ -1003,6 +1011,16 @@ async function run() {
       }
 
       const result = PredictionEngine.processFixture(raw);
+
+      // ODDS PIPELINE TRACE — remove after debugging
+      if (process.env.DEBUG_ODDS === '1') {
+        const mktKeys = ['over15','over25','btts','over05ht','under45','under35','esc75','esc85','cards25','cards35'];
+        const resultOdds = mktKeys.map(k => `${k}=${result.odds[k]}`).join(' | ');
+        const resultEvs  = mktKeys.map(k => `${k}=${result.evs[k]}`).join(' | ');
+        console.log(`[PIPELINE] result.odds  — ${resultOdds}`);
+        console.log(`[PIPELINE] result.evs   — ${resultEvs}`);
+        console.log(`[PIPELINE] best_odd=${result.best_odd}  best_ev=${result.best_ev}`);
+      }
 
       // Contabiliza grades
       const g = result.best_grade;
