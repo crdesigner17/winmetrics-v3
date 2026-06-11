@@ -1092,7 +1092,7 @@ async function fetchSnapshots(page) {
     .from('prediction_snapshots')
     .select(
       'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, ' +
-      'market, score, grade, odd, match_date, status, source',
+      'market, score, grade, odd, match_date',
       { count: 'exact' }
     )
     .order('score', { ascending: false })
@@ -1226,7 +1226,7 @@ function formatDate(isoDate) {
 }
 
 function formatResult(snap) {
-  const status = snap.status;
+  const status = null;
   if (!status || status === 'pending' || status === 'null') {
     return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">—</span>';
   }
