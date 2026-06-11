@@ -823,10 +823,11 @@ async function upsertPredictions(result) {
     const odd        = result.odds[key]  ?? null;
     const ev         = result.evs[key]   ?? null;
 
-    // Aplica label alternativo se houver
+    // market é sempre o label canônico V1 — nunca substituído por final_market.
+    // Metadados de linha alternativa ficam em original_market / final_market (colunas separadas).
     const altInfo    = altLabelByKey[key];
-    const market     = altInfo ? altInfo.final_market : marketDefault;
-    const isBest     = market === result.best_mkt || marketDefault === result.best_mkt;
+    const market     = marketDefault;   // canônico V1: 'Esc 7.5', não 'Esc 9.5'
+    const isBest     = marketDefault === result.best_mkt;
 
     // Filtros específicos
     let passedFilter   = false;
@@ -877,13 +878,20 @@ async function upsertSnapshot(result, raw) {
   if (!GRADES_OFICIAIS.has(result.best_grade)) return false;
   if (!result.best_mkt) return false;
 
+  // Resolve o market canônico V1 antes de qualquer operação no banco.
+  // best_mkt pode já ter sido substituído pelo AltLineResolver — usamos o original_market nesse caso.
+  const _altForCanonical = (result.altLines || []).find(
+    a => a.final_market === result.best_mkt || a.original_market === result.best_mkt
+  );
+  const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
+
   // §2.3: preserva resultado já confirmado se não FORCE
   if (!FORCE) {
     const { data: existing } = await supabase
       .from('prediction_snapshots')
       .select('id, result_status')
       .eq('fixture_id', result.fixture_id)
-      .eq('market', result.best_mkt)
+      .eq('market', canonicalMarket)   // usa canônico, não best_mkt possivelmente alterado
       .single();
 
     if (existing?.result_status && existing.result_status !== null) {
@@ -902,8 +910,8 @@ async function upsertSnapshot(result, raw) {
     ticketType = 'b1';     // Premium 4X (Top 4 A+/A)
   }
 
-  // Resolve metadados de linha alternativa para este best_mkt
-  const altInfoSnap = (result.altLines || []).find(a => a.final_market === result.best_mkt);
+  // altInfoSnap: metadados de linha alternativa para este mercado
+  const altInfoSnap = _altForCanonical || null;
 
   const row = {
     fixture_id:   result.fixture_id,
@@ -914,7 +922,7 @@ async function upsertSnapshot(result, raw) {
     away_team_logo:    raw.away_team_logo || null,
     league_name:  result.league_name,
     match_date:   result.match_date,
-    market:       result.best_mkt,
+    market:       canonicalMarket,        // sempre o nome V1: 'Esc 7.5', não 'Esc 9.5'
     score:        Math.round(result.best_score * 100) / 100,
     grade:        result.best_grade,
     confidence:   result.best_confidence,
@@ -924,7 +932,7 @@ async function upsertSnapshot(result, raw) {
     result_status: null,
     confirmed_at: null,
     ticket_type:  ticketType,
-    // Metadados de linha alternativa
+    // Metadados de linha alternativa (somente para referência — não substituem market)
     original_market:      altInfoSnap ? altInfoSnap.original_market : null,
     final_market:         altInfoSnap ? altInfoSnap.final_market    : null,
     original_line:        altInfoSnap ? altInfoSnap.original_line   : null,
