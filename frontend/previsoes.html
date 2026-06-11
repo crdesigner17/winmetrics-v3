@@ -1091,6 +1091,7 @@ async function fetchSnapshots(page) {
       { count: 'exact' }
     )
     .order('score', { ascending: false })
+    .in('grade', ['A+', 'A'])
     .range(offset, offset + PAGE_SIZE - 1);
 
   if (start) q = q.gte('match_date', start);
