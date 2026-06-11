@@ -623,10 +623,12 @@ const PackBallMapper = (function () {
     const score       = fixture?.score   || {};
 
     const fixture_id  = _num(fix.id);
-    const home_team   = teams.home?.name  || '';
-    const away_team   = teams.away?.name  || '';
-    const home_id     = _num(teams.home?.id);
-    const away_id     = _num(teams.away?.id);
+    const home_team      = teams.home?.name  || '';
+    const away_team      = teams.away?.name  || '';
+    const home_team_logo = teams.home?.logo  || null;
+    const away_team_logo = teams.away?.logo  || null;
+    const home_id        = _num(teams.home?.id);
+    const away_id        = _num(teams.away?.id);
     const league_name = league.name       || '';
     const league_id   = _num(league.id);
     const season      = _num(league.season);
@@ -772,6 +774,8 @@ const PackBallMapper = (function () {
       fixture_id,
       home_team,
       away_team,
+      home_team_logo,
+      away_team_logo,
       league_name,
       league_id,
       season,
