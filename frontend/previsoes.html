@@ -1010,13 +1010,9 @@ const MKT_MIN = {
 function getAlternativas(fixtureId, mainMarket, predictionsMap) {
   const preds = predictionsMap[fixtureId] || [];
   return preds
+    .filter(p => p.market !== mainMarket)
     .filter(p => {
-      const displayLabel = p.is_alternative_line && p.final_market ? p.final_market : p.market;
-      return displayLabel !== mainMarket && p.market !== mainMarket;
-    })
-    .filter(p => {
-      const baseMarket = p.original_market || p.market;
-      const rule = MKT_MIN[baseMarket] || MKT_MIN[p.market];
+      const rule = MKT_MIN[p.market];
       if (!rule) return false;
       if (p.score < rule.min) return false;
       if (rule.needFilter && !p[rule.needFilter]) return false;
@@ -1024,7 +1020,7 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
-    .map(p => p.is_alternative_line && p.final_market ? p.final_market : p.market);
+    .map(p => p.market);
 }
 
 // ── Estado da página ──────────────────────────────────────────
@@ -1102,7 +1098,7 @@ async function fetchSnapshots(page) {
   let q = supabaseClient
     .from('prediction_snapshots')
     .select(
-      'fixture_id, match_name, home_team, away_team, home, away, home_team_logo, away_team_logo, league_name, league, match_date, ' +
+      'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, league, match_date, ' +
       'market, score, grade, confidence, odd, odd_value, ev, result_status, ticket_type, ' +
       'original_line, final_line, is_alternative_line, ' +
       'goals_home, goals_away, placar, best_risk, via, ' +
@@ -1132,8 +1128,7 @@ async function fetchPredictions(fixtureIds) {
   const { data, error } = await supabaseClient
     .from('predictions')
     .select(
-      'fixture_id, market, score, passed_filter, under35_passed, ' +
-      'original_market, final_market, is_alternative_line'
+      'fixture_id, market, score, passed_filter, under35_passed, is_best_market'
     )
     .in('fixture_id', fixtureIds);
 
