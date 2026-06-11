@@ -6,7 +6,8 @@
   "scripts": {
     "pipeline": "node frontend/jobs/generate_predictions.js",
     "pipeline:dry": "node frontend/jobs/generate_predictions.js --dry-run",
-    "backfill": "node scripts/backfill.js"
+    "backfill": "node scripts/backfill.js",
+    "confirmar": "node scripts/confirmar.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
