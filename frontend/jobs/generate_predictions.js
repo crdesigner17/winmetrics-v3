@@ -174,6 +174,11 @@ const LOG = {
  * @param {number} retries   — tentativas restantes
  * @returns {object}         — { response: [...], errors: [...] }
  */
+// Erro especial para quota esgotada — capturado pelo run() para exit limpo
+class QuotaExceededError extends Error {
+  constructor() { super('QUOTA_EXCEEDED'); this.code = 'QUOTA_EXCEEDED'; }
+}
+
 async function apiFetch(endpoint, params = {}, retries = 3) {
   const url  = new URL(API_BASE + endpoint);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -200,9 +205,26 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
         throw new Error(`HTTP ${res.status} ${res.statusText}`);
       }
 
-      return await res.json();
+      const json = await res.json();
+
+      // Quota diária esgotada — API retorna errors com "requests" ou status 499
+      // Header x-ratelimit-requests-remaining = 0 também indica quota zero
+      const remaining = res.headers?.get?.('x-ratelimit-requests-remaining');
+      const apiErrors = Array.isArray(json?.errors)
+        ? json.errors
+        : Object.values(json?.errors || {});
+      const quotaError = apiErrors.some(e =>
+        typeof e === 'string' && /limit|quota|exceeded|subscribe|upgrade/i.test(e)
+      );
+      if (quotaError || remaining === '0') {
+        LOG.error(`Quota da API esgotada em ${endpoint}. Encerrando pipeline.`);
+        throw new QuotaExceededError();
+      }
+
+      return json;
 
     } catch (err) {
+      if (err instanceof QuotaExceededError) throw err;  // propaga imediatamente
       lastErr = err;
       if (attempt < retries) {
         await delay(1000 * attempt);
@@ -1384,6 +1406,10 @@ if (!MOCK_TO_SUPABASE) {
   } else {
     // Com chave configurada → executa o pipeline real
     run().catch(err => {
+      if (err.code === 'QUOTA_EXCEEDED') {
+        LOG.warn('Quota da API esgotada — pipeline encerrado com código 2.');
+        process.exit(2);
+      }
       LOG.error('Erro fatal:', err.message);
       process.exit(1);
     });
