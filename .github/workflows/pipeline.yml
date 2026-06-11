@@ -13,7 +13,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'frontend/jobs/generate_predictions.js'
+      - 'frontend/jobs/pipeline_v1.js'
       - 'frontend/lib/prediction_engine_v1.js'
       - 'scripts/backfill.js'
       - '.github/workflows/pipeline.yml'
@@ -115,10 +115,12 @@ jobs:
             FORCE_FLAG="--force"
           fi
           echo "▶ Hoje + amanhã: $TODAY"
-          node frontend/jobs/generate_predictions.js \
+          node frontend/jobs/pipeline_v1.js \
             --date="$TODAY" \
-            --days=2 \
-            --only-new \
+            $FORCE_FLAG
+          TOMORROW=$(TZ="America/Sao_Paulo" date -d tomorrow +%Y-%m-%d)
+          node frontend/jobs/pipeline_v1.js \
+            --date="$TOMORROW" \
             $FORCE_FLAG
 
       # ── MODO: data_especifica ────────────────────────────────────
@@ -136,9 +138,8 @@ jobs:
           fi
           FORCE_FLAG="--force"   # data específica sempre força
           echo "▶ Data: $DATE"
-          node frontend/jobs/generate_predictions.js \
+          node frontend/jobs/pipeline_v1.js \
             --date="$DATE" \
-            --days=1 \
             $FORCE_FLAG
 
   confirmar:
