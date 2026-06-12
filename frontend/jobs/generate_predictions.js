@@ -143,8 +143,8 @@ const BLOCKED_TERMS = [
   'youth','academy','reserve','reserves','reserva','amateur',
 ];
 
-// Grades que geram snapshot (§7.1)
-const GRADES_OFICIAIS = new Set(['A+', 'A']);
+// Grades exibíveis nas previsões. A+/A seguem como destaque; Todos inclui B/C/D.
+const GRADES_OFICIAIS = new Set(['A+', 'A', 'B', 'C', 'D']);
 
 // Bilhete do dia: grade A+ E score >= 90 (§7.2)
 const TICKET_DIA_MIN_SCORE = 90;
@@ -657,16 +657,18 @@ async function fetchAllData({ fixture, liga }) {
 // ─────────────────────────────────────────────────────────────────
 
 const MKT_TO_LABEL = {
-  over15:   'Over 1.5',
-  over25:   'Over 2.5',
+  resultadoFinal: 'Resultado Final (1X2)',
+  over15:   'Over 1.5 gols',
+  over25:   'Over 2.5 gols',
   btts:     'BTTS',
   over05ht: 'Over 0.5 HT',
-  under45:  'Under 4.5',
-  under35:  'Under 3.5',
-  esc75:    'Esc 7.5',
-  esc85:    'Esc 8.5',
-  cards25:  'Cart 2.5',
-  cards35:  'Cart 3.5',
+  under45:  'Under 4.5 gols',
+  under35:  'Under 3.5 gols',
+  esc75:    'Over 7.5 cantos',
+  esc85:    'Over 8.5 cantos',
+  cards25:  'Over 2.5 cartão',
+  cards35:  'Over 3.5 cartão',
+  cards55:  'Over 5.5 cartão',
 };
 
 // Labels alternativos de mercado (linha alternativa resolve em tempo de execução)
@@ -676,8 +678,8 @@ const MKT_ALT_LABELS = {
   'Esc 9.5':  'esc75', 'Esc 10.5': 'esc75',
   'Esc 9.5_85': 'esc85', 'Esc 10.5_85': 'esc85',
   // Cartões
-  'Cart 4.5': 'cards25', 'Cart 5.5': 'cards25',
-  'Cart 4.5_35': 'cards35', 'Cart 5.5_35': 'cards35',
+    'Cart 4.5': 'cards25', 'Cart 5.5': 'cards25',
+    'Cart 4.5_35': 'cards35', 'Cart 5.5_35': 'cards35',
 };
 
 /**
@@ -790,16 +792,20 @@ async function upsertMetrics(raw, result) {
  */
 async function upsertOdds(raw) {
   const oddMap = {
-    'Over 1.5':    raw.odd_o15,
-    'Over 2.5':    raw.odd_o25,
+    'Resultado Final (1X2) - Casa': raw.odds_h,
+    'Resultado Final (1X2) - Empate': raw.odds_d,
+    'Resultado Final (1X2) - Visitante': raw.odds_a,
+    'Over 1.5 gols': raw.odd_o15,
+    'Over 2.5 gols': raw.odd_o25,
     'BTTS':        raw.odd_btts,
     'Over 0.5 HT': raw.odd_05ht,
-    'Under 3.5':   raw.odd_u35,
-    'Under 4.5':   raw.odd_u45,
-    'Esc 7.5':     raw.odd_esc75,
-    'Esc 8.5':     raw.odd_esc85,
-    'Cart 2.5':    raw.odd_c25,
-    'Cart 3.5':    raw.odd_c35,
+    'Under 3.5 gols': raw.odd_u35,
+    'Under 4.5 gols': raw.odd_u45,
+    'Over 7.5 cantos': raw.odd_esc75,
+    'Over 8.5 cantos': raw.odd_esc85,
+    'Over 2.5 cartão': raw.odd_c25,
+    'Over 3.5 cartão': raw.odd_c35,
+    'Over 5.5 cartão': raw.odd_c55,
   };
 
   const rows = Object.entries(oddMap)
@@ -852,7 +858,9 @@ async function upsertPredictions(result) {
     // market é sempre o label canônico V1 — nunca substituído por final_market.
     // Metadados de linha alternativa ficam em original_market / final_market (colunas separadas).
     const altInfo    = altLabelByKey[key];
-    const market     = marketDefault;   // canônico V1: 'Esc 7.5', não 'Esc 9.5'
+    const market     = key === 'resultadoFinal'
+      ? (result.filters.resultadoFinal_market || marketDefault)
+      : marketDefault;   // canônico V1: 'Esc 7.5', não 'Esc 9.5'
     const isBest     = marketDefault === result.best_mkt;
 
     // Filtros específicos
