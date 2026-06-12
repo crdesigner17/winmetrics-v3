@@ -1270,7 +1270,10 @@ const MARKET_ORDER = [
 
 function marketRank(market) {
   const name = String(market || '');
-  const idx = MARKET_ORDER.findIndex(m => name.startsWith(m));
+  // Exact match first (evita 'Over 2.5' casar com 'Over 2.5 cartão')
+  let idx = MARKET_ORDER.findIndex(m => m === name);
+  // Resultado Final permite startsWith pois tem sufixo variável (ex: '- Vitória Casa')
+  if (idx === -1 && name.startsWith('Resultado Final (1X2)')) idx = 0;
   return idx === -1 ? MARKET_ORDER.length : idx;
 }
 
