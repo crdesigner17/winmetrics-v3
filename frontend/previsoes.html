@@ -409,9 +409,11 @@
     font-size: 13px; font-weight: 800; letter-spacing: .3px;
     font-family: 'Rajdhani', sans-serif;
   }
-  .conf-elite { background: rgba(124,58,237,.25); color: #c4b5fd; border: 1px solid rgba(124,58,237,.4); }
-  .conf-alta { background: var(--alta); color: var(--alta-text); border: 1px solid rgba(0,210,160,.3); }
-  .conf-media { background: var(--media-bg); color: var(--media-text); border: 1px solid rgba(212,184,0,.3); }
+  .conf-aplus { background: rgba(0,200,150,.12); color: var(--green); border: 1px solid rgba(0,200,150,.3); }
+  .conf-a { background: rgba(245,158,11,.1); color: var(--gold); border: 1px solid rgba(245,158,11,.3); }
+  .conf-b { background: rgba(59,130,246,.1); color: #60a5fa; border: 1px solid rgba(59,130,246,.24); }
+  .conf-c { background: rgba(124,58,237,.1); color: #a78bfa; border: 1px solid rgba(124,58,237,.24); }
+  .conf-d { background: rgba(239,68,68,.1); color: #ff5e6a; border: 1px solid rgba(239,68,68,.24); }
 
   /* PAGINATION */
   .pagination-row {
@@ -1055,14 +1057,23 @@ const MKT_MIN = {
   'Esc 8.5':     { min: 75, needFilter: null              },
   'Cart 2.5':    { min: 75, needFilter: null              },
   'Cart 3.5':    { min: 75, needFilter: null              },
+  'Over 1.5 gols':   { min: 85, needFilter: 'passed_filter' },
+  'Over 2.5 gols':   { min: 75, needFilter: null            },
+  'Under 3.5 gols':  { min: 75, needFilter: 'under35_passed' },
+  'Under 4.5 gols':  { min: 75, needFilter: null            },
+  'Over 7.5 cantos': { min: 75, needFilter: null            },
+  'Over 8.5 cantos': { min: 75, needFilter: null            },
+  'Over 2.5 cartão': { min: 75, needFilter: null            },
+  'Over 3.5 cartão': { min: 75, needFilter: null            },
+  'Over 5.5 cartão': { min: 75, needFilter: null            },
 };
 
 function getAlternativas(fixtureId, mainMarket, predictionsMap) {
   const preds = predictionsMap[fixtureId] || [];
   return preds
-    .filter(p => p.market !== mainMarket)
+    .filter(p => displayMarket(p.market) !== mainMarket)
     .filter(p => {
-      const rule = MKT_MIN[p.market];
+      const rule = MKT_MIN[p.market] || MKT_MIN[displayMarket(p.market)];
       if (!rule) return false;
       if (p.score < rule.min) return false;
       if (rule.needFilter && !p[rule.needFilter]) return false;
@@ -1070,7 +1081,7 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
-    .map(p => p.market);
+    .map(p => displayMarket(p.market));
 }
 
 // ── Estado da página ──────────────────────────────────────────
@@ -1161,8 +1172,11 @@ async function fetchSnapshots(page) {
     )
     .order('score', { ascending: false })
     .order('match_date', { ascending: false })
-    .in('grade', ['A+', 'A'])
     .range(offset, offset + PAGE_SIZE - 1);
+
+  q = activeFilter === 'todos'
+    ? q.in('grade', ['A+', 'A', 'B', 'C', 'D'])
+    : q.in('grade', ['A+', 'A']);
 
   if (start) q = q.gte('match_date', start);
   if (end)   q = q.lte('match_date', end);
@@ -1232,6 +1246,48 @@ async function fetchLeagues() {
 }
 
 // ── Busca mercados distintos do Supabase ──────────────────────
+const MARKET_ORDER = [
+  'Resultado Final (1X2)',
+  'Over 1.5 gols',
+  'Over 1.5',
+  'Over 2.5 gols',
+  'Over 2.5',
+  'Under 3.5 gols',
+  'Under 3.5',
+  'Under 4.5 gols',
+  'Under 4.5',
+  'Over 7.5 cantos',
+  'Esc 7.5',
+  'Over 8.5 cantos',
+  'Esc 8.5',
+  'Over 2.5 cartão',
+  'Cart 2.5',
+  'Over 3.5 cartão',
+  'Cart 3.5',
+  'Over 5.5 cartão',
+  'Cart 5.5',
+];
+
+function marketRank(market) {
+  const name = String(market || '');
+  const idx = MARKET_ORDER.findIndex(m => name.startsWith(m));
+  return idx === -1 ? MARKET_ORDER.length : idx;
+}
+
+function displayMarket(market) {
+  const name = String(market || '');
+  if (name === 'Over 1.5') return 'Over 1.5 gols';
+  if (name === 'Over 2.5') return 'Over 2.5 gols';
+  if (name === 'Under 3.5') return 'Under 3.5 gols';
+  if (name === 'Under 4.5') return 'Under 4.5 gols';
+  if (name === 'Esc 7.5') return 'Over 7.5 cantos';
+  if (name === 'Esc 8.5') return 'Over 8.5 cantos';
+  if (name === 'Cart 2.5') return 'Over 2.5 cartão';
+  if (name === 'Cart 3.5') return 'Over 3.5 cartão';
+  if (name === 'Cart 5.5') return 'Over 5.5 cartão';
+  return name;
+}
+
 async function fetchMarkets() {
   const { data, error } = await supabaseClient
     .from('prediction_snapshots')
@@ -1246,12 +1302,12 @@ async function fetchMarkets() {
       result.push(r.market);
     }
   });
-  return result.sort();
+  return result.sort((a, b) => marketRank(a) - marketRank(b) || a.localeCompare(b));
 }
 
 // ── Helpers de exibição ───────────────────────────────────────
 function palpiteLabel(snap) {
-  return snap.market;
+  return displayMarket(snap.market);
 }
 
 function badgeAlt() {
@@ -1285,6 +1341,27 @@ function confBadge(conf) {
   if (c === 'alta' || c === 'a' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Alta</span>`;
   if (c === 'confiança média' || c === 'moderado') return `<span class="conf-badge conf-media">Média</span>`;
   return `<span class="conf-badge conf-media">—</span>`;
+}
+
+function confBadge(conf) {
+  if (!conf) return `<span class="conf-badge conf-d" title="Sem classificação disponível">—</span>`;
+  const c = String(conf).toLowerCase();
+  let grade = null;
+  if (c === 'a+' || c === 'elite' || c.includes('maxima') || c.includes('máxima')) grade = 'A+';
+  else if (c === 'a' || c.includes('alta') || c.includes('excelente')) grade = 'A';
+  else if (c === 'b' || c.includes('moderado') || c.includes('boa oportunidade')) grade = 'B';
+  else if (c === 'c' || c.includes('arriscado') || c.includes('aceit')) grade = 'C';
+  else if (c === 'd' || c.includes('evitar') || c.includes('pouca')) grade = 'D';
+
+  const meta = {
+    'A+': { cls: 'conf-aplus', tip: 'A+ = Máxima confiança, cenário extremamente favorável' },
+    'A':  { cls: 'conf-a',     tip: 'A = Excelente oportunidade, forte convergência dos indicadores' },
+    'B':  { cls: 'conf-b',     tip: 'B = Boa oportunidade, maioria dos critérios atendidos' },
+    'C':  { cls: 'conf-c',     tip: 'C = Mercado aceitável, mas com alguns sinais de alerta' },
+    'D':  { cls: 'conf-d',     tip: 'D = Pouca confiança, não recomendado para entrada principal' },
+  };
+  const item = meta[grade] || meta.D;
+  return `<span class="conf-badge ${item.cls}" title="${item.tip}">${grade || 'D'}</span>`;
 }
 
 function getConf(snap) {
@@ -1701,6 +1778,14 @@ function initFilterModal() {
 
 // ── Bootstrap ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  const tabGroup = document.querySelector('.tab-group');
+  if (tabGroup && !Array.from(tabGroup.querySelectorAll('.tab')).some(t => t.textContent.trim() === 'Todos')) {
+    const allTab = document.createElement('div');
+    allTab.className = 'tab';
+    allTab.textContent = 'Todos';
+    tabGroup.appendChild(allTab);
+  }
+
   const thead = document.querySelector('thead tr');
   if (thead) thead.innerHTML = `
     <th class="col-star"></th>
