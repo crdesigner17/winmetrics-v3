@@ -391,7 +391,30 @@
   .smart-icon { width: 14px; height: 14px; margin-top: 1px; color: var(--purple); }
   .smart-label { display: block; color: var(--text-secondary); margin-bottom: 1px; }
   .smart-item strong { display: block; color: var(--text-primary); font-weight: 600; white-space: normal; }
-  #world-cup-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(245,158,11,.08); }
+  #world-cup-btn {
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+  #world-cup-btn::before {
+    content: '';
+    position: absolute; inset: -1.5px;
+    border-radius: 9px;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    z-index: -1;
+    opacity: 0.45;
+    transition: opacity .15s;
+  }
+  #world-cup-btn:hover::before { opacity: 1; }
+  #world-cup-btn:hover { color: var(--text-primary); }
+  #world-cup-btn.active {
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    color: #fff;
+    border-color: transparent;
+  }
+  #world-cup-btn.active::before { display: none; }
 
   /* section */
   .prob-cell { min-width: 90px; }
