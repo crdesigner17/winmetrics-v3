@@ -32,6 +32,7 @@ const PackBallMapper = (function () {
 
   // Nomes de mercado na API de odds (bookmaker=6, bet365-like)
   const ODD_MARKET_NAMES = {
+    matchWinner: ['Match Winner', '1x2', 'Full Time Result', 'Winner'],
     over15:    ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
     over25:    ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
     under35:   ['Goals Over/Under', 'Total Goals', 'Match Goals', 'Over/Under'],
@@ -41,6 +42,7 @@ const PackBallMapper = (function () {
     corners85: ['Asian Corners', 'Total Corners', 'Corners Over/Under', 'Corner Line'],
     cards25:   ['Total Cards', 'Booking Points', 'Cards Over/Under', 'Total Bookings'],
     cards35:   ['Total Cards', 'Booking Points', 'Cards Over/Under', 'Total Bookings'],
+    cards55:   ['Total Cards', 'Booking Points', 'Cards Over/Under', 'Total Bookings'],
   };
 
   // Nomes de estatística nos objetos /fixtures/statistics
@@ -254,7 +256,7 @@ const PackBallMapper = (function () {
     if (!Array.isArray(games) || games.length === 0) {
       return {
         avg_corners: null, over65_c: null, over75_c: null, over85_c: null,
-        avg_cards: null, over25_cards: null, over35_cards: null,
+        avg_cards: null, over25_cards: null, over35_cards: null, over45_cards: null,
         avg_shots: null, avg_sot: null,
         over05_ht: null, over15_ht: null,
       };
@@ -326,6 +328,8 @@ const PackBallMapper = (function () {
       ? (cards_list.filter(c => c > 2.5).length / cards_list.length) * 100 : null;
     const over35_cards = cards_list.length > 0
       ? (cards_list.filter(c => c > 3.5).length / cards_list.length) * 100 : null;
+    const over45_cards = cards_list.length > 0
+      ? (cards_list.filter(c => c > 4.5).length / cards_list.length) * 100 : null;
 
     // HT
     const over05_ht = valid > 0 ? (ht_games_with_goal  / valid) * 100 : null;
@@ -333,7 +337,7 @@ const PackBallMapper = (function () {
 
     return {
       avg_corners, over65_c, over75_c, over85_c,
-      avg_cards, over25_cards, over35_cards,
+      avg_cards, over25_cards, over35_cards, over45_cards,
       avg_shots, avg_sot,
       over05_ht, over15_ht,
     };
@@ -365,6 +369,7 @@ const PackBallMapper = (function () {
       avg_cards:     avg2(hm.avg_cards,     am.avg_cards),
       over25_cards:  avg2(hm.over25_cards,  am.over25_cards),
       over35_cards:  avg2(hm.over35_cards,  am.over35_cards),
+      over45_cards:  avg2(hm.over45_cards,  am.over45_cards),
       avg_shots:     avg2(hm.avg_shots,     am.avg_shots),
       avg_sot:       avg2(hm.avg_sot,       am.avg_sot),
       over05_ht:     avg2(hm.over05_ht,     am.over05_ht),
@@ -436,11 +441,15 @@ const PackBallMapper = (function () {
    */
   function _extractPredictionsOdds(predictionsResp) {
     if (!predictionsResp || !predictionsResp.predictions) {
-      return { over15_g: null, over25_g: null };
+      return { over15_g: null, over25_g: null, pred_winner: null, win_home: null, win_draw: null, win_away: null };
     }
 
     const pred = predictionsResp.predictions;
     let over15_g = null, over25_g = null;
+    const win_home = pred.percent ? _pct(pred.percent.home) : null;
+    const win_draw = pred.percent ? _pct(pred.percent.draw) : null;
+    const win_away = pred.percent ? _pct(pred.percent.away) : null;
+    const pred_winner = pred.winner?.name ?? null;
 
     // ── Source 0: predictions.under_over (campo direto — idêntico ao V1 coletar.py)
     // API v3: pred.under_over = { "over": {"1.5": "78%", "2.5": "45%"}, "under": {...} }
@@ -490,6 +499,10 @@ const PackBallMapper = (function () {
     return {
       over15_g: over15_g !== null ? Math.round(Math.min(100, Math.max(0, over15_g)) * 10) / 10 : null,
       over25_g: over25_g !== null ? Math.round(Math.min(100, Math.max(0, over25_g)) * 10) / 10 : null,
+      pred_winner,
+      win_home,
+      win_draw,
+      win_away,
     };
   }
 
@@ -505,9 +518,10 @@ const PackBallMapper = (function () {
   function _extractAllOdds(oddsResponse) {
     const nullOdds = {
       odd_o15: null, odd_o25: null, odd_btts: null,
+      odds_h: null, odds_d: null, odds_a: null,
       odd_05ht: null, odd_u35: null, odd_u45: null,
       odd_esc75: null, odd_esc85: null,
-      odd_c25: null, odd_c35: null,
+      odd_c25: null, odd_c35: null, odd_c55: null,
       odd_justa_15: null, odd_justa_25: null, odd_justa_btts: null,
       odd_justa_05ht: null, odd_justa_esc85: null, odd_justa_cart25: null,
     };
@@ -556,6 +570,9 @@ const PackBallMapper = (function () {
     }
 
     const extracted = {
+      odds_h:    _extractOdd(bets, ODD_MARKET_NAMES.matchWinner, 'Home'),
+      odds_d:    _extractOdd(bets, ODD_MARKET_NAMES.matchWinner, 'Draw'),
+      odds_a:    _extractOdd(bets, ODD_MARKET_NAMES.matchWinner, 'Away'),
       odd_o15:   _extractOdd(bets, ODD_MARKET_NAMES.over15,   'Over 1.5'),
       odd_o25:   _extractOdd(bets, ODD_MARKET_NAMES.over25,   'Over 2.5'),
       odd_btts:  _extractOdd(bets, ODD_MARKET_NAMES.btts,     'Yes'),
@@ -566,6 +583,7 @@ const PackBallMapper = (function () {
       odd_esc85: _extractOdd(bets, ODD_MARKET_NAMES.corners85,'Over 8.5'),
       odd_c25:   _extractOdd(bets, ODD_MARKET_NAMES.cards25,  'Over 2.5'),
       odd_c35:   _extractOdd(bets, ODD_MARKET_NAMES.cards35,  'Over 3.5'),
+      odd_c55:   _extractOdd(bets, ODD_MARKET_NAMES.cards55,  'Over 5.5'),
       odd_justa_15: null, odd_justa_25: null, odd_justa_btts: null,
       odd_justa_05ht: null, odd_justa_esc85: null, odd_justa_cart25: null,
     };
@@ -721,7 +739,7 @@ const PackBallMapper = (function () {
 
     const {
       avg_corners, over65_c, over75_c, over85_c,
-      avg_cards, over25_cards, over35_cards,
+      avg_cards, over25_cards, over35_cards, over45_cards,
       avg_shots, avg_sot,
       over05_ht, over15_ht,
     } = merged;
@@ -735,9 +753,10 @@ const PackBallMapper = (function () {
     //   1. /predictions endpoint (se disponível — só ligas premium)
     //   2. h2h_over15 calculado dos jogos H2H (igual ao V1)
     //   3. avg_scored de cada time como estimativa final
-    let { over15_g, over25_g } = _extractPredictionsOdds(
+    const predictionSignals = _extractPredictionsOdds(
       Array.isArray(predictions?.response) ? predictions.response[0] : predictions
     );
+    let { over15_g, over25_g } = predictionSignals;
 
     // Fallback 2 — h2h (V1: "if o15g is None and h2h.get('h2h_over15') is not None")
     if (over15_g === null && h2hStats.h2h_over15 !== null) {
@@ -814,10 +833,15 @@ const PackBallMapper = (function () {
       avg_cards,
       over25_cards,
       over35_cards,
+      over45_cards,
       avg_shots,
       avg_sot,
       under25_h,
       under25_a,
+      pred_winner: predictionSignals.pred_winner,
+      win_home:    predictionSignals.win_home,
+      win_draw:    predictionSignals.win_draw,
+      win_away:    predictionSignals.win_away,
 
       // Odds de mercado
       ...allOdds,
@@ -878,7 +902,7 @@ const PackBallMapper = (function () {
       btts_h: raw.btts_h,  btts_a: raw.btts_a,
       over05_ht: raw.over05_ht, over15_ht: raw.over15_ht,
       over65_c: raw.over65_c,   over75_c: raw.over75_c,  over85_c: raw.over85_c,
-      over25_cards: raw.over25_cards, over35_cards: raw.over35_cards,
+      over25_cards: raw.over25_cards, over35_cards: raw.over35_cards, over45_cards: raw.over45_cards,
       under25_h: raw.under25_h, under25_a: raw.under25_a,
     };
     for (const [field, val] of Object.entries(pctFields)) {
