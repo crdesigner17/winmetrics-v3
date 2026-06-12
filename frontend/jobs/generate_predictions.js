@@ -44,6 +44,7 @@ const { createClient } = require('@supabase/supabase-js');
 const PredictionEngine       = require('../lib/prediction_engine_v1.js');
 const PackBallMapper         = require('../lib/packball_mapper.js');
 const AltLineResolver        = require('../lib/alternative_line_resolver.js');
+const { enrichFromWorldCup } = require('../lib/enrichFromWorldCup.js');
 
 
 // ─────────────────────────────────────────────────────────────────
@@ -1150,7 +1151,11 @@ async function run() {
       const apiData = await fetchAllData(entry);
 
       // ── FASE 3: Mapear + validar + calcular ─────────────────
-      const raw        = PackBallMapper.mapFixtureToPackBall(apiData);
+      const raw        = await enrichFromWorldCup(
+        PackBallMapper.mapFixtureToPackBall(apiData),
+        supabase,
+        LOG
+      );
 
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
