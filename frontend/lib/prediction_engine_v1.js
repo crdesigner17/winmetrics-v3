@@ -521,12 +521,28 @@ const PredictionEngine = (function () {
     ]);
   }
 
+  /**
+   * scoreResultadoFinal(raw, d, norm)
+   * Implementação fiel ao rfPick() do V1 (gerar_site.py).
+   *
+   * Lógica idêntica ao V1:
+   *   1. rfFavSide: detecta favorito via odds 1X2 ou prob. API (win_home/win_away)
+   *   2. rfEdge: 6 métricas com pesos e mínimos V1
+   *   3. isFriendly: amistosos sem favorito claro são filtrados
+   *   4. mercado: win / dnb / dc com thresholds V1
+   *      win c/ 4 métricas exige Prob.API entre os alinhados (como V1)
+   *   5. label: mesmo formato V1 — 'Vitória Casa/Visitante',
+   *             'Casa DNB'/'Visitante DNB', 'Dupla Chance 1X'/'Dupla Chance X2'
+   *
+   * @returns {{ score:number|null, market:string|null, side:string|null }}
+   */
   function scoreResultadoFinal(raw, d, norm) {
     const oh = Number(raw.odds_h);
     const oa = Number(raw.odds_a);
     const wh = raw.win_home === null || raw.win_home === undefined ? null : Number(raw.win_home);
     const wa = raw.win_away === null || raw.win_away === undefined ? null : Number(raw.win_away);
 
+    // ── rfFavSide ────────────────────────────────────────────────
     let side = null;
     let favOdd = null;
     let impliedGap = 0;
@@ -542,39 +558,69 @@ const PredictionEngine = (function () {
 
     if (!side) return { score: null, market: null, side: null };
 
+    // ── isFriendly (V1: filtra amistosos sem favorito claro) ─────
+    const isFriendly = String(raw.league_name || '').toLowerCase().includes('friendly');
+
+    // ── rfEdge ────────────────────────────────────────────────────
     const sign = side === 'home' ? 1 : -1;
     const metrics = [
-      { diff: ((Number(raw.ppg_h) || 0) - (Number(raw.ppg_a) || 0)) * sign, min: .35, weight: 18 },
-      { diff: ((Number(raw.exg_h) || 0) - (Number(raw.exg_a) || 0)) * sign, min: .25, weight: 18 },
-      { diff: ((Number(raw.avg_sc_h) || 0) - (Number(raw.avg_sc_a) || 0)) * sign, min: .25, weight: 14 },
-      { diff: ((Number(raw.avg_shots_h) || 0) - (Number(raw.avg_shots_a) || 0)) * sign, min: 2.5, weight: 10 },
-      { diff: ((Number(raw.avg_sot_h) || 0) - (Number(raw.avg_sot_a) || 0)) * sign, min: .8, weight: 10 },
-      { diff: ((Number(raw.win_home) || 0) - (Number(raw.win_away) || 0)) * sign, min: 15, weight: 20 },
+      { name: 'PPG',          diff: ((Number(raw.ppg_h)       || 0) - (Number(raw.ppg_a)       || 0)) * sign, min: .35,  weight: 18 },
+      { name: 'xG',           diff: ((Number(raw.exg_h)       || 0) - (Number(raw.exg_a)       || 0)) * sign, min: .25,  weight: 18 },
+      { name: 'Ataque',       diff: ((Number(raw.avg_sc_h)    || 0) - (Number(raw.avg_sc_a)    || 0)) * sign, min: .25,  weight: 14 },
+      { name: 'Finalizações', diff: ((Number(raw.avg_shots_h) || 0) - (Number(raw.avg_shots_a) || 0)) * sign, min: 2.5,  weight: 10 },
+      { name: 'SOT',          diff: ((Number(raw.avg_sot_h)   || 0) - (Number(raw.avg_sot_a)   || 0)) * sign, min: .8,   weight: 10 },
+      { name: 'Prob. API',    diff: ((Number(raw.win_home)    || 0) - (Number(raw.win_away)    || 0)) * sign, min: 15,   weight: 20 },
     ];
-    const ok = metrics.filter(m => Number.isFinite(m.diff) && m.diff >= m.min);
+    const ok      = metrics.filter(m => Number.isFinite(m.diff) && m.diff >= m.min);
     const aligned = ok.length;
     const strength = ok.reduce((acc, m) => acc + m.weight + Math.min(12, Math.abs(m.diff) * 2), 0);
+
+    // ── isFriendly: bloqueia se sem favorito claro e sem PPG/Prob.API ──
+    if (isFriendly && (!favOdd || favOdd > 1.30)) {
+      const hasPPGorProb = ok.some(m => m.name === 'PPG' || m.name === 'Prob. API');
+      if (!hasPPGorProb) return { score: null, market: null, side: null };
+    }
+
+    // ── Score base ────────────────────────────────────────────────
     const oddsScore = favOdd ? Math.max(0, 100 - (favOdd * 22)) : (55 + Math.min(30, impliedGap));
     let score = Math.min(100, Math.round((oddsScore + strength + Math.min(20, impliedGap)) * 10) / 10);
 
+    // ── Tipo de mercado (thresholds V1) ──────────────────────────
+    // win c/ 4 métricas: exige Prob.API entre os alinhados (igual ao V1)
+    const hasProbAPI = ok.some(m => m.name === 'Prob. API');
     let pickType = null;
-    if ((favOdd && favOdd <= 1.45 && aligned >= 3) || (favOdd && favOdd <= 1.65 && aligned >= 4 && ok.length)) {
-      pickType = 'Vitória';
+    if ((favOdd && favOdd <= 1.45 && aligned >= 3) || (favOdd && favOdd <= 1.65 && aligned >= 4 && hasProbAPI)) {
+      pickType = 'win';
       score = Math.max(score, 88);
     } else if ((favOdd && favOdd <= 1.75 && aligned >= 3) || (!favOdd && aligned >= 4 && impliedGap >= 18)) {
-      pickType = 'DNB';
+      pickType = 'dnb';
       score = Math.max(score, 82);
     } else if ((favOdd && favOdd <= 1.90 && aligned >= 2) || (!favOdd && aligned >= 3 && impliedGap >= 12)) {
-      pickType = 'Dupla Chance';
+      pickType = 'dc';
       score = Math.max(score, 76);
     }
 
     if (!pickType) return { score: null, market: null, side: null };
-    const sideLabel = side === 'home' ? 'Casa' : 'Visitante';
+
+    // ── Label idêntico ao V1 (rfMarketLabel) ─────────────────────
+    // V1: win → 'Vitória Casa'/'Vitória Visitante'
+    //     dnb → 'Casa DNB'/'Visitante DNB'
+    //     dc  → 'Dupla Chance 1X' (home) / 'Dupla Chance X2' (away)
+    const sideName = side === 'home' ? 'Casa' : 'Visitante';
+    let marketLabel;
+    if (pickType === 'win') {
+      marketLabel = `Vitória ${sideName}`;
+    } else if (pickType === 'dnb') {
+      marketLabel = `${sideName} DNB`;
+    } else {
+      marketLabel = side === 'home' ? 'Dupla Chance 1X' : 'Dupla Chance X2';
+    }
+
     return {
-      score: Math.min(100, Math.round(score * 10) / 10),
-      market: `Resultado Final (1X2) - ${pickType} ${sideLabel}`,
+      score:  Math.min(100, Math.round(score * 10) / 10),
+      market: `Resultado Final (1X2) - ${marketLabel}`,
       side,
+      pickType,
     };
   }
 
