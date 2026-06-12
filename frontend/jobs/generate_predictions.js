@@ -692,10 +692,17 @@ async function upsertFixture(raw, liga) {
     throw new Error(`upsertFixture: league_id ausente para fixture ${raw.fixture_id}`);
   }
 
+  const season = Number(raw.league_season ?? liga?.season);
+  if (!Number.isFinite(season)) {
+    throw new Error(`upsertFixture: season ausente para fixture ${raw.fixture_id}`);
+  }
+
   const row = {
     fixture_id:     raw.fixture_id,
     league_id:      leagueId,
     league_name:    raw.league_name,
+    season,
+    tier:           liga?.tier || 'normal',
     match_date:     raw.match_date,
     home_team:      raw.home_team,
     away_team:      raw.away_team,
