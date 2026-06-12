@@ -322,7 +322,7 @@
   th.col-odd, td.col-odd { width: 126px; text-align: center; }
   th.col-scoreboard, td.col-scoreboard { width: 78px; text-align: center; }
   th.col-result, td.col-result { width: 92px; text-align: center; }
-  th.col-confidence, td.col-confidence { width: 122px; text-align: center; }
+  th.col-confidence, td.col-confidence { width: 136px; text-align: center; }
   .table-wrap thead th:not(.col-game),
   .table-wrap tbody td:not(.col-game) { text-align: center; }
 
@@ -404,7 +404,7 @@
   /* confiança badge */
   .conf-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 90px;
+    min-width: 100px;
     padding: 7px 12px; border-radius: 7px;
     font-size: 13px; font-weight: 800; letter-spacing: .3px;
     font-family: 'Rajdhani', sans-serif;
@@ -934,7 +934,7 @@ async function getCurrentProfile() {
     <!-- Aviso: fonte de dados é prediction_snapshots (apenas A/A+) -->
     <div class="snapshot-notice">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">A</strong> e <strong style="margin:0 3px">A+</strong> geradas pelo Prediction Engine.
+      Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">Alta</strong> e <strong style="margin:0 3px">Elite</strong> geradas pelo Prediction Engine.
     </div>
 
     <!-- Modal de filtro por intervalo de datas -->
@@ -1354,14 +1354,14 @@ function confBadge(conf) {
   else if (c === 'd' || c.includes('evitar') || c.includes('pouca')) grade = 'D';
 
   const meta = {
-    'A+': { cls: 'conf-aplus', tip: 'A+ = Máxima confiança, cenário extremamente favorável' },
-    'A':  { cls: 'conf-a',     tip: 'A = Excelente oportunidade, forte convergência dos indicadores' },
-    'B':  { cls: 'conf-b',     tip: 'B = Boa oportunidade, maioria dos critérios atendidos' },
-    'C':  { cls: 'conf-c',     tip: 'C = Mercado aceitável, mas com alguns sinais de alerta' },
-    'D':  { cls: 'conf-d',     tip: 'D = Pouca confiança, não recomendado para entrada principal' },
+    'A+': { cls: 'conf-aplus', label: 'Elite',    tip: 'Máxima confiança, cenário extremamente favorável' },
+    'A':  { cls: 'conf-a',     label: 'Alta',     tip: 'Excelente oportunidade, forte convergência dos indicadores' },
+    'B':  { cls: 'conf-b',     label: 'Moderado', tip: 'Boa oportunidade, maioria dos critérios atendidos' },
+    'C':  { cls: 'conf-c',     label: 'Arriscado',tip: 'Mercado aceitável, mas com alguns sinais de alerta' },
+    'D':  { cls: 'conf-d',     label: 'Evitar',   tip: 'Pouca confiança, não recomendado para entrada principal' },
   };
   const item = meta[grade] || meta.D;
-  return `<span class="conf-badge ${item.cls}" title="${item.tip}">${grade || 'D'}</span>`;
+  return `<span class="conf-badge ${item.cls}" title="${item.tip}">${item.label}</span>`;
 }
 
 function getConf(snap) {
@@ -1430,7 +1430,7 @@ function renderEmpty() {
       <div style="font-size:32px;margin-bottom:10px">📭</div>
       <div style="font-size:14px;margin-bottom:8px">Nenhuma previsão encontrada ${filterLabel}.</div>
       <div style="font-size:12px;color:var(--text-muted);max-width:360px;margin:0 auto;line-height:1.6">
-        Esta página exibe apenas previsões classificadas como <strong style="color:var(--purple)">A</strong> ou <strong style="color:var(--purple)">A+</strong>
+        Esta página exibe apenas previsões classificadas como <strong style="color:var(--purple)">Alta</strong> ou <strong style="color:var(--purple)">Elite</strong>
         geradas pelo Prediction Engine. Se não há resultados, é possível que não existam previsões
         de alta confiança para esse período.
       </div>
