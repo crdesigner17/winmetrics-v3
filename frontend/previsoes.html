@@ -352,11 +352,16 @@
     color: var(--text-primary);
     font-family: 'Rajdhani', sans-serif;
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.1;
     white-space: normal;
     text-align: center;
   }
+  .pick-conf-aplus { color: var(--green); }
+  .pick-conf-a { color: var(--gold); }
+  .pick-conf-b { color: #60a5fa; }
+  .pick-conf-c { color: #a78bfa; }
+  .pick-conf-d { color: #ff5e6a; }
 
   /* prob */
   .prob-cell { min-width: 90px; }
@@ -1065,7 +1070,15 @@ const MKT_MIN = {
   'Over 8.5 cantos': { min: 75, needFilter: null            },
   'Over 2.5 cartão': { min: 75, needFilter: null            },
   'Over 3.5 cartão': { min: 75, needFilter: null            },
-  'Over 5.5 cartão': { min: 75, needFilter: null            },
+  'Over 5.5 cartão': { min: 75, needFilter: null            },  'Over 1.5 Gols':   { min: 85, needFilter: 'passed_filter' },
+  'Over 2.5 Gols':   { min: 75, needFilter: null            },
+  'Ambas marcam':    { min: 70, needFilter: null            },
+  'Under 3.5 Gols':  { min: 75, needFilter: 'under35_passed' },
+  'Under 4.5 Gols':  { min: 75, needFilter: null            },
+  'Over 7.5 Escanteios': { min: 75, needFilter: null        },
+  'Over 8.5 Escanteios': { min: 75, needFilter: null        },
+  'Over 2.5 Cartão': { min: 75, needFilter: null            },
+  'Over 3.5 Cartão': { min: 75, needFilter: null            },
 };
 
 function getAlternativas(fixtureId, mainMarket, predictionsMap) {
@@ -1203,12 +1216,12 @@ async function fetchFixtureResults(fixtureIds) {
   if (!fixtureIds.length) return {};
   const { data, error } = await supabaseClient
     .from('fixtures')
-    .select('fixture_id, goals_home, goals_away, status')
+    .select('fixture_id, goals_home, goals_away, status, match_date')
     .in('fixture_id', fixtureIds);
 
   if (error || !data) return {};
   return data.reduce((acc, row) => {
-    acc[row.fixture_id] = row;
+    acc[row.fixture_id] = { ...row, fixture_match_date: row.match_date };
     return acc;
   }, {});
 }
@@ -1279,17 +1292,36 @@ function marketRank(market) {
 
 function displayMarket(market) {
   const name = String(market || '');
-  if (name === 'Over 1.5') return 'Over 1.5 gols';
-  if (name === 'Over 2.5') return 'Over 2.5 gols';
-  if (name === 'Under 3.5') return 'Under 3.5 gols';
-  if (name === 'Under 4.5') return 'Under 4.5 gols';
-  if (name === 'Esc 7.5') return 'Over 7.5 cantos';
-  if (name === 'Esc 8.5') return 'Over 8.5 cantos';
-  if (name === 'Cart 2.5') return 'Over 2.5 cartão';
-  if (name === 'Cart 3.5') return 'Over 3.5 cartão';
-  if (name === 'Cart 5.5') return 'Over 5.5 cartão';
+  if (name === 'Resultado Final (1X2) - Casa DNB') return 'Casa empate anula';
+  if (name === 'Resultado Final (1X2) - Visitante DNB') return 'Visitante empate anula';
+  if (name === 'Resultado Final (1X2) - Dupla Chance 1X') return 'Dupla Chance 1X';
+  if (name === 'Resultado Final (1X2) - Dupla Chance 2X') return 'Dupla Chance 2X';
+  if (name === 'Resultado Final (1X2) - Vitória Casa') return 'Vitória da Casa';
+  if (name === 'Resultado Final (1X2) - Vitória Visitante') return 'Vitória do Visitante';
+  if (name === 'BTTS') return 'Ambas marcam';
+  if (name === 'Over 1.5' || name === 'Over 1.5 gols' || name === 'Over 1.5 Gols') return 'Over 1.5 Gols';
+  if (name === 'Over 2.5' || name === 'Over 2.5 gols' || name === 'Over 2.5 Gols') return 'Over 2.5 Gols';
+  if (name === 'Under 3.5' || name === 'Under 3.5 gols' || name === 'Under 3.5 Gols') return 'Under 3.5 Gols';
+  if (name === 'Under 4.5' || name === 'Under 4.5 gols' || name === 'Under 4.5 Gols') return 'Under 4.5 Gols';
+  if (name === 'Over 0.5 HT') return 'Over 0.5 HT';
+  if (name === 'Esc 7.5' || name === 'Over 7.5 cantos' || name === 'Over 7.5 Escanteios') return 'Over 7.5 Escanteios';
+  if (name === 'Esc 8.5' || name === 'Over 8.5 cantos' || name === 'Over 8.5 Escanteios') return 'Over 8.5 Escanteios';
+  if (name === 'Cart 2.5' || name === 'Over 2.5 cartão' || name === 'Over 2.5 Cartão') return 'Over 2.5 Cartão';
+  if (name === 'Cart 3.5' || name === 'Over 3.5 cartão' || name === 'Over 3.5 Cartão') return 'Over 3.5 Cartão';
   return name;
 }
+
+const FUNCTIONAL_MARKETS = new Set([
+  'Over 1.5', 'Over 2.5', 'Under 3.5', 'Under 4.5',
+  'BTTS', 'Over 0.5 HT', 'Esc 7.5', 'Esc 8.5',
+  'Cart 2.5', 'Cart 3.5',
+  'Resultado Final (1X2) - Casa DNB',
+  'Resultado Final (1X2) - Visitante DNB',
+  'Resultado Final (1X2) - Dupla Chance 1X',
+  'Resultado Final (1X2) - Dupla Chance 2X',
+  'Resultado Final (1X2) - Vitória Casa',
+  'Resultado Final (1X2) - Vitória Visitante',
+]);
 
 async function fetchMarkets() {
   const { data, error } = await supabaseClient
@@ -1297,15 +1329,18 @@ async function fetchMarkets() {
     .select('market')
     .not('market', 'is', null);
   if (error || !data) return [];
-  const seen = new Set();
-  const result = [];
+  const byLabel = new Map();
   data.forEach(r => {
-    if (r.market && r.market.trim() && !seen.has(r.market)) {
-      seen.add(r.market);
-      result.push(r.market);
+    const label = displayMarket(r.market);
+    const key = label.toLowerCase();
+    if (!r.market || !r.market.trim()) return;
+    const current = byLabel.get(key);
+    if (!current || (!FUNCTIONAL_MARKETS.has(current.value) && FUNCTIONAL_MARKETS.has(r.market))) {
+      byLabel.set(key, { value: r.market, label });
     }
   });
-  return result.sort((a, b) => marketRank(a) - marketRank(b) || a.localeCompare(b));
+  const result = [...byLabel.values()];
+  return result.sort((a, b) => marketRank(a.value) - marketRank(b.value) || a.label.localeCompare(b.label));
 }
 
 // ── Helpers de exibição ───────────────────────────────────────
@@ -1371,12 +1406,29 @@ function getConf(snap) {
   return snap.confidence || snap.best_confidence || snap.conf || snap.grade || null;
 }
 
+function pickConfidenceClass(conf) {
+  const c = String(conf || '').toLowerCase();
+  if (c === 'a+' || c === 'elite' || c.includes('maxima') || c.includes('mÃ¡xima')) return 'pick-conf-aplus';
+  if (c === 'a' || c.includes('alta') || c.includes('excelente')) return 'pick-conf-a';
+  if (c === 'b' || c.includes('moderado') || c.includes('boa oportunidade')) return 'pick-conf-b';
+  if (c === 'c' || c.includes('arriscado') || c.includes('aceit')) return 'pick-conf-c';
+  if (c === 'd' || c.includes('evitar') || c.includes('pouca')) return 'pick-conf-d';
+  return 'pick-conf-d';
+}
+
 function getOdd(snap) {
   const v = snap.odd ?? null;
   return v !== null ? Number(v) : null;
 }
 
 const ringColor = v => v >= 90 ? '#a78bfa' : v >= 85 ? '#6c63ff' : '#00d2a0';
+
+function cleanMatchName(name) {
+  return String(name || '')
+    .replace(/^\s*\d{1,2}[:h]\d{2}\s*[-–—|·]*\s*/i, '')
+    .replace(/\s*[-–—|·]*\s*\d{1,2}[:h]\d{2}\s*$/i, '')
+    .trim();
+}
 
 function formatHour(isoDate) {
   if (!isoDate) return '--';
@@ -1460,20 +1512,22 @@ function renderRows(snapshots, predictionsMap) {
     const ev     = snap.ev !== null && snap.ev !== undefined
       ? (snap.ev >= 0 ? '+' : '') + Number(snap.ev).toFixed(1) + '%'
       : 'n/a';
-    const hora      = formatHour(snap.match_date);
+    const hora      = formatHour(snap.fixture_match_date || snap.match_date);
     const data      = formatDate(snap.match_date);
     const label     = palpiteLabel(snap);
+    const conf      = getConf(snap);
     const altBadge  = '';
     const alts      = getAlternativas(snap.fixture_id, label, predictionsMap);
     const leagueName = snap.league_name || '';
+    const matchName = cleanMatchName(snap.match_name);
     return `
   <tr>
     <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
     <td class="col-game">
       <div class="game-cell">
         <div class="game-info">
-          <div class="game-name">${snap.match_name || ''}</div>
-          <div class="game-sub">${leagueName} • ${hora}</div>
+          <div class="game-name">${matchName}</div>
+          <div class="game-sub">${leagueName}</div>
         </div>
       </div>
     </td>
@@ -1482,14 +1536,14 @@ function renderRows(snapshots, predictionsMap) {
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
     <td class="col-pick mercado-cell">
-      <span class="best-pick">${label}</span>${altBadge}
+      <span class="best-pick ${pickConfidenceClass(conf)}">${label}</span>${altBadge}
     </td>
     <td class="col-alts" style="padding:10px 12px;">${renderAlts(alts)}</td>
     <td class="col-score">${ringHtml(score, ringColor(score))}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
     <td class="col-scoreboard">${formatPlacar(snap)}</td>
     <td class="col-result">${formatResult(snap)}</td>
-    <td class="col-confidence">${confBadge(getConf(snap))}</td>
+    <td class="col-confidence">${confBadge(conf)}</td>
   </tr>`;
   }).join('');
 }
@@ -1652,11 +1706,15 @@ function createDropdown({ btnId, menuId, labelId, allLabel, fetchFn, onSelect })
       try {
         const items = await fetchFn();
         menu.innerHTML = `<div class="dd-item active" data-val="">${allLabel}</div>` +
-          items.map(i => `<div class="dd-item" data-val="${i.replace(/"/g, '&quot;')}">${i}</div>`).join('');
+          items.map(item => {
+            const value = typeof item === 'string' ? item : item.value;
+            const text = typeof item === 'string' ? item : item.label;
+            return `<div class="dd-item" data-val="${String(value).replace(/"/g, '&quot;')}">${text}</div>`;
+          }).join('');
         menu.querySelectorAll('.dd-item').forEach(item => {
           item.addEventListener('click', () => {
             const val = item.dataset.val;
-            label.textContent = val || allLabel;
+            label.textContent = val ? item.textContent : allLabel;
             menu.querySelectorAll('.dd-item').forEach(x => x.classList.remove('active'));
             item.classList.add('active');
             closeMenu();
