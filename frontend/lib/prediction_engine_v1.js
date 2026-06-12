@@ -30,16 +30,16 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
 
   const GRADE_THRESHOLDS = {
-    'A+': 88,
-    'A':  80,
-    'B':  70,
-    'C':  60,
+    'A+': 85,
+    'A':  75,
+    'B':  65,
+    'C':  50,
   };
   // D = qualquer score abaixo de 50
 
   const CONFIDENCE_LABELS = {
-    'A+': 'Elite',
-    'A':  'Alta',
+    'A+': 'Confiança Alta',
+    'A':  'Confiança Média',
     'B':  'Moderado',
     'C':  'Arriscado',
     'D':  'Evitar',
@@ -512,6 +512,72 @@ const PredictionEngine = (function () {
     ]);
   }
 
+  function scoreCards55(raw, d, norm) {
+    return ws([
+      [raw.over45_cards,  48],
+      [norm.cards_n,      32],
+      [raw.over35_cards,  10],
+      [norm.ppg_n,        10],
+    ]);
+  }
+
+  function scoreResultadoFinal(raw, d, norm) {
+    const oh = Number(raw.odds_h);
+    const oa = Number(raw.odds_a);
+    const wh = raw.win_home === null || raw.win_home === undefined ? null : Number(raw.win_home);
+    const wa = raw.win_away === null || raw.win_away === undefined ? null : Number(raw.win_away);
+
+    let side = null;
+    let favOdd = null;
+    let impliedGap = 0;
+
+    if (Number.isFinite(oh) && Number.isFinite(oa) && oh > 1 && oa > 1 && oh !== oa) {
+      side = oh < oa ? 'home' : 'away';
+      favOdd = Math.min(oh, oa);
+      impliedGap = Math.abs((1 / oh) - (1 / oa)) * 100;
+    } else if (Number.isFinite(wh) && Number.isFinite(wa) && Math.abs(wh - wa) >= 8) {
+      side = wh > wa ? 'home' : 'away';
+      impliedGap = Math.abs(wh - wa);
+    }
+
+    if (!side) return { score: null, market: null, side: null };
+
+    const sign = side === 'home' ? 1 : -1;
+    const metrics = [
+      { diff: ((Number(raw.ppg_h) || 0) - (Number(raw.ppg_a) || 0)) * sign, min: .35, weight: 18 },
+      { diff: ((Number(raw.exg_h) || 0) - (Number(raw.exg_a) || 0)) * sign, min: .25, weight: 18 },
+      { diff: ((Number(raw.avg_sc_h) || 0) - (Number(raw.avg_sc_a) || 0)) * sign, min: .25, weight: 14 },
+      { diff: ((Number(raw.avg_shots_h) || 0) - (Number(raw.avg_shots_a) || 0)) * sign, min: 2.5, weight: 10 },
+      { diff: ((Number(raw.avg_sot_h) || 0) - (Number(raw.avg_sot_a) || 0)) * sign, min: .8, weight: 10 },
+      { diff: ((Number(raw.win_home) || 0) - (Number(raw.win_away) || 0)) * sign, min: 15, weight: 20 },
+    ];
+    const ok = metrics.filter(m => Number.isFinite(m.diff) && m.diff >= m.min);
+    const aligned = ok.length;
+    const strength = ok.reduce((acc, m) => acc + m.weight + Math.min(12, Math.abs(m.diff) * 2), 0);
+    const oddsScore = favOdd ? Math.max(0, 100 - (favOdd * 22)) : (55 + Math.min(30, impliedGap));
+    let score = Math.min(100, Math.round((oddsScore + strength + Math.min(20, impliedGap)) * 10) / 10);
+
+    let pickType = null;
+    if ((favOdd && favOdd <= 1.45 && aligned >= 3) || (favOdd && favOdd <= 1.65 && aligned >= 4 && ok.length)) {
+      pickType = 'Vitória';
+      score = Math.max(score, 88);
+    } else if ((favOdd && favOdd <= 1.75 && aligned >= 3) || (!favOdd && aligned >= 4 && impliedGap >= 18)) {
+      pickType = 'DNB';
+      score = Math.max(score, 82);
+    } else if ((favOdd && favOdd <= 1.90 && aligned >= 2) || (!favOdd && aligned >= 3 && impliedGap >= 12)) {
+      pickType = 'Dupla Chance';
+      score = Math.max(score, 76);
+    }
+
+    if (!pickType) return { score: null, market: null, side: null };
+    const sideLabel = side === 'home' ? 'Casa' : 'Visitante';
+    return {
+      score: Math.min(100, Math.round(score * 10) / 10),
+      market: `Resultado Final (1X2) - ${pickType} ${sideLabel}`,
+      side,
+    };
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // 5. FILTRO 3 VIAS — Over 1.5 (modo API / coletar.py)  §6
@@ -674,14 +740,18 @@ const PredictionEngine = (function () {
    */
   function selectBestMkt(scores, filters) {
     const candidatos = [
-      { market: 'Over 1.5',    score: scores.over15,  eligible: filters.over15_passed  },
-      { market: 'Over 2.5',    score: scores.over25,  eligible: true                   },
+      { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true },
+      { market: 'Over 1.5 gols', score: scores.over15, eligible: filters.over15_passed  },
+      { market: 'Over 2.5 gols', score: scores.over25, eligible: true                   },
       { market: 'BTTS',        score: scores.btts,    eligible: true                   },
       { market: 'Over 0.5 HT', score: scores.over05ht,eligible: true                   },
-      { market: 'Under 4.5',   score: scores.under45, eligible: true                   },
-      { market: 'Under 3.5',   score: scores.under35, eligible: filters.under35_passed },
-      { market: 'Esc 7.5',     score: scores.esc75,   eligible: true                   },
-      { market: 'Cart 2.5',    score: scores.cards25, eligible: true                   },
+      { market: 'Under 4.5 gols', score: scores.under45, eligible: true                   },
+      { market: 'Under 3.5 gols', score: scores.under35, eligible: filters.under35_passed },
+      { market: 'Over 7.5 cantos', score: scores.esc75, eligible: true                   },
+      { market: 'Over 8.5 cantos', score: scores.esc85, eligible: true                   },
+      { market: 'Over 2.5 cartão', score: scores.cards25, eligible: true                 },
+      { market: 'Over 3.5 cartão', score: scores.cards35, eligible: true                 },
+      { market: 'Over 5.5 cartão', score: scores.cards55, eligible: true                 },
     ];
 
     let best = null;
@@ -810,6 +880,8 @@ const PredictionEngine = (function () {
     const s_esc85  = scoreEsc85(raw, d, norm);
     const s_c25    = scoreCards25(raw, d, norm);
     const s_c35    = scoreCards35(raw, d, norm);
+    const s_c55    = scoreCards55(raw, d, norm);
+    const rf       = scoreResultadoFinal(raw, d, norm);
 
     // ── Etapa 5: Filtros ───────────────────────────────────────
     const filtro15   = filtroOver15(raw, d);
@@ -817,6 +889,7 @@ const PredictionEngine = (function () {
 
     // ── Etapa 6: Grades ────────────────────────────────────────
     const scores = {
+      resultadoFinal: rf.score,
       over15:  s15,
       over25:  s25,
       btts:    s_btts,
@@ -827,6 +900,7 @@ const PredictionEngine = (function () {
       esc85:   s_esc85,
       cards25: s_c25,
       cards35: s_c35,
+      cards55: s_c55,
     };
 
     const grades = {};
@@ -836,6 +910,7 @@ const PredictionEngine = (function () {
 
     // ── Etapa 7: Odds coletadas ────────────────────────────────
     const odds = {
+      resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null) : rf.side === 'away' ? (raw.odds_a ?? null) : null,
       over15:   raw.odd_o15   ?? null,
       over25:   raw.odd_o25   ?? null,
       btts:     raw.odd_btts  ?? null,
@@ -846,6 +921,7 @@ const PredictionEngine = (function () {
       esc85:    raw.odd_esc85 ?? null,
       cards25:  raw.odd_c25   ?? null,
       cards35:  raw.odd_c35   ?? null,
+      cards55:  raw.odd_c55   ?? null,
     };
 
     // ── Etapa 8: EV por mercado ────────────────────────────────
@@ -860,6 +936,7 @@ const PredictionEngine = (function () {
       over15_passed: filtro15.passed,
       over15_via:    filtro15.via,
       under35_passed: under35_ok,
+      resultadoFinal_market: rf.market,
     };
 
     const best = selectBestMkt(scores, filters);
@@ -915,19 +992,31 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
 
   const _MKT_TO_KEY = {
+    'Resultado Final (1X2)': 'resultadoFinal',
+    'Over 1.5 gols': 'over15',
+    'Over 2.5 gols': 'over25',
     'Over 1.5':    'over15',
     'Over 2.5':    'over25',
     'BTTS':        'btts',
     'Over 0.5 HT': 'over05ht',
+    'Under 4.5 gols': 'under45',
+    'Under 3.5 gols': 'under35',
     'Under 4.5':   'under45',
     'Under 3.5':   'under35',
+    'Over 7.5 cantos': 'esc75',
+    'Over 8.5 cantos': 'esc85',
     'Esc 7.5':     'esc75',
     'Esc 8.5':     'esc85',
+    'Over 2.5 cartão': 'cards25',
+    'Over 3.5 cartão': 'cards35',
+    'Over 5.5 cartão': 'cards55',
     'Cart 2.5':    'cards25',
     'Cart 3.5':    'cards35',
+    'Cart 5.5':    'cards55',
   };
 
   function _mktKey(market) {
+    if (String(market || '').startsWith('Resultado Final (1X2)')) return 'resultadoFinal';
     return _MKT_TO_KEY[market] ?? null;
   }
 
