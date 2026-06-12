@@ -15,12 +15,14 @@ const args = process.argv.slice(2);
 const fromArg   = args.find(a => a.startsWith('--from='))?.split('=')[1];
 const futureArg = args.find(a => a.startsWith('--future='))?.split('=')[1];
 const delayArg  = args.find(a => a.startsWith('--delay='))?.split('=')[1];
+const timeoutArg = args.find(a => a.startsWith('--timeout='))?.split('=')[1];
 const DRY_RUN   = args.includes('--dry-run');
 const FORCE     = args.includes('--force');
 
 const FROM_DATE   = fromArg   || '2026-05-24';
 const FUTURE_DAYS = parseInt(futureArg || '10', 10);
 const DELAY_MS    = parseInt(delayArg  || '2000', 10);
+const TIMEOUT_MS  = parseInt(timeoutArg || process.env.BACKFILL_DATE_TIMEOUT_MS || '600000', 10);
 
 function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00Z');
@@ -63,6 +65,7 @@ async function main() {
   console.log(` Futuro:   até ${toDate} (+${FUTURE_DAYS} dias)`);
   console.log(` Total:    ${dates.length} datas`);
   console.log(` Delay:    ${DELAY_MS}ms entre datas`);
+  console.log(` Timeout:  ${TIMEOUT_MS}ms por data`);
   console.log(` Dry-run:  ${DRY_RUN}`);
   console.log(` Force:    ${FORCE}`);
   console.log(hr('─') + '\n');
@@ -88,7 +91,7 @@ async function main() {
       [pipelinePath, ...flags],
       {
         env:     { ...process.env },
-        timeout: 120_000,
+        timeout: TIMEOUT_MS,
         encoding: 'utf8',
       }
     );
