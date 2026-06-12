@@ -67,16 +67,26 @@ const supabase = SUPABASE_URL && SUPABASE_KEY
 // ─────────────────────────────────────────────────────────────────
 
 const MKT_RESULTADO = {
-  'Over 1.5':    'over15_ok',
-  'Over 2.5':    'over25_ok',
+  'Over 1.5':      'over15_ok',
+  'Over 1.5 gols': 'over15_ok',
+  'Over 2.5':      'over25_ok',
+  'Over 2.5 gols': 'over25_ok',
   'BTTS':        'btts',
   'Over 0.5 HT': 'over05_ht_ok',
-  'Under 4.5':   'under45_ok',
-  'Under 3.5':   'under35_ok',
-  'Esc 7.5':     'esc75_ok',
-  'Esc 8.5':     'esc85_ok',
-  'Cart 2.5':    'cart25_ok',
-  'Cart 3.5':    'cart35_ok',
+  'Under 4.5':      'under45_ok',
+  'Under 4.5 gols': 'under45_ok',
+  'Under 3.5':      'under35_ok',
+  'Under 3.5 gols': 'under35_ok',
+  'Esc 7.5':          'esc75_ok',
+  'Over 7.5 cantos':  'esc75_ok',
+  'Esc 8.5':          'esc85_ok',
+  'Over 8.5 cantos':  'esc85_ok',
+  'Cart 2.5':          'cart25_ok',
+  'Over 2.5 cartão':   'cart25_ok',
+  'Cart 3.5':          'cart35_ok',
+  'Over 3.5 cartão':   'cart35_ok',
+  'Cart 5.5':          'cart55_ok',
+  'Over 5.5 cartão':   'cart55_ok',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -213,6 +223,7 @@ async function buscarResultado(fixtureId) {
     esc85_ok:     cornersTotal !== null ? cornersTotal > 8.5  : null,
     cart25_ok:    cardsTotal   !== null ? cardsTotal   > 2.5  : null,
     cart35_ok:    cardsTotal   !== null ? cardsTotal   > 3.5  : null,
+    cart55_ok:    cardsTotal   !== null ? cardsTotal   > 5.5  : null,
     corners_total: cornersTotal,
     cards_total:   cardsTotal,
   };
@@ -223,6 +234,29 @@ async function buscarResultado(fixtureId) {
 // ─────────────────────────────────────────────────────────────────
 
 function calcResultStatus(market, resultado) {
+  if (String(market || '').startsWith('Resultado Final (1X2)')) {
+    const gh = resultado.goals_home;
+    const ga = resultado.goals_away;
+    if (gh === null || gh === undefined || ga === null || ga === undefined) return null;
+    const homeWin = gh > ga;
+    const awayWin = ga > gh;
+    const draw = gh === ga;
+    const isHome = market.includes('Casa');
+    const isAway = market.includes('Visitante');
+
+    if (market.includes('Vitória')) {
+      return ((isHome && homeWin) || (isAway && awayWin)) ? 'green' : 'red';
+    }
+    if (market.includes('DNB')) {
+      if (draw) return null;
+      return ((isHome && homeWin) || (isAway && awayWin)) ? 'green' : 'red';
+    }
+    if (market.includes('Dupla Chance')) {
+      const lost = (isHome && awayWin) || (isAway && homeWin);
+      return lost ? 'red' : 'green';
+    }
+  }
+
   const campo = MKT_RESULTADO[market];
   if (!campo) return null;
   const acertou = resultado[campo];
