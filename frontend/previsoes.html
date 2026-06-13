@@ -3553,13 +3553,13 @@ async function loadPrevisoes() {
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
     ]);
-    const dedupMap = {};
-    for (const s of snapshots) {
-      if (!dedupMap[s.fixture_id] || Number(s.score) > Number(dedupMap[s.fixture_id].score)) {
-        dedupMap[s.fixture_id] = s;
-      }
-    }
-    const rows = Object.values(dedupMap).map(s => ({ ...fixturesMap[s.fixture_id], ...s }));
+    const seenFixtures = new Set();
+    const dedupedSnapshots = snapshots.filter(s => {
+      if (seenFixtures.has(s.fixture_id)) return false;
+      seenFixtures.add(s.fixture_id);
+      return true;
+    });
+    const rows = dedupedSnapshots.map(s => ({ ...fixturesMap[s.fixture_id], ...s }));
 
     renderRows(rows, predictionsMap);
     renderPagination(totalCount, currentPage);
