@@ -2442,7 +2442,7 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
   if (!fixtureIds.length) return {};
   const { data, error } = await supabaseClient
     .from('prediction_snapshots')
-    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date')
+    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour')
     .in('fixture_id', fixtureIds)
     .in('grade', ['A+', 'A']);
 
@@ -3369,7 +3369,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
     const ev     = snap.ev !== null && snap.ev !== undefined
       ? (snap.ev >= 0 ? '+' : '') + Number(snap.ev).toFixed(1) + '%'
       : 'n/a';
-    const hora      = formatHour(snap.fixture_match_date || snap.match_date);
+    const hora      = snap.hour || formatHour(snap.fixture_match_date || snap.match_date);
     const data      = formatDate(snap.match_date);
     const label     = palpiteLabel(snap);
     const conf      = getConf(snap);
