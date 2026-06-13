@@ -2372,7 +2372,7 @@ async function fetchSnapshots(page) {
     .from('prediction_snapshots')
     .select(
       'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, ' +
-      'market, score, grade, odd, result_status, confirmed_at, match_date',
+      'market, score, grade, odd, result_status, confirmed_at, match_date, hour',
       { count: 'exact' }
     )
     .order('score', { ascending: false })
