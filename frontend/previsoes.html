@@ -288,7 +288,7 @@
     margin-bottom: 18px;
   }
 
-  table { width: 100%; min-width: 1100px; border-collapse: collapse; table-layout: fixed; }
+  table { width: 100%; min-width: 1320px; border-collapse: collapse; table-layout: fixed; }
   thead tr {
     background: var(--bg-card2);
     border-bottom: 1px solid var(--border);
@@ -314,20 +314,20 @@
   thead th + th,
   tbody td + td { border-left: 1px solid rgba(255,255,255,.045); }
   th.col-star, td.col-star { width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; }
-  th.col-game, td.col-game { width: 22%; text-align: left; overflow: hidden; max-width: 0; }
-  th.col-date, td.col-date { width: 82px; text-align: center; overflow: hidden; white-space: nowrap; }
-  th.col-pick, td.col-pick { width: 150px; text-align: center; }
+  th.col-game, td.col-game { width: 180px; text-align: left; overflow: hidden; }
+  th.col-date, td.col-date { width: 70px; text-align: center; overflow: hidden; white-space: nowrap; }
+  th.col-pick, td.col-pick { width: 130px; text-align: center; }
   th.col-alts, td.col-alts { width: 220px; text-align: center; }
   /* World Cup mode — colunas específicas por mercado */
-  th.col-wc-result, td.col-wc-result { width: 150px; text-align: center; }
-  th.col-wc-goals,  td.col-wc-goals  { width: 140px; text-align: center; }
-  th.col-wc-corners,td.col-wc-corners{ width: 110px; text-align: center; }
-  th.col-wc-cards,  td.col-wc-cards  { width: 110px; text-align: center; }
+  th.col-wc-result, td.col-wc-result { width: 130px; text-align: center; }
+  th.col-wc-goals,  td.col-wc-goals  { width: 130px; text-align: center; }
+  th.col-wc-corners,td.col-wc-corners{ width: 100px; text-align: center; }
+  th.col-wc-cards,  td.col-wc-cards  { width: 100px; text-align: center; }
   th.col-score, td.col-score { width: 84px; text-align: center; }
-  th.col-odd, td.col-odd { width: 126px; text-align: center; }
-  th.col-scoreboard, td.col-scoreboard { width: 78px; text-align: center; }
-  th.col-result, td.col-result { width: 92px; text-align: center; }
-  th.col-confidence, td.col-confidence { width: 136px; text-align: center; }
+  th.col-odd, td.col-odd { width: 100px; text-align: center; }
+  th.col-scoreboard, td.col-scoreboard { width: 70px; text-align: center; }
+  th.col-result, td.col-result { width: 80px; text-align: center; }
+  th.col-confidence, td.col-confidence { width: 110px; text-align: center; }
   .table-wrap thead th:not(.col-game),
   .table-wrap tbody td:not(.col-game) { text-align: center; }
 
@@ -3427,7 +3427,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
     return `
   <tr>
     <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
-    <td class="col-game">
+    <td class="col-game" style="padding:10px 8px 10px 12px;">
       <div class="game-cell">
         <div class="game-info">
           <div class="game-name">${matchName}</div>
@@ -3435,8 +3435,8 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
         </div>
       </div>
     </td>
-    <td class="col-date" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;min-width:64px;">
-      <div style="font-weight:600;color:var(--text-primary)">${data}</div>
+    <td class="col-date" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;padding:10px 8px;">
+      <div style="font-weight:600;color:var(--text-primary);font-size:12px;">${data}</div>
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
     <td class="col-pick mercado-cell">
