@@ -2303,6 +2303,7 @@ const MKT_MIN = {
 
 function getAlternativas(fixtureId, mainMarket, predictionsMap) {
   const preds = predictionsMap[fixtureId] || [];
+  const seen = new Set();
   return preds
     .filter(p => displayMarket(p.market) !== mainMarket)
     .filter(p => {
@@ -2313,6 +2314,12 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
       return true;
     })
     .sort((a, b) => b.score - a.score)
+    .filter(p => {
+      const key = displayMarket(p.market);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .slice(0, 3)
     .map(p => displayMarket(p.market));
 }
@@ -2764,12 +2771,12 @@ function formatPlacar(snap) {
 function renderAlts(alts) {
   if (!alts.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
   return alts.map(m =>
-    `<span style="
+    `<div style="margin-bottom:4px;"><span style="
       font-size:11px;
       background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.25);
-      color:var(--purple);padding:2px 7px;border-radius:4px;white-space:nowrap;
-    ">${m}</span>`
-  ).join(' ');
+      color:var(--purple);padding:2px 7px;border-radius:4px;white-space:nowrap;display:inline-block;
+    ">${m}</span></div>`
+  ).join('');
 }
 
 const GRADE_RANK = { 'A+': 5, A: 4, B: 3, C: 2, D: 1 };
@@ -3546,7 +3553,13 @@ async function loadPrevisoes() {
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
     ]);
-    const rows = snapshots.map(s => ({ ...fixturesMap[s.fixture_id], ...s }));
+    const dedupMap = {};
+    for (const s of snapshots) {
+      if (!dedupMap[s.fixture_id] || Number(s.score) > Number(dedupMap[s.fixture_id].score)) {
+        dedupMap[s.fixture_id] = s;
+      }
+    }
+    const rows = Object.values(dedupMap).map(s => ({ ...fixturesMap[s.fixture_id], ...s }));
 
     renderRows(rows, predictionsMap);
     renderPagination(totalCount, currentPage);
