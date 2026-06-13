@@ -1,6 +1,3873 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+<head><!DOCTYPE html>
+<html lang="pt-BR">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WinMetrics - Melhores Previsões</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-main: #0e1017;
+    --bg-sidebar: #13161f;
+    --bg-card: #181c27;
+    --bg-card2: #1e2232;
+    --bg-hover: #222840;
+    --border: #252a3a;
+    --accent: #6c63ff;
+    --accent2: #00d2a0;
+    --accent3: #ff6b6b;
+    --text-primary: #f0f2ff;
+    --text-secondary: #8b90a8;
+    --text-muted: #525870;
+    --green: #00d2a0;
+    --purple: #a78bfa;
+    --gold: #f0a500;
+    --elite: #7c3aed;
+    --alta: #1e4035;
+    --alta-text: #00d2a0;
+    --media-bg: #2d2a14;
+    --media-text: #d4b800;
+    --sidebar-width: 240px;
+    --topbar-height: 56px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* section */
+  .sidebar {
+    width: var(--sidebar-width);
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700; font-size: 16px; color: #fff;
+  }
+
+  .logo-text { line-height: 1; }
+  .logo-text strong { font-family: 'Rajdhani', sans-serif; font-size: 17px; font-weight: 700; color: var(--text-primary); display: block; }
+  .logo-text span { font-size: 10px; color: var(--text-secondary); letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .sidebar-nav { padding: 12px 0; flex: 1; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 20px;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    transition: all .15s;
+    border-radius: 0;
+    position: relative;
+  }
+  .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .nav-item.active {
+    background: linear-gradient(90deg, rgba(108,99,255,.18) 0%, rgba(108,99,255,.04) 100%);
+    color: var(--text-primary);
+    border-left: 3px solid var(--accent);
+    padding-left: 17px;
+  }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke:currentColor;fill:none;}
+
+  .nav-section {
+    padding: 20px 20px 6px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .badge-pro {
+    font-size: 9px; font-weight: 700; letter-spacing: .8px;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    color: #fff; padding: 2px 6px; border-radius: 4px;
+    margin-left: auto; text-transform: uppercase;
+  }
+
+  .sidebar-upgrade {
+    margin: 12px 14px;
+    background: linear-gradient(135deg, #1a1f35, #232848);
+    border: 1px solid #2d3358;
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .sidebar-upgrade .crown { font-size: 20px; margin-bottom: 6px; }
+  .sidebar-upgrade h4 { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+  .sidebar-upgrade p { font-size: 11px; color: var(--text-secondary); margin: 4px 0 12px; line-height: 1.4; }
+  .btn-upgrade {
+    width: 100%; padding: 9px;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    border: none; border-radius: 8px;
+    color: #fff; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; transition: opacity .15s;
+  }
+  .btn-upgrade:hover { opacity: .88; }
+
+  /* section */
+  .main-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* section */
+  .topbar {
+    height: var(--topbar-height);
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 24px;
+    flex-shrink: 0;
+  }
+
+  .search-box {
+    flex: 1; max-width: 340px;
+    display: flex; align-items: center; gap: 9px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 12px; height: 34px;
+  }
+  .search-box input {
+    background: none; border: none; outline: none;
+    color: var(--text-primary); font-size: 13px; width: 100%;
+  }
+  .search-box input::placeholder { color: var(--text-muted); }
+  .search-box svg { color: var(--text-muted); width: 15px; height: 15px; flex-shrink: 0; }
+
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+
+  .icon-btn {
+    width: 34px; height: 34px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    color: var(--text-secondary);
+    transition: border-color .15s;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+  .icon-btn svg { width: 16px; height: 16px; stroke:currentColor;fill:none;}
+
+  .notif-dot {
+    position: absolute; top: -4px; right: -4px;
+    width: 16px; height: 16px;
+    background: #ef4444; border-radius: 50%;
+    font-size: 9px; font-weight: 700; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--bg-sidebar);
+  }
+
+  .user-pill {
+    display: flex; align-items: center; gap: 9px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 12px 4px 5px;
+    cursor: pointer;
+  }
+  .user-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+  .user-name { font-size: 13px; font-weight: 600; }
+  .user-pro { font-size: 9px; font-weight: 700; color: var(--purple); display: block; }
+
+  /* section */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 28px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* section */
+  .page-header { margin-bottom: 22px; }
+  .page-title {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+  }
+  .page-title h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 26px; font-weight: 700;
+  }
+  .page-title .pro-tag {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    color: #fff; padding: 3px 8px; border-radius: 5px;
+  }
+  .page-subtitle { font-size: 13.5px; color: var(--text-secondary); }
+
+  /* section */
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px; flex-wrap: wrap;
+  }
+
+  .tab-group { display: flex; gap: 2px; background: var(--bg-card); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+  .tab {
+    padding: 7px 16px; border-radius: 6px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    color: var(--text-secondary); transition: all .15s;
+  }
+  .tab.active { background: var(--bg-hover); color: var(--text-primary); }
+  .tab[data-filter="hoje"].active {
+    background: linear-gradient(135deg, rgba(0,210,160,.22), rgba(108,99,255,.18));
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(0,210,160,.35);
+  }
+
+  .select-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; transition: border-color .15s;
+  }
+  .select-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+  .select-btn svg { width: 14px; height: 14px; }
+
+  .filter-btn {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 7px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    font-size: 13px; color: var(--text-secondary); cursor: pointer;
+  }
+
+  /* section */
+  .explain-link {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-secondary);
+    cursor: pointer; margin-bottom: 18px; width: fit-content;
+    margin-left: auto;
+    transition: color .15s;
+  }
+  .explain-link:hover { color: var(--text-primary); }
+  .snapshot-notice { display: none !important; }
+
+  /* section */
+  .table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 18px;
+  }
+
+  table { width: 100%; min-width: 1040px; border-collapse: collapse; table-layout: fixed; }
+  thead tr {
+    background: var(--bg-card2);
+    border-bottom: 1px solid var(--border);
+  }
+  thead th {
+    padding: 11px 16px;
+    font-size: 11px; font-weight: 600; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--text-muted);
+    text-align: left; white-space: nowrap;
+  }
+  thead th.center { text-align: center; }
+  thead th .sort-arrow { margin-left: 4px; opacity: .5; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+    cursor: pointer;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-hover); }
+
+  td { padding: 13px 16px; font-size: 13.5px; vertical-align: middle; }
+  thead th + th,
+  tbody td + td { border-left: 1px solid rgba(255,255,255,.045); }
+  th.col-star, td.col-star { width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; }
+  th.col-game, td.col-game { width: 28%; text-align: left; }
+  th.col-date, td.col-date { width: 82px; text-align: center; }
+  th.col-pick, td.col-pick { width: 150px; text-align: center; }
+  th.col-alts, td.col-alts { width: 220px; text-align: center; }
+  /* World Cup mode — colunas específicas por mercado */
+  th.col-wc-result, td.col-wc-result { width: 150px; text-align: center; }
+  th.col-wc-goals,  td.col-wc-goals  { width: 140px; text-align: center; }
+  th.col-wc-corners,td.col-wc-corners{ width: 110px; text-align: center; }
+  th.col-wc-cards,  td.col-wc-cards  { width: 110px; text-align: center; }
+  th.col-score, td.col-score { width: 84px; text-align: center; }
+  th.col-odd, td.col-odd { width: 126px; text-align: center; }
+  th.col-scoreboard, td.col-scoreboard { width: 78px; text-align: center; }
+  th.col-result, td.col-result { width: 92px; text-align: center; }
+  th.col-confidence, td.col-confidence { width: 136px; text-align: center; }
+  .table-wrap thead th:not(.col-game),
+  .table-wrap tbody td:not(.col-game) { text-align: center; }
+
+  /* section */
+  .star-btn { cursor: pointer; color: var(--text-muted); transition: color .15s; }
+  .star-btn:hover { color: var(--gold); }
+  .star-btn svg { width: 16px; height: 16px; }
+
+  /* section */
+  .game-cell { display: flex; align-items: center; min-width: 0; }
+  .game-info { min-width: 0; }
+  .game-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 1px; }
+
+  /* section */
+  .mercado-cell { font-size: 13px; color: var(--text-secondary); }
+  .best-pick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 104px;
+    max-width: 100%;
+    padding: 7px 12px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, rgba(0,210,160,.18), rgba(108,99,255,.16));
+    border: 1px solid rgba(0,210,160,.42);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: normal;
+    text-align: center;
+  }
+  .pick-conf-aplus { color: var(--green); }
+  .pick-conf-a { color: var(--gold); }
+  .pick-conf-b { color: #60a5fa; }
+  .pick-conf-c { color: #a78bfa; }
+  .pick-conf-d { color: #ff5e6a; }
+  .smart-badge {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    background: rgba(108,99,255,.12);
+    border: 1px solid rgba(108,99,255,.25);
+    color: #a78bfa;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .smart-list { display: grid; gap: 8px; text-align: left; min-width: 150px; }
+  .smart-item {
+    display: grid;
+    grid-template-columns: 15px minmax(0, 1fr);
+    gap: 7px;
+    align-items: start;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
+  .smart-icon { width: 14px; height: 14px; margin-top: 1px; color: var(--purple); }
+  .smart-label { display: block; color: var(--text-secondary); margin-bottom: 1px; }
+  .smart-item strong { display: block; color: var(--text-primary); font-weight: 600; white-space: normal; }
+  #world-cup-btn {
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+  #world-cup-btn::before {
+    content: '';
+    position: absolute; inset: -1.5px;
+    border-radius: 9px;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    z-index: -1;
+    opacity: 0.45;
+    transition: opacity .15s;
+  }
+  #world-cup-btn:hover::before { opacity: 1; }
+  #world-cup-btn:hover { color: var(--text-primary); }
+  #world-cup-btn.active {
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    color: #fff;
+    border-color: transparent;
+  }
+  #world-cup-btn.active::before { display: none; }
+
+  /* section */
+  .prob-cell { min-width: 90px; }
+  .prob-val { font-size: 18px; font-weight: 700; color: var(--green); font-family: 'Rajdhani', sans-serif; }
+  .prob-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; }
+  .prob-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .5s; }
+
+  /* section */
+  .odd-val { font-size: 15px; font-weight: 600; color: var(--purple); font-family: 'Rajdhani', sans-serif; }
+  .odd-unavailable {
+    display: inline-block;
+    max-width: 100%;
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  /* section */
+  .winscore-ring {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
+    position: relative; margin: 0 auto; flex-shrink: 0;
+  }
+
+  /* section */
+  .result-green {
+    display: inline-block; padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    background: rgba(0,210,160,.15); color: #00d2a0;
+    border: 1px solid rgba(0,210,160,.3);
+  }
+  .result-red {
+    display: inline-block; padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    background: rgba(255,94,106,.12); color: #ff5e6a;
+    border: 1px solid rgba(255,94,106,.3);
+  }
+
+  /* section */
+  .ev-val { font-size: 14px; font-weight: 700; color: var(--green); font-family: 'Rajdhani', sans-serif; }
+
+  /* section */
+  .conf-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 100px;
+    padding: 7px 12px; border-radius: 7px;
+    font-size: 13px; font-weight: 800; letter-spacing: .3px;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .conf-aplus { background: rgba(0,200,150,.12); color: var(--green); border: 1px solid rgba(0,200,150,.3); }
+  .conf-a { background: rgba(245,158,11,.1); color: var(--gold); border: 1px solid rgba(245,158,11,.3); }
+  .conf-b { background: rgba(59,130,246,.1); color: #60a5fa; border: 1px solid rgba(59,130,246,.24); }
+  .conf-c { background: rgba(124,58,237,.1); color: #a78bfa; border: 1px solid rgba(124,58,237,.24); }
+  .conf-d { background: rgba(239,68,68,.1); color: #ff5e6a; border: 1px solid rgba(239,68,68,.24); }
+
+  /* section */
+  .pagination-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; flex-wrap: wrap; gap: 10px;
+  }
+  .pagination-info { font-size: 13px; color: var(--text-secondary); }
+  .pagination-pages { display: flex; align-items: center; gap: 4px; }
+  .page-btn {
+    width: 32px; height: 32px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .page-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .page-btn svg { width: 14px; height: 14px; }
+
+  .per-page {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 12px;
+    font-size: 13px; color: var(--text-secondary); cursor: pointer;
+  }
+  .per-page select {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    outline: none;
+    font: inherit;
+    cursor: pointer;
+  }
+  .per-page option { background: var(--bg-card); color: var(--text-primary); }
+
+  /* section */
+  .metrics-footer {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 8px;
+  }
+  .metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .metric-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 18px;
+  }
+  .mi-green { background: rgba(0,210,160,.12); color: var(--green); }
+  .mi-blue  { background: rgba(108,99,255,.12); color: var(--accent); }
+  .mi-teal  { background: rgba(0,210,160,.10); color: var(--accent2); }
+  .mi-gold  { background: rgba(240,165,0,.12); color: var(--gold); }
+  .metric-text h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .metric-text p  { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* section */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* section */
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;backdrop-filter:blur(2px)}
+#sidebar-overlay.open{display:block}
+
+/* section */
+.hamburger{display:none;width:36px;height:36px;background:var(--bg2,#181c27);border:1px solid var(--border,#252a3a);border-radius:8px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:4px}
+.hamburger svg{width:18px;height:18px;stroke:var(--text,#f0f2ff);fill:none}
+
+@media (max-width: 768px) {
+  /* section */
+  body{overflow-x:hidden}
+  .main-wrap{width:100%;min-width:0}
+
+  /* section */
+  .sidebar{
+    position:fixed;top:0;left:0;height:100vh;z-index:1200;
+    transform:translateX(-100%);transition:transform .25s ease;
+    width:260px !important;
+  }
+  .sidebar.open{transform:translateX(0)}
+
+  /* section */
+  .hamburger{display:flex}
+
+  /* section */
+  .topbar{padding:0 12px;gap:8px}
+  .search-box{display:none}
+  .icon-btn:not(:first-of-type){display:none}
+  .user-pill > div > .user-pro{display:none}
+
+  /* section */
+  .content-outer{padding:12px}
+  .content-grid{grid-template-columns:1fr !important;gap:12px}
+  .content-side{position:static !important}
+
+  /* section */
+  .quick-grid{grid-template-columns:1fr !important}
+  .login-grid{grid-template-columns:1fr !important}
+
+  /* section */
+  .profile-hero-inner{flex-direction:column;align-items:flex-start;gap:14px;padding:16px}
+  .profile-meta{flex-direction:column;gap:10px;margin-left:0;width:100%}
+  .meta-item{padding:0;border-right:none !important;border-bottom:1px solid var(--border,#252a3a);padding-bottom:10px}
+  .meta-item:last-child{border-bottom:none;padding-bottom:0}
+
+  /* section */
+  .plan-big{grid-template-columns:1fr !important;gap:14px;padding:16px}
+  .plan-actions{min-width:unset}
+  .crown-3d{font-size:40px}
+
+  /* section */
+  .wm-modal{max-width:calc(100vw - 32px);margin:0 16px}
+  #wm-modal-overlay{align-items:flex-end;padding-bottom:0}
+  .wm-modal{border-bottom-left-radius:0;border-bottom-right-radius:0}
+}
+
+/* section */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;backdrop-filter:blur(2px)}
+.sidebar-overlay.open{display:block}
+body.sidebar-open{overflow:hidden}
+.nav-item{text-decoration:none}
+
+/* section */
+.dd-wrap { position: relative; }
+.dd-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #13161f;
+  border: 1px solid #2d3450;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.55);
+  z-index: 7000;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  animation: dropIn .15s ease;
+}
+.dd-menu.open { display: block; }
+.dd-item {
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .1s, color .1s;
+}
+.dd-item:hover { background: rgba(255,255,255,.05); color: var(--text-primary); }
+.dd-item.active { color: var(--accent); font-weight: 600; }
+.dd-item.dd-loading { color: var(--text-muted); font-style: italic; pointer-events: none; }
+.select-btn.dd-open { border-color: var(--accent); color: var(--text-primary); }
+
+/* section */
+#filter-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+}
+#filter-modal-overlay.open { display: flex; }
+.filter-modal {
+  background: #13161f;
+  border: 1px solid #2d3450;
+  border-radius: 14px;
+  padding: 24px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 24px 60px rgba(0,0,0,.7);
+  animation: dropIn .15s ease;
+}
+.filter-modal h3 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-modal label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 6px;
+}
+.filter-modal input[type="date"] {
+  width: 100%;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color .15s;
+  color-scheme: dark;
+}
+.filter-modal input[type="date"]:focus { border-color: var(--accent); }
+.filter-modal-row { display: flex; gap: 12px; margin-bottom: 16px; }
+.filter-modal-row > div { flex: 1; }
+.filter-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.btn-apply-filter {
+  flex: 1; padding: 10px;
+  background: linear-gradient(90deg, #6c63ff, #a78bfa);
+  border: none; border-radius: 8px;
+  color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s;
+}
+.btn-apply-filter:hover { opacity: .88; }
+.btn-clear-filter {
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+.btn-clear-filter:hover { border-color: #ff5e6a; color: #ff5e6a; }
+.btn-close-modal {
+  margin-left: auto;
+  background: none; border: none;
+  color: var(--text-muted);
+  font-size: 20px; cursor: pointer;
+  line-height: 1; padding: 0 2px;
+}
+.btn-close-modal:hover { color: var(--text-primary); }
+
+/* section */
+.snapshot-notice {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(108,99,255,.1);
+  border: 1px solid rgba(108,99,255,.25);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--purple);
+  margin-bottom: 14px;
+}
+.snapshot-notice svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* section */
+.user-pill { position:relative; }
+.user-dropdown {
+  display:none; position:absolute; top:calc(100% + 8px); right:0;
+  width:240px; background:#13161f; border:1px solid #2d3450;
+  border-radius:12px; box-shadow:0 16px 48px rgba(0,0,0,.6),0 0 0 1px rgba(108,99,255,.1);
+  z-index:8000; overflow:hidden;
+  animation:dropIn .15s ease;
+}
+@keyframes dropIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+.user-dropdown.open { display:block; }
+.ud-header {
+  padding:14px 16px 12px; border-bottom:1px solid #252a3a;
+  display:flex; align-items:center; gap:10px;
+}
+.ud-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; color:#fff; flex-shrink:0;
+}
+.ud-info { min-width:0; }
+.ud-name { font-size:13px; font-weight:700; color:#f0f2ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ud-email { font-size:11px; color:#525870; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ud-plan { display:inline-block; margin-top:4px; font-size:9px; font-weight:700; letter-spacing:.5px; padding:2px 7px; border-radius:4px; }
+.ud-plan.free { background:rgba(139,144,168,.15); color:#8b90a8; }
+.ud-plan.pro  { background:linear-gradient(90deg,rgba(108,99,255,.25),rgba(167,139,250,.25)); color:#a78bfa; border:1px solid rgba(108,99,255,.3); }
+.ud-items { padding:6px 0; }
+.ud-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 16px; font-size:13px; font-weight:500;
+  color:#8b90a8; cursor:pointer; text-decoration:none;
+  transition:all .12s;
+}
+.ud-item:hover { background:rgba(255,255,255,.04); color:#f0f2ff; }
+.ud-item svg { width:15px; height:15px; stroke:currentColor; fill:none; flex-shrink:0; }
+.ud-divider { height:1px; background:#252a3a; margin:4px 0; }
+.ud-item.ud-logout { color:#ff5e6a; }
+.ud-item.ud-logout:hover { background:rgba(255,94,106,.08); color:#ff5e6a; }
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// section
+const SUPABASE_URL      = 'https://kpcxjmydlmqxmvnawdyo.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b';
+const supabaseClient    = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+<script>
+async function getCurrentProfile() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return null;
+    const { data: profile } = await supabaseClient
+      .from('profiles').select('*').eq('id', user.id).single();
+    return profile;
+  }
+</script>
+<script>
+(function() {
+  supabaseClient.auth.getSession().then(function(r) {
+    if (!r.data || !r.data.session) {
+      window.location.replace('index.html');
+    }
+  });
+})();
+</script>
+</head>
+<body>
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+
+<!-- section -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <a href="dashboard.html" style="display:flex;align-items:center;gap:10px;text-decoration:none">
+      <div class="logo-icon">M</div>
+      <div class="logo-text"><strong>WinMetrics</strong><span>Analytics</span></div>
+    </a>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="dashboard.html"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Visão Geral
+      
+    </a>
+    <a class="nav-item active" href="previsoes.html"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Melhores Previsões
+      <span class="badge-pro">PRO</span>
+    </a>
+    <a class="nav-item" href="live.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+      Painel Live
+      <span class="badge-live">LIVE</span>
+    </a>
+    <a class="nav-item" href="bilhetes.html"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+      Bilhetes
+      
+    </a>
+    <a class="nav-item" href="historico.html"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Histórico Global
+      
+    </a>
+    <div class="nav-section">Análises</div>
+    <a class="nav-item" href="estatisticas.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Estatísticas
+      
+    </a>
+    <a class="nav-item" href="desempenho.html"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Desempenho
+      
+    </a>
+    <div class="nav-section">Ferramentas</div>
+    <a class="nav-item" href="ia.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+      Análise IA
+      <span class="badge-pro">PRO</span>
+    </a>
+    <a class="nav-item" href="calculadora.html"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Calculadora de Stakes
+      
+    </a>
+    <a class="nav-item" href="alertas.html"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Alertas
+      <span class="badge-pro">PRO</span>
+    </a>
+    
+    
+    
+    
+    
+  </nav>
+  <div class="sidebar-upgrade">
+    <div class="crown">&#128081;</div>
+    <h4>Seja PRO</h4>
+    <p>Tenha acesso a todos os recursos exclusivos e aumente seus lucros.</p>
+    <a href="pro.html" style="text-decoration:none"><button class="btn-upgrade">Upgrade para PRO</button></a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrap">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="top-search-input" placeholder="Buscar jogos, times, ligas...">
+    </div>
+    <div class="topbar-right">
+      <div class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot">3</div>
+      </div>
+      <div class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="user-pill" id="user-pill">
+        <div class="user-avatar" id="user-avatar-topbar">?</div>
+        <div>
+          <span style="font-size:13px;font-weight:600;" id="user-name-topbar">Carregando...</span>
+          <span class="user-pro" id="user-pro-topbar">--</span>
+        </div>
+        <svg style="width:14px;color:#666" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      
+      <div class="user-dropdown" id="user-dropdown">
+        <div class="ud-header">
+          <div class="ud-avatar" id="ud-avatar">?</div>
+          <div class="ud-info">
+            <div class="ud-name" id="ud-name">Usuário</div>
+            <div class="ud-email" id="ud-email"></div>
+            <span class="ud-plan free" id="ud-plan">GRATUITO</span>
+          </div>
+        </div>
+        <div class="ud-items">
+          <a class="ud-item" href="conta.html">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Meu Perfil
+          </a>
+          <a class="ud-item" href="pro.html">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Assinatura
+            <span style="margin-left:auto;font-size:9px;font-weight:700;background:linear-gradient(90deg,#6c63ff,#a78bfa);color:#fff;padding:2px 6px;border-radius:4px">PRO</span>
+          </a>
+          <a class="ud-item" href="favoritos.html">
+            <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            Favoritos
+          </a>
+          <a class="ud-item" href="configuracoes.html">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Configurações
+          </a>
+          <div class="ud-divider"></div>
+          <div class="ud-item ud-logout" onclick="(typeof logoutUsuario==='function'?logoutUsuario():window.location.replace('index.html'))">
+            <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sair
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <!-- Header -->
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Melhores Previsões</h1>
+        <span class="pro-tag">PRO</span>
+      </div>
+      <p class="page-subtitle">As previsões com maior probabilidade e valor esperado.</p>
+    </div>
+
+    <!-- Toolbar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      <div class="toolbar" style="margin-bottom:0;">
+        <div class="tab-group">
+          <div class="tab">Ontem</div>
+          <div class="tab active">Hoje</div>
+          <div class="tab">Amanhã</div>
+          <div class="tab">Próximos 7 dias</div>
+        </div>
+        <!-- Dropdown Campeonato -->
+        <div class="dd-wrap" id="dd-league-wrap">
+          <div class="select-btn" id="dd-league-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="dd-league-label">Todos os Campeonatos</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="dd-menu" id="dd-league-menu">
+            <div class="dd-item dd-loading">Carregando...</div>
+          </div>
+        </div>
+
+        <!-- Dropdown Mercado -->
+        <div class="dd-wrap" id="dd-market-wrap">
+          <div class="select-btn" id="dd-market-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="dd-market-label">Todos os Mercados</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="dd-menu" id="dd-market-menu">
+            <div class="dd-item dd-loading">Carregando...</div>
+          </div>
+        </div>
+
+        <div class="filter-btn" id="world-cup-btn" style="cursor:pointer;">
+          &#127463;&#127479; World Cup &#127463;&#127479;
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="explain-link" style="margin:0;">
+          <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Explicação das métricas
+        </div>
+        <div class="filter-btn" id="filter-date-btn" style="cursor:pointer;">
+          <svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
+          <span id="filter-date-label">Filtros</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- section -->
+    <div class="snapshot-notice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">Alta</strong> e <strong style="margin:0 3px">Elite</strong> geradas pelo Prediction Engine.
+    </div>
+
+    <!-- Modal de filtro por intervalo de datas -->
+    <div id="filter-modal-overlay">
+      <div class="filter-modal">
+        <h3>
+          <svg style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Filtrar por Intervalo de Datas
+          <button class="btn-close-modal" id="filter-modal-close">&times;</button>
+        </h3>
+        <div class="filter-modal-row">
+          <div>
+            <label>Data Início</label>
+            <input type="date" id="filter-date-start">
+          </div>
+          <div>
+            <label>Data Fim</label>
+            <input type="date" id="filter-date-end">
+          </div>
+        </div>
+        <div class="filter-modal-actions">
+          <button class="btn-clear-filter" id="filter-clear-btn">Limpar Filtros</button>
+          <button class="btn-apply-filter" id="filter-apply-btn">Aplicar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-star"></th>
+            <th class="col-game">JOGO</th>
+            <th class="col-date center">DATA</th>
+            <th class="col-pick center">MELHOR PALPITE</th>
+            <th class="col-alts center">ALTERNATIVAS</th>
+            <th class="col-score center">WIN SCORE</th>
+            <th class="col-odd center">ODD</th>
+            <th class="col-scoreboard center">PLACAR</th>
+            <th class="col-result center">RESULTADO</th>
+            <th class="col-confidence center">CONFIANÇA</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-row">
+      <span class="pagination-info">Mostrando 1 a 8 de 20 previsões</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="pagination-pages">
+          <div class="page-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></div>
+          <div class="page-btn active">1</div>
+          <div class="page-btn">2</div>
+          <div class="page-btn">3</div>
+          <div class="page-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+        <label class="per-page">
+          <select id="page-size-select">
+            <option value="10">10 por página</option>
+            <option value="20" selected>20 por página</option>
+            <option value="30">30 por página</option>
+            <option value="50">50 por página</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- Metrics footer -->
+    <div class="metrics-footer">
+      <div class="metric-card">
+        <div class="metric-icon mi-green">&#127919;</div>
+        <div class="metric-text">
+          <h4>Prob. IA</h4>
+          <p>Probabilidade calculada pela nossa Inteligência Artificial com base em +100 fatores.</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon mi-blue">&#128737;&#65039;</div>
+        <div class="metric-text">
+          <h4>Win Score</h4>
+          <p>Pontuação de 0 a 100 que representa a qualidade da previsão.</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon mi-teal">&#128202;</div>
+        <div class="metric-text">
+          <h4>EV+</h4>
+          <p>Valor esperado positivo. Mostra o quanto a aposta é lucrativa a longo prazo.</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon mi-gold">&#128304;</div>
+        <div class="metric-text">
+          <h4>Confiança</h4>
+          <p>Nível de confiança baseado na probabilidade e consistência do modelo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * WinMetrics Analytics — Prediction Engine v1
+ * ─────────────────────────────────────────────
+ * Motor matemático puro do PackBall v3.0.
+ * Implementação fiel à Documentação Técnica Completa — Junho 2026.
+ *
+ * Seções de referência:
+ *   3.1  Variáveis brutas
+ *   3.2  Variáveis derivadas + Poisson
+ *   3.3  Normalizações (escala 0–100)
+ *   4.1–4.10  Score Engine por mercado
+ *   5.1  Sistema de grades (thresholds coletar.py / modo API)
+ *   5.2  Seleção de best_mkt
+ *   6    Filtro 3 Vias — Over 1.5 (modo API — inclui Via 4)
+ *   4.6  Filtro específico Under 3.5
+ *
+ * Sem dependências externas. Sem acesso à rede.
+ * Entrada: objeto raw com variáveis brutas por fixture.
+ * Saída:   objeto processado com scores, grades, filtros, best_mkt e EV.
+ *
+ * Uso:
+ *   const result = PredictionEngine.processFixture(rawData);
+ */
+
+const PredictionEngine = (function () {
+  'use strict';
+
+  // ═══════════════════════════════════════════════════════════════
+  // CONSTANTES — Thresholds modo API (coletar.py)  §5.1
+  // ═══════════════════════════════════════════════════════════════
+
+  const GRADE_THRESHOLDS = {
+    'A+': 85,
+    'A':  75,
+    'B':  65,
+    'C':  50,
+  };
+  // D = qualquer score abaixo de 50
+
+  const CONFIDENCE_LABELS = {
+    'A+': 'Confiança Alta',
+    'A':  'Confiança Média',
+    'B':  'Moderado',
+    'C':  'Arriscado',
+    'D':  'Evitar',
+  };
+
+  // Mercados que entram no snap / Melhores Previsões (grades oficiais)
+  const GRADES_OFICIAIS = new Set(['A+', 'A']);
+
+  // Limites de normalização §3.3
+  const NORM_LIMITS = {
+    ppg_n:   { min: 0, max: 3  },
+    af_n:    { min: 0, max: 4  },
+    exg_n:   { min: 0, max: 5  },
+    h2h_nv:  { min: 0, max: 5  },
+    cant_n:  { min: 0, max: 15 },
+    shots_n: { min: 0, max: 40 },
+    cards_n: { min: 0, max: 8  },
+    sot_n:   { min: 0, max: 20 },
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // 1. n(v, min, max) — Normalização 0–100  §3.3
+  //    n(v, min, max) = max(0, min(100, (v - min) / (max - min) * 100))
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * n(v, min, max)
+   * Normaliza um valor para a escala 0–100.
+   * Retorna null se v for null/undefined (preserva nulos para ws()).
+   *
+   * @param {number|null} v
+   * @param {number}      lo  — valor mínimo da escala
+   * @param {number}      hi  — valor máximo da escala
+   * @returns {number|null}
+   */
+  function n(v, lo, hi) {
+    if (v === null || v === undefined) return null;
+    if (hi === lo) return 0;
+    return Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 2. ws(pairs) — Média ponderada ignorando nulos  §4.0
+  //    ws([(v1,p1), (v2,p2), ...]) ignora pares com valor null/undefined.
+  //    Se TODOS forem nulos, retorna null.
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * ws(pairs)
+   * Média ponderada que ignora valores nulos.
+   * Cada pair é [valor, peso]. Se valor for null/undefined, o par é ignorado.
+   * Os pesos dos pares válidos são re-normalizados automaticamente.
+   *
+   * @param {Array<[number|null, number]>} pairs
+   * @returns {number|null}
+   */
+  function ws(pairs) {
+    let weightSum = 0;
+    let valueSum  = 0;
+
+    for (const [v, w] of pairs) {
+      if (v === null || v === undefined) continue;
+      weightSum += w;
+      valueSum  += v * w;
+    }
+
+    if (weightSum === 0) return null;
+    return valueSum / weightSum;
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 3. Poisson  §3.2
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * _poissonP(lambda, k)
+   * Probabilidade P(X = k) para distribuição de Poisson.
+   * P(X=k) = e^(-λ) × λ^k / k!
+   *
+   * @param {number} lambda  — gols esperados (exg_tot)
+   * @param {number} k       — número exato de gols
+   * @returns {number}       0–1
+   */
+  function _poissonP(lambda, k) {
+    if (lambda <= 0) return k === 0 ? 1 : 0;
+    let p = Math.exp(-lambda);
+    for (let i = 0; i < k; i++) {
+      p *= lambda / (i + 1);
+    }
+    return p;
+  }
+
+  /**
+   * poissonProbs(exg_tot)
+   * Calcula as quatro probabilidades Poisson usadas pelo motor.
+   *
+   * Documentação §3.2:
+   *   prob_o15_poisson = P(gols >= 2) = 1 - P(0) - P(1)
+   *   prob_o25_poisson = P(gols >= 3) = 1 - P(0) - P(1) - P(2)
+   *   prob_u35_poisson = P(gols <= 3) = P(0)+P(1)+P(2)+P(3)   [= 100 - P(gols>=4)]
+   *   prob_u45_poisson = P(gols <= 4) = P(0)+P(1)+P(2)+P(3)+P(4) [= 100 - P(gols>=5)]
+   *
+   * @param {number|null} exg_tot  — xG total (exg_h + exg_a)
+   * @returns {{ o15:number, o25:number, u35:number, u45:number }|null}
+   *          Valores em % (0–100). null se exg_tot indisponível.
+   */
+  function poissonProbs(exg_tot) {
+    if (exg_tot === null || exg_tot === undefined || exg_tot <= 0) return null;
+
+    const p0 = _poissonP(exg_tot, 0);
+    const p1 = _poissonP(exg_tot, 1);
+    const p2 = _poissonP(exg_tot, 2);
+    const p3 = _poissonP(exg_tot, 3);
+    const p4 = _poissonP(exg_tot, 4);
+
+    return {
+      o15: (1 - p0 - p1) * 100,             // P(gols >= 2)
+      o25: (1 - p0 - p1 - p2) * 100,        // P(gols >= 3)
+      u35: (p0 + p1 + p2 + p3) * 100,       // P(gols <= 3)
+      u45: (p0 + p1 + p2 + p3 + p4) * 100,  // P(gols <= 4)
+    };
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // DERIVADAS §3.2 e NORMALIZADAS §3.3
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * computeDerivadas(raw)
+   * Calcula variáveis derivadas a partir das brutas.
+   * §3.2: exg_tot, ppg_avg, ppg_min, af_avg, btts_cf, u25cf
+   *
+   * @param {object} raw
+   * @returns {object}  derivadas calculadas (null quando inputs ausentes)
+   */
+  function computeDerivadas(raw) {
+    const {
+      exg_h, exg_a,
+      ppg_h, ppg_a,
+      avg_sc_h, avg_sc_a,
+      btts_h, btts_a,
+      under25_h, under25_a,
+    } = raw;
+
+    // exg_tot: apenas se AMBOS disponíveis
+    const exg_tot = (exg_h != null && exg_a != null) ? exg_h + exg_a : null;
+
+    // ppg_avg e ppg_min
+    const ppg_avg = (ppg_h != null && ppg_a != null) ? (ppg_h + ppg_a) / 2 : null;
+    const ppg_min = (ppg_h != null && ppg_a != null) ? Math.min(ppg_h, ppg_a) : null;
+
+    // af_avg (média de ataque combinada)
+    const af_avg = (avg_sc_h != null && avg_sc_a != null) ? (avg_sc_h + avg_sc_a) / 2 : null;
+
+    // btts_cf
+    const btts_cf = (btts_h != null && btts_a != null) ? (btts_h + btts_a) / 2 : null;
+
+    // u25cf
+    const u25cf = (under25_h != null && under25_a != null) ? (under25_h + under25_a) / 2 : null;
+
+    return { exg_tot, ppg_avg, ppg_min, af_avg, btts_cf, u25cf };
+  }
+
+  /**
+   * computeNormalizadas(d)
+   * Normaliza as variáveis conforme tabela §3.3.
+   *
+   * @param {object} raw       — variáveis brutas
+   * @param {object} derivadas — exg_tot, ppg_avg, af_avg, h2h_goals …
+   * @returns {object}
+   */
+  function computeNormalizadas(raw, derivadas) {
+    const { h2h_goals, avg_corners, avg_shots, avg_sot, avg_cards } = raw;
+    const { exg_tot, ppg_avg, af_avg } = derivadas;
+
+    return {
+      ppg_n:   n(ppg_avg,    NORM_LIMITS.ppg_n.min,   NORM_LIMITS.ppg_n.max),
+      af_n:    n(af_avg,     NORM_LIMITS.af_n.min,    NORM_LIMITS.af_n.max),
+      exg_n:   n(exg_tot,    NORM_LIMITS.exg_n.min,   NORM_LIMITS.exg_n.max),
+      h2h_nv:  n(h2h_goals,  NORM_LIMITS.h2h_nv.min,  NORM_LIMITS.h2h_nv.max),
+      cant_n:  n(avg_corners, NORM_LIMITS.cant_n.min,  NORM_LIMITS.cant_n.max),
+      shots_n: n(avg_shots,  NORM_LIMITS.shots_n.min, NORM_LIMITS.shots_n.max),
+      cards_n: n(avg_cards,  NORM_LIMITS.cards_n.min, NORM_LIMITS.cards_n.max),
+      sot_n:   n(avg_sot,    NORM_LIMITS.sot_n.min,   NORM_LIMITS.sot_n.max),
+    };
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // HELPERS INTERNOS
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * _v(v, fallback)
+   * Retorna v se não nulo, senão fallback.
+   * Usado na documentação com notação "|50" (ex: exg_n|50).
+   *
+   * @param {number|null} v
+   * @param {number}      fallback
+   * @returns {number}
+   */
+  function _v(v, fallback) {
+    return (v !== null && v !== undefined) ? v : fallback;
+  }
+
+  /**
+   * _o15cf(raw, derivadas)
+   * Calcula o15cf — confidence fator Over 1.5.
+   * Aparece nas fórmulas §4.1 e §4.2 mas não é documentado separadamente.
+   * Interpretado como: média(over15_g, btts_cf) — proxy de confiança geral de gols.
+   *
+   * @returns {number|null}
+   */
+  function _o15cf(raw, derivadas) {
+    return ws([[raw.over15_g, 1], [derivadas.btts_cf, 1]]);
+  }
+
+  /**
+   * _o25cf(raw, derivadas)
+   * o25cf — confidence fator Over 2.5.
+   * Interpretado como: média(over25_g, af_avg_n×100).
+   *
+   * @returns {number|null}
+   */
+  function _o25cf(raw, derivadas) {
+    return ws([[raw.over25_g, 1], [derivadas.af_avg != null ? n(derivadas.af_avg, 0, 4) : null, 1]]);
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 4. SCORE ENGINE por mercado  §4.1–4.10
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * scoreOver15(raw, d, norm, poisson)
+   * §4.1 — Over 1.5 Gols
+   *
+   * Com xG (exg_n != null):
+   *   ws([(over15_g,30),(o15cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,15),(poisson_o15,5)])
+   *
+   * Sem xG:
+   *   ws([(over15_g,35),(o15cf,22),(h2h_nv,15),(ppg_n,15),(af_n,13)])
+   */
+  function scoreOver15(raw, d, norm, poiss) {
+    const o15cf_val = _o15cf(raw, d);
+
+    if (norm.exg_n !== null) {
+      return ws([
+        [raw.over15_g,        30],
+        [o15cf_val,           18],
+        [norm.h2h_nv,         12],
+        [norm.ppg_n,          12],
+        [norm.af_n,            8],
+        [norm.exg_n,          15],
+        [poiss ? poiss.o15 : null, 5],
+      ]);
+    } else {
+      return ws([
+        [raw.over15_g,   35],
+        [o15cf_val,      22],
+        [norm.h2h_nv,    15],
+        [norm.ppg_n,     15],
+        [norm.af_n,      13],
+      ]);
+    }
+  }
+
+  /**
+   * scoreOver25(raw, d, norm, poisson)
+   * §4.2 — Over 2.5 Gols
+   *
+   * Com xG:
+   *   ws([(over25_g,28),(o25cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,17),(poisson_o25,5)])
+   *
+   * Sem xG:
+   *   ws([(over25_g,35),(o25cf,22),(h2h_nv,15),(ppg_n,15),(af_n,13)])
+   */
+  function scoreOver25(raw, d, norm, poiss) {
+    const o25cf_val = _o25cf(raw, d);
+
+    if (norm.exg_n !== null) {
+      return ws([
+        [raw.over25_g,             28],
+        [o25cf_val,                18],
+        [norm.h2h_nv,              12],
+        [norm.ppg_n,               12],
+        [norm.af_n,                 8],
+        [norm.exg_n,               17],
+        [poiss ? poiss.o25 : null,  5],
+      ]);
+    } else {
+      return ws([
+        [raw.over25_g,  35],
+        [o25cf_val,     22],
+        [norm.h2h_nv,   15],
+        [norm.ppg_n,    15],
+        [norm.af_n,     13],
+      ]);
+    }
+  }
+
+  /**
+   * scoreBTTS(raw, d, norm, poisson)
+   * §4.3 — BTTS (Ambas Marcam)
+   *
+   * ws([(btts_cf,40),(h2h_nv,15),(ppg_n,15),(af_n,15),(over15_g,10),(exg_n|50,5)])
+   */
+  function scoreBTTS(raw, d, norm) {
+    return ws([
+      [d.btts_cf,         40],
+      [norm.h2h_nv,       15],
+      [norm.ppg_n,        15],
+      [norm.af_n,         15],
+      [raw.over15_g,      10],
+      [_v(norm.exg_n, 50), 5],
+    ]);
+  }
+
+  /**
+   * scoreOver05HT(raw, d, norm)
+   * §4.4 — Over 0.5 HT
+   *
+   * Com over05_ht:
+   *   ws([(over05_ht,45),(over15_ht|50,15),(ppg_n,15),(af_n,15),(sot_n|50,10)])
+   *
+   * Sem over05_ht:
+   *   ws([(ppg_n,40),(af_n,30),(over15_g|50,20),(sot_n|50,10)])
+   */
+  function scoreOver05HT(raw, d, norm) {
+    if (raw.over05_ht != null) {
+      return ws([
+        [raw.over05_ht,             45],
+        [_v(raw.over15_ht, 50),     15],
+        [norm.ppg_n,                15],
+        [norm.af_n,                 15],
+        [_v(norm.sot_n, 50),        10],
+      ]);
+    } else {
+      return ws([
+        [norm.ppg_n,                40],
+        [norm.af_n,                 30],
+        [_v(raw.over15_g, 50),      20],
+        [_v(norm.sot_n, 50),        10],
+      ]);
+    }
+  }
+
+  /**
+   * scoreUnder45(raw, d, norm, poisson)
+   * §4.5 — Under 4.5 Gols
+   *
+   * avg_gl = média gols totais por jogo — proxy via af_avg*2 (ambos os times)
+   *
+   * Com Poisson:
+   *   ws([(poisson_u45,35),(u25cf|50,25),(100-exg_n|50,20),(avg_gl|50,10),(50,10)])
+   *
+   * Sem Poisson:
+   *   ws([(u25cf|50,40),(100-ppg_n|50,30),(50,30)])
+   */
+  function scoreUnder45(raw, d, norm, poiss) {
+    // avg_gl: estimativa de gols totais — usamos af_avg*2 (média das médias de gols de cada time)
+    const avg_gl = d.af_avg != null ? Math.min(100, d.af_avg * 2 * (100 / 4)) : null;
+
+    if (poiss !== null) {
+      return ws([
+        [poiss.u45,                     35],
+        [_v(d.u25cf, 50),               25],
+        [100 - _v(norm.exg_n, 50),      20],
+        [_v(avg_gl, 50),                10],
+        [50,                            10],
+      ]);
+    } else {
+      return ws([
+        [_v(d.u25cf, 50),               40],
+        [100 - _v(norm.ppg_n, 50),      30],
+        [50,                            30],
+      ]);
+    }
+  }
+
+  /**
+   * scoreUnder35(raw, d, norm, poisson)
+   * §4.6 — Under 3.5 Gols
+   *
+   * Com Poisson:
+   *   ws([(poisson_u35,45),(u25cf|50,20),(100-exg_n|50,25),(50,10)])
+   *
+   * Sem Poisson:
+   *   ws([(u25cf|50,50),(100-ppg_n|50,30),(50,20)])
+   */
+  function scoreUnder35(raw, d, norm, poiss) {
+    if (poiss !== null) {
+      return ws([
+        [poiss.u35,                     45],
+        [_v(d.u25cf, 50),               20],
+        [100 - _v(norm.exg_n, 50),      25],
+        [50,                            10],
+      ]);
+    } else {
+      return ws([
+        [_v(d.u25cf, 50),               50],
+        [100 - _v(norm.ppg_n, 50),      30],
+        [50,                            20],
+      ]);
+    }
+  }
+
+  /**
+   * scoreEsc75(raw, d, norm)
+   * §4.7 — Escanteios Over 7.5
+   *
+   * ws([(cant_n,40),(over75_c,30),(shots_n,15),(over65_c|50,10),(ppg_n,5)])
+   */
+  function scoreEsc75(raw, d, norm) {
+    return ws([
+      [norm.cant_n,               40],
+      [raw.over75_c,              30],
+      [norm.shots_n,              15],
+      [_v(raw.over65_c, 50),      10],
+      [norm.ppg_n,                 5],
+    ]);
+  }
+
+  /**
+   * scoreEsc85(raw, d, norm)
+   * §4.8 — Escanteios Over 8.5
+   *
+   * ws([(cant_n,38),(over85_c,32),(shots_n,15),(over75_c,10),(ppg_n,5)])
+   */
+  function scoreEsc85(raw, d, norm) {
+    return ws([
+      [norm.cant_n,   38],
+      [raw.over85_c,  32],
+      [norm.shots_n,  15],
+      [raw.over75_c,  10],
+      [norm.ppg_n,     5],
+    ]);
+  }
+
+  /**
+   * scoreCards25(raw, d, norm)
+   * §4.9 — Cartões Over 2.5
+   *
+   * ws([(over25_cards,45),(cards_n,35),(ppg_n,10),(50,10)])
+   */
+  function scoreCards25(raw, d, norm) {
+    return ws([
+      [raw.over25_cards,  45],
+      [norm.cards_n,      35],
+      [norm.ppg_n,        10],
+      [50,                10],
+    ]);
+  }
+
+  /**
+   * scoreCards35(raw, d, norm)
+   * §4.10 — Cartões Over 3.5
+   *
+   * ws([(over35_cards,50),(cards_n,30),(ppg_n,10),(50,10)])
+   */
+  function scoreCards35(raw, d, norm) {
+    return ws([
+      [raw.over35_cards,  50],
+      [norm.cards_n,      30],
+      [norm.ppg_n,        10],
+      [50,                10],
+    ]);
+  }
+
+  function scoreCards55(raw, d, norm) {
+    return ws([
+      [raw.over45_cards,  48],
+      [norm.cards_n,      32],
+      [raw.over35_cards,  10],
+      [norm.ppg_n,        10],
+    ]);
+  }
+
+  /**
+   * scoreResultadoFinal(raw, d, norm)
+   * Implementação fiel ao rfPick() do V1 (gerar_site.py).
+   *
+   * Lógica idêntica ao V1:
+   *   1. rfFavSide: detecta favorito via odds 1X2 ou prob. API (win_home/win_away)
+   *   2. rfEdge: 6 métricas com pesos e mínimos V1
+   *   3. isFriendly: amistosos sem favorito claro são filtrados
+   *   4. mercado: win / dnb / dc com thresholds V1
+   *      win c/ 4 métricas exige Prob.API entre os alinhados (como V1)
+   *   5. label: mesmo formato V1 — 'Vitória Casa/Visitante',
+   *             'Casa DNB'/'Visitante DNB', 'Dupla Chance 1X'/'Dupla Chance X2'
+   *
+   * @returns {{ score:number|null, market:string|null, side:string|null }}
+   */
+  function scoreResultadoFinal(raw, d, norm) {
+    const oh = Number(raw.odds_h);
+    const oa = Number(raw.odds_a);
+    const wh = raw.win_home === null || raw.win_home === undefined ? null : Number(raw.win_home);
+    const wa = raw.win_away === null || raw.win_away === undefined ? null : Number(raw.win_away);
+
+    // ── rfFavSide ────────────────────────────────────────────────
+    let side = null;
+    let favOdd = null;
+    let impliedGap = 0;
+
+    if (Number.isFinite(oh) && Number.isFinite(oa) && oh > 1 && oa > 1 && oh !== oa) {
+      side = oh < oa ? 'home' : 'away';
+      favOdd = Math.min(oh, oa);
+      impliedGap = Math.abs((1 / oh) - (1 / oa)) * 100;
+    } else if (Number.isFinite(wh) && Number.isFinite(wa) && Math.abs(wh - wa) >= 8) {
+      side = wh > wa ? 'home' : 'away';
+      impliedGap = Math.abs(wh - wa);
+    }
+
+    if (!side) return { score: null, market: null, side: null };
+
+    // ── isFriendly (V1: filtra amistosos sem favorito claro) ─────
+    const isFriendly = String(raw.league_name || '').toLowerCase().includes('friendly');
+
+    // ── rfEdge ────────────────────────────────────────────────────
+    const sign = side === 'home' ? 1 : -1;
+    const metrics = [
+      { name: 'PPG',          diff: ((Number(raw.ppg_h)       || 0) - (Number(raw.ppg_a)       || 0)) * sign, min: .35,  weight: 18 },
+      { name: 'xG',           diff: ((Number(raw.exg_h)       || 0) - (Number(raw.exg_a)       || 0)) * sign, min: .25,  weight: 18 },
+      { name: 'Ataque',       diff: ((Number(raw.avg_sc_h)    || 0) - (Number(raw.avg_sc_a)    || 0)) * sign, min: .25,  weight: 14 },
+      { name: 'Finalizações', diff: ((Number(raw.avg_shots_h) || 0) - (Number(raw.avg_shots_a) || 0)) * sign, min: 2.5,  weight: 10 },
+      { name: 'SOT',          diff: ((Number(raw.avg_sot_h)   || 0) - (Number(raw.avg_sot_a)   || 0)) * sign, min: .8,   weight: 10 },
+      { name: 'Prob. API',    diff: ((Number(raw.win_home)    || 0) - (Number(raw.win_away)    || 0)) * sign, min: 15,   weight: 20 },
+    ];
+    const ok      = metrics.filter(m => Number.isFinite(m.diff) && m.diff >= m.min);
+    const aligned = ok.length;
+    const strength = ok.reduce((acc, m) => acc + m.weight + Math.min(12, Math.abs(m.diff) * 2), 0);
+
+    // ── isFriendly: bloqueia se sem favorito claro e sem PPG/Prob.API ──
+    if (isFriendly && (!favOdd || favOdd > 1.30)) {
+      const hasPPGorProb = ok.some(m => m.name === 'PPG' || m.name === 'Prob. API');
+      if (!hasPPGorProb) return { score: null, market: null, side: null };
+    }
+
+    // ── Score base ────────────────────────────────────────────────
+    const oddsScore = favOdd ? Math.max(0, 100 - (favOdd * 22)) : (55 + Math.min(30, impliedGap));
+    let score = Math.min(100, Math.round((oddsScore + strength + Math.min(20, impliedGap)) * 10) / 10);
+
+    // ── Tipo de mercado (thresholds V1) ──────────────────────────
+    // win c/ 4 métricas: exige Prob.API entre os alinhados (igual ao V1)
+    const hasProbAPI = ok.some(m => m.name === 'Prob. API');
+    let pickType = null;
+    if ((favOdd && favOdd <= 1.45 && aligned >= 3) || (favOdd && favOdd <= 1.65 && aligned >= 4 && hasProbAPI)) {
+      pickType = 'win';
+      score = Math.max(score, 88);
+    } else if ((favOdd && favOdd <= 1.75 && aligned >= 3) || (!favOdd && aligned >= 4 && impliedGap >= 18)) {
+      pickType = 'dnb';
+      score = Math.max(score, 82);
+    } else if ((favOdd && favOdd <= 1.90 && aligned >= 2) || (!favOdd && aligned >= 3 && impliedGap >= 12)) {
+      pickType = 'dc';
+      score = Math.max(score, 76);
+    }
+
+    if (!pickType) return { score: null, market: null, side: null };
+
+    // ── Label idêntico ao V1 (rfMarketLabel) ─────────────────────
+    // V1: win → 'Vitória Casa'/'Vitória Visitante'
+    //     dnb → 'Casa DNB'/'Visitante DNB'
+    //     dc  → 'Dupla Chance 1X' (home) / 'Dupla Chance X2' (away)
+    const sideName = side === 'home' ? 'Casa' : 'Visitante';
+    let marketLabel;
+    if (pickType === 'win') {
+      marketLabel = `Vitória ${sideName}`;
+    } else if (pickType === 'dnb') {
+      marketLabel = `${sideName} DNB`;
+    } else {
+      marketLabel = side === 'home' ? 'Dupla Chance 1X' : 'Dupla Chance X2';
+    }
+
+    return {
+      score:  Math.min(100, Math.round(score * 10) / 10),
+      market: `Resultado Final (1X2) - ${marketLabel}`,
+      side,
+      pickType,
+    };
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 5. FILTRO 3 VIAS — Over 1.5 (modo API / coletar.py)  §6
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * filtroOver15(raw, d)
+   * Retorna true se o jogo passar em ao menos UMA das 4 vias.
+   * Thresholds do coletar.py (modo API).
+   *
+   * Via 1: exg_tot != null AND exg_tot >= 4.5
+   * Via 2: exg_tot >= 2.0 AND ppg_min >= 0.7
+   * Via 3: exg_tot = null AND over15_g >= 90 AND ppg_avg >= 1.5
+   * Via 4: over15_g >= 85  (exclusiva do coletar.py)
+   *
+   * @param {object} raw
+   * @param {object} d   — derivadas
+   * @returns {{ passed: boolean, via: number|null }}
+   */
+  function filtroOver15(raw, d) {
+    const { over15_g }     = raw;
+    const { exg_tot, ppg_min, ppg_avg } = d;
+
+    // Via 1 — xG alto
+    if (exg_tot !== null && exg_tot >= 4.5) {
+      return { passed: true, via: 1 };
+    }
+
+    // Via 2 — Equilíbrio
+    if (exg_tot !== null && exg_tot >= 2.0 && ppg_min !== null && ppg_min >= 0.7) {
+      return { passed: true, via: 2 };
+    }
+
+    // Via 3 — Sem xG
+    if (exg_tot === null && over15_g != null && over15_g >= 90 && ppg_avg !== null && ppg_avg >= 1.5) {
+      return { passed: true, via: 3 };
+    }
+
+    // Via 4 — Predictions (exclusiva modo API)
+    if (over15_g != null && over15_g >= 85) {
+      return { passed: true, via: 4 };
+    }
+
+    return { passed: false, via: null };
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 6. FILTRO UNDER 3.5  §4.6
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * filtroUnder35(raw, d, s_u35, poiss)
+   * O jogo passa se TODAS as condições forem verdadeiras:
+   *   1. s_u35 >= 75
+   *   2. over25_g <= 55 AND h2h_goals <= 3.0 AND btts_cf <= 75
+   *   3a. (com xG) poisson_u35 >= 78 AND exg_tot <= 2.5
+   *   3b. (sem xG) exg_tot = null AND u25cf >= 65 AND ppg_avg <= 1.6
+   *
+   * @param {object}      raw
+   * @param {object}      d      — derivadas
+   * @param {number|null} s_u35  — score Under 3.5
+   * @param {object|null} poiss  — probabilidades Poisson
+   * @returns {boolean}
+   */
+  function filtroUnder35(raw, d, s_u35, poiss) {
+    if (s_u35 === null || s_u35 < 75) return false;
+
+    // Condição 2 — blockers
+    const { over25_g, h2h_goals } = raw;
+    const { btts_cf }             = d;
+
+    if (over25_g != null && over25_g > 55)  return false;
+    if (h2h_goals != null && h2h_goals > 3.0) return false;
+    if (btts_cf != null && btts_cf > 75)    return false;
+
+    // Condição 3a — com xG
+    if (d.exg_tot !== null) {
+      if (!poiss || poiss.u35 < 78) return false;
+      if (d.exg_tot > 2.5)         return false;
+      return true;
+    }
+
+    // Condição 3b — sem xG
+    if (d.u25cf === null || d.u25cf < 65)    return false;
+    if (d.ppg_avg === null || d.ppg_avg > 1.6) return false;
+    return true;
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 7. GRADE e CONFIANÇA  §5.1
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * getGrade(score)
+   * Converte score numérico (0–100) em grade.
+   * Thresholds do coletar.py (modo API):
+   *   A+: >= 85  |  A: >= 75  |  B: >= 65  |  C: >= 50  |  D: < 50
+   *
+   * @param {number|null} score
+   * @returns {string}  'A+' | 'A' | 'B' | 'C' | 'D'
+   */
+  function getGrade(score) {
+    if (score === null || score === undefined) return 'D';
+    if (score >= GRADE_THRESHOLDS['A+']) return 'A+';
+    if (score >= GRADE_THRESHOLDS['A'])  return 'A';
+    if (score >= GRADE_THRESHOLDS['B'])  return 'B';
+    if (score >= GRADE_THRESHOLDS['C'])  return 'C';
+    return 'D';
+  }
+
+  /**
+   * getConfidence(grade)
+   * Converte grade em label de confiança exibido na UI.
+   *
+   * @param {string} grade
+   * @returns {string}  'Elite' | 'Alta' | 'Moderado' | 'Arriscado' | 'Evitar'
+   */
+  function getConfidence(grade) {
+    return CONFIDENCE_LABELS[grade] || 'Evitar';
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 8. SELEÇÃO DE BEST_MKT  §5.2
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * selectBestMkt(scores, filters)
+   * Escolhe o mercado com maior score entre os elegíveis.
+   *
+   * Documentação §5.2:
+   *   candidatos = [
+   *     ('Over 1.5',   s15,      passou_over15),
+   *     ('Over 2.5',   s25,      True),
+   *     ('BTTS',       s_btts,   True),
+   *     ('Over 0.5 HT',s_05ht,   True),
+   *     ('Under 4.5',  s_u45,    True),
+   *     ('Under 3.5',  s_u35,    under35_passou),
+   *     ('Esc 7.5',    s_esc75,  True),
+   *     ('Cart 2.5',   s_cards25,True),
+   *   ]
+   *   best = max(candidatos, key=lambda x: x[1] if x[2] else 0)
+   *
+   * V1 COMPAT: passed_filtro (over15_passed) afeta APENAS a elegibilidade
+   * do Over 1.5. Todos os outros mercados têm eligible=true.
+   * O resultado do selectBestMkt (best_mkt) é válido para snapshot
+   * independentemente do over15_passed — se outro mercado venceu, é esse
+   * que vai para o banco, sem nenhuma barreira adicional.
+   *
+   * Nota: a documentação lista 8 candidatos (inclui Over 1.5 e Under 3.5
+   * com filtros, mas não inclui Esc 8.5 e Cart 3.5 explicitamente).
+   * Esc 8.5 e Cart 3.5 são scores calculados mas não estão nos candidatos
+   * do best_mkt segundo §5.2 — mantemos a lista exata da documentação.
+   *
+   * @param {object}  scores   — { over15, over25, btts, over05ht, under45, under35, esc75, cards25 … }
+   * @param {object}  filters  — { over15_passed, under35_passed }
+   * @returns {{ market:string, score:number, grade:string, confidence:string }|null}
+   */
+  function selectBestMkt(scores, filters) {
+    const candidatos = [
+      { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true },
+      { market: 'Over 1.5 gols', score: scores.over15, eligible: filters.over15_passed  },
+      { market: 'Over 2.5 gols', score: scores.over25, eligible: true                   },
+      { market: 'BTTS',        score: scores.btts,    eligible: true                   },
+      { market: 'Over 0.5 HT', score: scores.over05ht,eligible: true                   },
+      { market: 'Under 4.5 gols', score: scores.under45, eligible: true                   },
+      { market: 'Under 3.5 gols', score: scores.under35, eligible: filters.under35_passed },
+      { market: 'Over 7.5 cantos', score: scores.esc75, eligible: true                   },
+      { market: 'Over 8.5 cantos', score: scores.esc85, eligible: true                   },
+      { market: 'Over 2.5 cartão', score: scores.cards25, eligible: true                 },
+      { market: 'Over 3.5 cartão', score: scores.cards35, eligible: true                 },
+      { market: 'Over 5.5 cartão', score: scores.cards55, eligible: true                 },
+    ];
+
+    let best = null;
+
+    for (const c of candidatos) {
+      if (c.score === null) continue;
+      const effectiveScore = c.eligible ? c.score : 0;
+      if (best === null || effectiveScore > best.effectiveScore) {
+        best = {
+          market:         c.market,
+          score:          c.score,
+          effectiveScore: effectiveScore,
+          eligible:       c.eligible,
+        };
+      }
+    }
+
+    if (!best) return null;
+
+    const grade      = getGrade(best.score);
+    const confidence = getConfidence(grade);
+
+    return {
+      market:     best.market,
+      score:      best.score,
+      grade:      grade,
+      confidence: confidence,
+      eligible:   best.eligible,
+    };
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 9. EXPECTED VALUE
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * computeEV(probability, odd)
+   * EV = (prob/100 × odd − 1) × 100
+   * Retorna null se probability ou odd forem nulos.
+   *
+   * @param {number|null} probability  — 0–100
+   * @param {number|null} odd
+   * @returns {number|null}            EV em % (pode ser negativo)
+   */
+  function computeEV(probability, odd) {
+    if (probability === null || probability === undefined) return null;
+    if (odd === null || odd === undefined || odd <= 0)    return null;
+    return Math.round(((probability / 100) * odd - 1) * 100 * 10) / 10;
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // 10. PIPELINE COMPLETO — processFixture(raw)
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * processFixture(raw)
+   * Executa o pipeline completo do PackBall v3.0 para um único jogo.
+   *
+   * Entrada (raw):
+   * ─────────────
+   * Identificação:
+   *   fixture_id, home_team, away_team, league_name, match_date, hour
+   *
+   * Variáveis brutas (seção 3.1):
+   *   over15_g, over25_g         — % predictions API
+   *   exg_h, exg_a               — xG por time
+   *   ppg_h, ppg_a               — PPG por time
+   *   h2h_goals                  — média gols H2H
+   *   avg_sc_h, avg_sc_a         — média gols marcados
+   *   btts_h, btts_a             — % BTTS por time
+   *   over05_ht, over15_ht       — % gol HT
+   *   avg_corners                — média cantos
+   *   over65_c, over75_c, over85_c — % cantos
+   *   avg_cards                  — média cartões
+   *   over25_cards, over35_cards — % cartões
+   *   avg_shots, avg_sot         — finalizações
+   *   under25_h, under25_a       — % Under 2.5 por time
+   *
+   * Odds (uma por mercado, null se indisponível):
+   *   odd_o15, odd_o25, odd_btts, odd_05ht
+   *   odd_u35, odd_u45, odd_esc75, odd_esc85
+   *   odd_c25, odd_c35
+   *
+   * Odds justas (calculadas pelo modelo, para EV):
+   *   odd_justa_15, odd_justa_25, odd_justa_btts
+   *   odd_justa_05ht, odd_justa_esc85, odd_justa_cart25
+   *
+   * Saída:
+   * ──────
+   *   fixture_id, home_team, away_team, league_name, match_date, hour
+   *   derivadas: { exg_tot, ppg_avg, ppg_min, af_avg, btts_cf, u25cf }
+   *   normalizadas: { ppg_n, af_n, exg_n, h2h_nv, cant_n, shots_n, cards_n, sot_n }
+   *   poisson: { o15, o25, u35, u45 } | null
+   *   scores:  { over15, over25, btts, over05ht, under45, under35, esc75, esc85, cards25, cards35 }
+   *   grades:  { over15, over25, btts, over05ht, under45, under35, esc75, esc85, cards25, cards35 }
+   *   odds:    { over15, over25, btts, over05ht, under45, under35, esc75, esc85, cards25, cards35 }
+   *   evs:     { over15, over25, btts, over05ht, under45, under35, esc75, esc85, cards25, cards35 }
+   *   filters: { over15_passed, over15_via, under35_passed }
+   *   best_mkt, best_score, best_grade, best_confidence, best_odd, best_ev
+   *   is_official: boolean  — true se best_grade em ['A+', 'A']
+   *
+   * @param {object} raw
+   * @returns {object}
+   */
+  function processFixture(raw) {
+
+    // ── Etapa 1: Derivadas ─────────────────────────────────────
+    const d     = computeDerivadas(raw);
+
+    // ── Etapa 2: Normalizadas ──────────────────────────────────
+    const norm  = computeNormalizadas(raw, d);
+
+    // ── Etapa 3: Poisson ───────────────────────────────────────
+    const poiss = poissonProbs(d.exg_tot);
+
+    // ── Etapa 4: Scores por mercado ────────────────────────────
+    const s15      = scoreOver15(raw, d, norm, poiss);
+    const s25      = scoreOver25(raw, d, norm, poiss);
+    const s_btts   = scoreBTTS(raw, d, norm);
+    const s_05ht   = scoreOver05HT(raw, d, norm);
+    const s_u45    = scoreUnder45(raw, d, norm, poiss);
+    const s_u35    = scoreUnder35(raw, d, norm, poiss);
+    const s_esc75  = scoreEsc75(raw, d, norm);
+    const s_esc85  = scoreEsc85(raw, d, norm);
+    const s_c25    = scoreCards25(raw, d, norm);
+    const s_c35    = scoreCards35(raw, d, norm);
+    const s_c55    = scoreCards55(raw, d, norm);
+    const rf       = scoreResultadoFinal(raw, d, norm);
+
+    // ── Etapa 5: Filtros ───────────────────────────────────────
+    const filtro15   = filtroOver15(raw, d);
+    const under35_ok = filtroUnder35(raw, d, s_u35, poiss);
+
+    // ── Etapa 6: Grades ────────────────────────────────────────
+    const scores = {
+      resultadoFinal: rf.score,
+      over15:  s15,
+      over25:  s25,
+      btts:    s_btts,
+      over05ht: s_05ht,
+      under45: s_u45,
+      under35: s_u35,
+      esc75:   s_esc75,
+      esc85:   s_esc85,
+      cards25: s_c25,
+      cards35: s_c35,
+      cards55: s_c55,
+    };
+
+    const grades = {};
+    for (const [mkt, sc] of Object.entries(scores)) {
+      grades[mkt] = getGrade(sc);
+    }
+
+    // ── Etapa 7: Odds coletadas ────────────────────────────────
+    const odds = {
+      resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null) : rf.side === 'away' ? (raw.odds_a ?? null) : null,
+      over15:   raw.odd_o15   ?? null,
+      over25:   raw.odd_o25   ?? null,
+      btts:     raw.odd_btts  ?? null,
+      over05ht: raw.odd_05ht  ?? null,
+      under45:  raw.odd_u45   ?? null,
+      under35:  raw.odd_u35   ?? null,
+      esc75:    raw.odd_esc75 ?? null,
+      esc85:    raw.odd_esc85 ?? null,
+      cards25:  raw.odd_c25   ?? null,
+      cards35:  raw.odd_c35   ?? null,
+      cards55:  raw.odd_c55   ?? null,
+    };
+
+    // ── Etapa 8: EV por mercado ────────────────────────────────
+    // Usa probability = score (escala 0–100) e odd coletada
+    const evs = {};
+    for (const [mkt, sc] of Object.entries(scores)) {
+      evs[mkt] = computeEV(sc, odds[mkt]);
+    }
+
+    // ── Etapa 9: Best_mkt ──────────────────────────────────────
+    const filters = {
+      over15_passed: filtro15.passed,
+      over15_via:    filtro15.via,
+      under35_passed: under35_ok,
+      resultadoFinal_market: rf.market,
+    };
+
+    const best = selectBestMkt(scores, filters);
+
+    const best_mkt        = best ? best.market     : null;
+    const best_score      = best ? best.score      : null;
+    const best_grade      = best ? best.grade      : 'D';
+    const best_confidence = best ? best.confidence : 'Evitar';
+    const best_odd        = best ? (odds[_mktKey(best.market)] ?? null) : null;
+    const best_ev         = best ? computeEV(best.score, best_odd) : null;
+    const is_official     = GRADES_OFICIAIS.has(best_grade);
+
+    return {
+      // Identificação
+      fixture_id:   raw.fixture_id   ?? null,
+      home_team:    raw.home_team    ?? '',
+      away_team:    raw.away_team    ?? '',
+      jogo:         raw.home_team && raw.away_team
+                      ? `${raw.home_team} vs ${raw.away_team}`
+                      : '',
+      league_name:  raw.league_name  ?? '',
+      match_date:   raw.match_date   ?? null,
+      hour:         raw.hour         ?? null,
+
+      // Dados de cálculo intermediário
+      derivadas:   d,
+      normalizadas: norm,
+      poisson:     poiss,
+
+      // Scores, grades, odds, EVs por mercado
+      scores,
+      grades,
+      odds,
+      evs,
+
+      // Filtros
+      filters,
+
+      // Melhor mercado (best_mkt)
+      best_mkt,
+      best_score,
+      best_grade,
+      best_confidence,
+      best_odd,
+      best_ev,
+      is_official,   // true se A+ ou A — entra em Melhores Previsões
+    };
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // HELPER: mapeamento market → chave interna de odds/evs
+  // ═══════════════════════════════════════════════════════════════
+
+  const _MKT_TO_KEY = {
+    'Resultado Final (1X2)': 'resultadoFinal',
+    'Over 1.5 gols': 'over15',
+    'Over 2.5 gols': 'over25',
+    'Over 1.5':    'over15',
+    'Over 2.5':    'over25',
+    'BTTS':        'btts',
+    'Over 0.5 HT': 'over05ht',
+    'Under 4.5 gols': 'under45',
+    'Under 3.5 gols': 'under35',
+    'Under 4.5':   'under45',
+    'Under 3.5':   'under35',
+    'Over 7.5 cantos': 'esc75',
+    'Over 8.5 cantos': 'esc85',
+    'Esc 7.5':     'esc75',
+    'Esc 8.5':     'esc85',
+    'Over 2.5 cartão': 'cards25',
+    'Over 3.5 cartão': 'cards35',
+    'Over 5.5 cartão': 'cards55',
+    'Cart 2.5':    'cards25',
+    'Cart 3.5':    'cards35',
+    'Cart 5.5':    'cards55',
+  };
+
+  function _mktKey(market) {
+    if (String(market || '').startsWith('Resultado Final (1X2)')) return 'resultadoFinal';
+    return _MKT_TO_KEY[market] ?? null;
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // API PÚBLICA
+  // ═══════════════════════════════════════════════════════════════
+
+  return {
+    // Funções matemáticas base
+    n,
+    ws,
+    poissonProbs,
+
+    // Pipeline de cálculo
+    computeDerivadas,
+    computeNormalizadas,
+
+    // Score engine por mercado
+    scoreOver15,
+    scoreOver25,
+    scoreBTTS,
+    scoreOver05HT,
+    scoreUnder45,
+    scoreUnder35,
+    scoreEsc75,
+    scoreEsc85,
+    scoreCards25,
+    scoreCards35,
+
+    // Filtros
+    filtroOver15,
+    filtroUnder35,
+
+    // Grade e confiança
+    getGrade,
+    getConfidence,
+
+    // Seleção de melhor mercado
+    selectBestMkt,
+
+    // Expected Value
+    computeEV,
+
+    // Pipeline completo (entry point principal)
+    processFixture,
+
+    // Utilitários
+    GRADE_THRESHOLDS,
+    CONFIDENCE_LABELS,
+    GRADES_OFICIAIS,
+    NORM_LIMITS,
+    MKT_TO_KEY: _MKT_TO_KEY,
+  };
+
+})();
+
+
+// ─────────────────────────────────────────────────────────────────
+// Compatibilidade: expõe como módulo ES6 E como global
+// ─────────────────────────────────────────────────────────────────
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = PredictionEngine;  // Node.js / Jest
+}
+// Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
+
+</script>
+<script>
+// section
+// section
+// section
+// section
+
+// section
+const MKT_MIN = {
+  'Over 1.5':    { min: 85, needFilter: 'passed_filter'  },
+  'Over 2.5':    { min: 75, needFilter: null              },
+  'BTTS':        { min: 70, needFilter: null              },
+  'Over 0.5 HT': { min: 75, needFilter: null              },
+  'Under 4.5':   { min: 75, needFilter: null              },
+  'Under 3.5':   { min: 75, needFilter: 'under35_passed'  },
+  'Esc 7.5':     { min: 75, needFilter: null              },
+  'Esc 8.5':     { min: 75, needFilter: null              },
+  'Cart 2.5':    { min: 75, needFilter: null              },
+  'Cart 3.5':    { min: 75, needFilter: null              },
+  'Over 1.5 gols':   { min: 85, needFilter: 'passed_filter' },
+  'Over 2.5 gols':   { min: 75, needFilter: null            },
+  'Under 3.5 gols':  { min: 75, needFilter: 'under35_passed' },
+  'Under 4.5 gols':  { min: 75, needFilter: null            },
+  'Over 7.5 cantos': { min: 75, needFilter: null            },
+  'Over 8.5 cantos': { min: 75, needFilter: null            },
+  'Over 2.5 cartão': { min: 75, needFilter: null            },
+  'Over 3.5 cartão': { min: 75, needFilter: null            },
+  'Over 5.5 cartão': { min: 75, needFilter: null            },  'Over 1.5 Gols':   { min: 85, needFilter: 'passed_filter' },
+  'Over 2.5 Gols':   { min: 75, needFilter: null            },
+  'Ambas marcam':    { min: 70, needFilter: null            },
+  'Under 3.5 Gols':  { min: 75, needFilter: 'under35_passed' },
+  'Under 4.5 Gols':  { min: 75, needFilter: null            },
+  'Over 7.5 Escanteios': { min: 75, needFilter: null        },
+  'Over 8.5 Escanteios': { min: 75, needFilter: null        },
+  'Over 2.5 Cartão': { min: 75, needFilter: null            },
+  'Over 3.5 Cartão': { min: 75, needFilter: null            },
+};
+
+function getAlternativas(fixtureId, mainMarket, predictionsMap) {
+  const preds = predictionsMap[fixtureId] || [];
+  return preds
+    .filter(p => displayMarket(p.market) !== mainMarket)
+    .filter(p => {
+      const rule = MKT_MIN[p.market] || MKT_MIN[displayMarket(p.market)];
+      if (!rule) return false;
+      if (p.score < rule.min) return false;
+      if (rule.needFilter && !p[rule.needFilter]) return false;
+      return true;
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(p => displayMarket(p.market));
+}
+
+// section
+let PAGE_SIZE = 20;
+let currentPage     = 1;
+let totalCount      = 0;
+let activeFilter    = 'hoje';
+let filterLeague    = '';
+let filterMarket    = '';
+let filterDateStart = null;  // section
+let filterDateEnd   = null;
+let searchQuery      = '';
+let worldCupOnly     = false;
+const WORLD_CUP_LEAGUES = ['World: World Cup', 'FIFA World Cup', 'World Cup'];
+
+// section
+// section
+function brtDateStr(date) {
+  // section
+  const brt = new Date(date.getTime() - 3 * 60 * 60 * 1000);
+  return brt.toISOString().slice(0, 10); // section
+}
+
+// section
+function brtDayToISO(ymd, endOfDay) {
+  // section
+  // section
+  // section
+  // section
+  // section
+  // section
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!endOfDay) {
+    // section
+    return new Date(Date.UTC(y, m - 1, d, 3, 0, 0)).toISOString();
+  } else {
+    // section
+    return new Date(Date.UTC(y, m - 1, d + 1, 2, 59, 59)).toISOString();
+  }
+}
+
+function todayRange() {
+  const today = brtDateStr(new Date());
+  return { start: brtDayToISO(today, false), end: brtDayToISO(today, true) };
+}
+
+function yesterdayRange() {
+  const yesterday = brtDateStr(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  return { start: brtDayToISO(yesterday, false), end: brtDayToISO(yesterday, true) };
+}
+
+function tomorrowRange() {
+  const tomorrow = brtDateStr(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  return { start: brtDayToISO(tomorrow, false), end: brtDayToISO(tomorrow, true) };
+}
+
+function next7Range() {
+  // section
+  const today = brtDateStr(new Date());
+  const d6    = brtDateStr(new Date(Date.now() + 6 * 24 * 60 * 60 * 1000));
+  return { start: brtDayToISO(today, false), end: brtDayToISO(d6, true) };
+}
+
+function getDateRange() {
+  // section
+  if (filterDateStart && filterDateEnd) {
+    return {
+      start: brtDayToISO(filterDateStart, false),
+      end:   brtDayToISO(filterDateEnd,   true)
+    };
+  }
+  if (activeFilter === 'ontem')  return yesterdayRange();
+  if (activeFilter === 'hoje')   return todayRange();
+  if (activeFilter === 'amanha') return tomorrowRange();
+  if (activeFilter === '7dias')  return next7Range();
+  return { start: null, end: null }; // section
+}
+
+// section
+async function fetchSnapshots(page) {
+  const offset = (page - 1) * PAGE_SIZE;
+  const { start, end } = getDateRange();
+
+  let q = supabaseClient
+    .from('prediction_snapshots')
+    .select(
+      'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, ' +
+      'market, score, grade, odd, result_status, confirmed_at, match_date, hour',
+      { count: 'exact' }
+    )
+    .order('score', { ascending: false })
+    .order('match_date', { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  q = activeFilter === 'todos'
+    ? q.in('grade', ['A+', 'A', 'B', 'C', 'D'])
+    : q.in('grade', ['A+', 'A', 'B', 'C']);
+
+  if (start) q = q.gte('match_date', start);
+  if (end)   q = q.lte('match_date', end);
+
+  if (filterLeague) q = q.ilike('league_name', `%${filterLeague}%`);
+
+  if (filterMarket) {
+    q = q.eq('market', filterMarket);
+  }
+
+  if (searchQuery) {
+    const term = searchQuery.replace(/[%_,]/g, '').trim();
+    if (term) {
+      q = q.or(
+        `match_name.ilike.%${term}%,home_team.ilike.%${term}%,away_team.ilike.%${term}%,league_name.ilike.%${term}%,market.ilike.%${term}%`
+      );
+    }
+  }
+
+  return q;
+}
+
+async function fetchFixtureResults(fixtureIds) {
+  if (!fixtureIds.length) return {};
+  const { data, error } = await supabaseClient
+    .from('fixtures')
+    .select('fixture_id, goals_home, goals_away, status, match_date')
+    .in('fixture_id', fixtureIds);
+
+  if (error || !data) return {};
+  return data.reduce((acc, row) => {
+    acc[row.fixture_id] = { ...row, fixture_match_date: row.match_date };
+    return acc;
+  }, {});
+}
+
+async function fetchWorldCupFixtures() {
+  const { start, end } = getDateRange();
+  let q = supabaseClient
+    .from('fixtures')
+    .select('fixture_id, match_date, home_team, away_team, home_team_logo, away_team_logo, league_name, goals_home, goals_away, status')
+    .in('league_name', WORLD_CUP_LEAGUES)
+    .order('match_date', { ascending: true });
+
+  if (start) q = q.gte('match_date', start);
+  if (end)   q = q.lte('match_date', end);
+  if (searchQuery) {
+    const term = searchQuery.replace(/[%_,]/g, '').trim();
+    if (term) q = q.or(`home_team.ilike.%${term}%,away_team.ilike.%${term}%,league_name.ilike.%${term}%`);
+  }
+
+  const { data, error } = await q;
+  if (error || !data) return [];
+  return data;
+}
+
+async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
+  if (!fixtureIds.length) return {};
+  const { data, error } = await supabaseClient
+    .from('prediction_snapshots')
+    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour')
+    .in('fixture_id', fixtureIds)
+    .in('grade', ['A+', 'A', 'B', 'C']);
+
+  if (error || !data) return {};
+  return data.reduce((acc, snap) => {
+    if (!acc[snap.fixture_id] || Number(snap.score || 0) > Number(acc[snap.fixture_id].score || 0)) {
+      acc[snap.fixture_id] = snap;
+    }
+    return acc;
+  }, {});
+}
+
+// section
+async function fetchPredictions(fixtureIds) {
+  if (!fixtureIds.length) return {};
+  const { data, error } = await supabaseClient
+    .from('predictions')
+    .select(
+      'fixture_id, market, score, passed_filter, under35_passed, is_best_market'
+    )
+    .in('fixture_id', fixtureIds);
+
+  if (error || !data) return {};
+  return data.reduce((acc, p) => {
+    if (!acc[p.fixture_id]) acc[p.fixture_id] = [];
+    acc[p.fixture_id].push(p);
+    return acc;
+  }, {});
+}
+
+async function fetchWorldCupMetrics(fixtureIds) {
+  if (!fixtureIds.length) return {};
+  const { data, error } = await supabaseClient
+    .from('match_metrics')
+    .select(
+      'fixture_id, over15_g, over25_g, exg_h, exg_a, exg_tot, ppg_h, ppg_a, ppg_avg, ppg_min, ' +
+      'h2h_goals, avg_sc_h, avg_sc_a, af_avg, btts_h, btts_a, btts_cf, over05_ht, over15_ht, ' +
+      'avg_corners, over65_c, over75_c, over85_c, avg_cards, over25_cards, over35_cards, ' +
+      'avg_shots, avg_sot, under25_h, under25_a, u25cf, ' +
+      'ppg_n, af_n, exg_n, h2h_nv, cant_n, shots_n, cards_n, sot_n, ' +
+      'prob_o15_poisson, prob_o25_poisson, prob_u35_poisson, prob_u45_poisson'
+    )
+    .in('fixture_id', fixtureIds);
+
+  if (error || !data) return {};
+  return data.reduce((acc, row) => {
+    acc[row.fixture_id] = row;
+    return acc;
+  }, {});
+}
+
+// Busca odds de Casa e Visitante da tabela odds — usadas pelo scoreResultadoFinal
+async function fetchWorldCupOdds(fixtureIds) {
+  if (!fixtureIds.length) return {};
+  const { data, error } = await supabaseClient
+    .from('odds')
+    .select('fixture_id, market, odd')
+    .in('fixture_id', fixtureIds)
+    .in('market', ['Resultado Final (1X2) - Casa', 'Resultado Final (1X2) - Visitante']);
+
+  if (error || !data) return {};
+  return data.reduce((acc, row) => {
+    if (!acc[row.fixture_id]) acc[row.fixture_id] = {};
+    if (row.market.includes('Casa'))      acc[row.fixture_id].odds_h = Number(row.odd);
+    if (row.market.includes('Visitante')) acc[row.fixture_id].odds_a = Number(row.odd);
+    return acc;
+  }, {});
+}
+
+// section
+async function fetchLeagues() {
+  const { data, error } = await supabaseClient
+    .from('prediction_snapshots')
+    .select('league_name')
+    .not('league_name', 'is', null)
+    .order('league_name');
+  if (error || !data) return [];
+  const seen = new Set();
+  return data
+    .map(r => r.league_name)
+    .filter(l => l && l.trim() && !seen.has(l) && seen.add(l));
+}
+
+// section
+const MARKET_ORDER = [
+  'Resultado Final (1X2)',
+  'Over 1.5 gols',
+  'Over 1.5',
+  'Over 2.5 gols',
+  'Over 2.5',
+  'Under 3.5 gols',
+  'Under 3.5',
+  'Under 4.5 gols',
+  'Under 4.5',
+  'Over 7.5 cantos',
+  'Esc 7.5',
+  'Over 8.5 cantos',
+  'Esc 8.5',
+  'Over 2.5 cartão',
+  'Cart 2.5',
+  'Over 3.5 cartão',
+  'Cart 3.5',
+  'Over 5.5 cartão',
+  'Cart 5.5',
+];
+
+function marketRank(market) {
+  const name = String(market || '');
+  // section
+  let idx = MARKET_ORDER.findIndex(m => m === name);
+  // section
+  if (idx === -1 && name.startsWith('Resultado Final (1X2)')) idx = 0;
+  return idx === -1 ? MARKET_ORDER.length : idx;
+}
+
+function displayMarket(market) {
+  const name = String(market || '');
+  if (name === 'Resultado Final (1X2) - Casa DNB') return 'Casa empate anula';
+  if (name === 'Resultado Final (1X2) - Visitante DNB') return 'Visitante empate anula';
+  if (name === 'Resultado Final (1X2) - Dupla Chance 1X') return 'Dupla Chance 1X';
+  if (name === 'Resultado Final (1X2) - Dupla Chance X2') return 'Dupla Chance X2';
+  if (name === 'Resultado Final (1X2) - Dupla Chance 2X') return 'Dupla Chance X2';
+  if (name === 'Resultado Final (1X2) - Vitória Casa') return 'Vitória da Casa';
+  if (name === 'Resultado Final (1X2) - Vitória Visitante') return 'Vitória do Visitante';
+  if (name === 'BTTS') return 'Ambas marcam';
+  if (name === 'Over 1.5' || name === 'Over 1.5 gols' || name === 'Over 1.5 Gols') return 'Over 1.5 Gols';
+  if (name === 'Over 2.5' || name === 'Over 2.5 gols' || name === 'Over 2.5 Gols') return 'Over 2.5 Gols';
+  if (name === 'Under 3.5' || name === 'Under 3.5 gols' || name === 'Under 3.5 Gols') return 'Under 3.5 Gols';
+  if (name === 'Under 4.5' || name === 'Under 4.5 gols' || name === 'Under 4.5 Gols') return 'Under 4.5 Gols';
+  if (name === 'Over 0.5 HT') return 'Over 0.5 HT';
+  if (name === 'Esc 7.5' || name === 'Over 7.5 cantos' || name === 'Over 7.5 Escanteios') return 'Over 7.5 Escanteios';
+  if (name === 'Esc 8.5' || name === 'Over 8.5 cantos' || name === 'Over 8.5 Escanteios') return 'Over 8.5 Escanteios';
+  if (name === 'Cart 2.5' || name === 'Over 2.5 cartão' || name === 'Over 2.5 Cartão') return 'Over 2.5 Cartão';
+  if (name === 'Cart 3.5' || name === 'Over 3.5 cartão' || name === 'Over 3.5 Cartão') return 'Over 3.5 Cartão';
+  return name;
+}
+
+const FUNCTIONAL_MARKETS = new Set([
+  'Over 1.5', 'Over 2.5', 'Under 3.5', 'Under 4.5',
+  'BTTS', 'Over 0.5 HT', 'Esc 7.5', 'Esc 8.5',
+  'Cart 2.5', 'Cart 3.5',
+  'Resultado Final (1X2) - Casa DNB',
+  'Resultado Final (1X2) - Visitante DNB',
+  'Resultado Final (1X2) - Dupla Chance 1X',
+  'Resultado Final (1X2) - Dupla Chance X2',
+  'Resultado Final (1X2) - Dupla Chance 2X',
+  'Resultado Final (1X2) - Vitória Casa',
+  'Resultado Final (1X2) - Vitória Visitante',
+]);
+
+async function fetchMarkets() {
+  const { data, error } = await supabaseClient
+    .from('prediction_snapshots')
+    .select('market')
+    .not('market', 'is', null);
+  if (error || !data) return [];
+  const byLabel = new Map();
+  data.forEach(r => {
+    const label = displayMarket(r.market);
+    const key = label.toLowerCase();
+    if (!r.market || !r.market.trim()) return;
+    const current = byLabel.get(key);
+    if (!current || (!FUNCTIONAL_MARKETS.has(current.value) && FUNCTIONAL_MARKETS.has(r.market))) {
+      byLabel.set(key, { value: r.market, label });
+    }
+  });
+  const result = [...byLabel.values()];
+  return result.sort((a, b) => marketRank(a.value) - marketRank(b.value) || a.label.localeCompare(b.label));
+}
+
+// section
+function palpiteLabel(snap) {
+  return displayMarket(snap.market);
+}
+
+function badgeAlt() {
+  return `<span style="
+    display:inline-block;margin-left:6px;
+    font-size:9px;font-weight:700;letter-spacing:.5px;
+    background:rgba(240,165,0,.15);border:1px solid rgba(240,165,0,.35);
+    color:#f0a500;padding:1px 5px;border-radius:4px;
+    vertical-align:middle;text-transform:uppercase;
+  ">Alt</span>`;
+}
+
+function ringHtml(val, color) {
+  const r = 15, c = 2 * Math.PI * r;
+  const dash = (val / 100) * c;
+  return `<div class="winscore-ring">
+    <svg width="36" height="36" viewBox="0 0 36 36" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">
+      <circle cx="18" cy="18" r="${r}" fill="none" stroke="#2a2f44" stroke-width="3"/>
+      <circle cx="18" cy="18" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+        stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" stroke-linecap="round"/>
+    </svg>
+    <span style="position:relative;z-index:1;font-size:12px;font-weight:700;color:${color}">${val}</span>
+  </div>`;
+}
+
+function confBadge(conf) {
+  // section
+  if (!conf) return `<span class="conf-badge conf-media">-</span>`;
+  const c = conf.toLowerCase();
+  if (c === 'elite' || c === 'a+' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
+  if (c === 'alta' || c === 'a' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Alta</span>`;
+  if (c === 'confiança média' || c === 'moderado') return `<span class="conf-badge conf-media">Média</span>`;
+  return `<span class="conf-badge conf-media">-</span>`;
+}
+
+function confBadge(conf) {
+  if (!conf) return `<span class="conf-badge conf-d" title="Sem classificação disponível">-</span>`;
+  const c = String(conf).toLowerCase();
+  let grade = null;
+  if (c === 'a+' || c === 'elite' || c.includes('maxima') || c.includes('máxima')) grade = 'A+';
+  else if (c === 'a' || c.includes('alta') || c.includes('excelente')) grade = 'A';
+  else if (c === 'b' || c.includes('moderado') || c.includes('boa oportunidade')) grade = 'B';
+  else if (c === 'c' || c.includes('arriscado') || c.includes('aceit')) grade = 'C';
+  else if (c === 'd' || c.includes('evitar') || c.includes('pouca')) grade = 'D';
+
+  const meta = {
+    'A+': { cls: 'conf-aplus', label: 'Elite',    tip: 'Máxima confiança, cenário extremamente favorável' },
+    'A':  { cls: 'conf-a',     label: 'Alta',     tip: 'Excelente oportunidade, forte convergência dos indicadores' },
+    'B':  { cls: 'conf-b',     label: 'Moderado', tip: 'Boa oportunidade, maioria dos critérios atendidos' },
+    'C':  { cls: 'conf-c',     label: 'Arriscado',tip: 'Mercado aceitável, mas com alguns sinais de alerta' },
+    'D':  { cls: 'conf-d',     label: 'Evitar',   tip: 'Pouca confiança, não recomendado para entrada principal' },
+  };
+  const item = meta[grade] || meta.D;
+  return `<span class="conf-badge ${item.cls}" title="${item.tip}">${item.label}</span>`;
+}
+
+function getConf(snap) {
+  return snap.confidence || snap.best_confidence || snap.conf || snap.grade || null;
+}
+
+function pickConfidenceClass(conf) {
+  const c = String(conf || '').toLowerCase();
+  if (c === 'a+' || c === 'elite' || c.includes('maxima') || c.includes('máxima')) return 'pick-conf-aplus';
+  if (c === 'a' || c.includes('alta') || c.includes('excelente')) return 'pick-conf-a';
+  if (c === 'b' || c.includes('moderado') || c.includes('boa oportunidade')) return 'pick-conf-b';
+  if (c === 'c' || c.includes('arriscado') || c.includes('aceit')) return 'pick-conf-c';
+  if (c === 'd' || c.includes('evitar') || c.includes('pouca')) return 'pick-conf-d';
+  return 'pick-conf-d';
+}
+
+function getOdd(snap) {
+  const v = snap.odd ?? null;
+  return v !== null ? Number(v) : null;
+}
+
+const ringColor = v => v >= 90 ? '#a78bfa' : v >= 85 ? '#6c63ff' : '#00d2a0';
+
+function cleanMatchName(name) {
+  return String(name || '')
+    .replace(/^\s*\d{1,2}[:h]\d{2}\s*[---|·]*\s*/i, '')
+    .replace(/\s*[---|·]*\s*\d{1,2}[:h]\d{2}\s*$/i, '')
+    .trim();
+}
+
+function formatHour(isoDate) {
+  if (!isoDate) return '--';
+  return new Date(isoDate).toLocaleTimeString('pt-BR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+  });
+}
+
+function formatDate(isoDate) {
+  if (!isoDate) return '--';
+  return new Date(isoDate).toLocaleDateString('pt-BR', {
+    day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo'
+  });
+}
+
+function formatResult(snap) {
+  const status = snap.result_status || snap.status_result || null;
+  if (!status || status === 'pending' || status === 'null') {
+    return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">-</span>';
+  }
+  if (status === 'green') return '<span class="result-green">&check; GREEN</span>';
+  if (status === 'red')   return '<span class="result-red">&times; RED</span>';
+  if (status === 'void')  return '<span style="color:var(--text-muted);font-size:11px;border:1px solid var(--border);padding:3px 8px;border-radius:5px">VOID</span>';
+  return '<span style="color:var(--text-muted);font-size:11px">' + status + '</span>';
+}
+
+function formatPlacar(snap) {
+  const gh = snap.goals_home ?? snap.home_goals ?? snap.fixture_goals_home ?? null;
+  const ga = snap.goals_away ?? snap.away_goals ?? snap.fixture_goals_away ?? null;
+  if (gh === null || ga === null) return '-';
+  return `${gh} - ${ga}`;
+}
+
+function renderAlts(alts) {
+  if (!alts.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
+  return alts.map(m =>
+    `<span style="
+      font-size:11px;
+      background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.25);
+      color:var(--purple);padding:2px 7px;border-radius:4px;white-space:nowrap;
+    ">${m}</span>`
+  ).join(' ');
+}
+
+const GRADE_RANK = { 'A+': 5, A: 4, B: 3, C: 2, D: 1 };
+const WORLD_CUP_MIN_SUGGESTION_SCORE = 65;
+const WORLD_CUP_MAX_SUGGESTIONS = 4;
+
+function smartMarketKey(market) {
+  const label = displayMarket(market).toLowerCase();
+  if (label === 'over 0.5 gols') return 'over05';
+  if (label === 'over 1.5 gols') return 'over15';
+  if (label === 'over 2.5 gols') return 'over25';
+  if (label === 'over 3.5 gols') return 'over35';
+  if (label === 'under 3.5 gols') return 'under35';
+  if (label === 'under 4.5 gols') return 'under45';
+  if (label === 'ambas marcam') return 'btts';
+  if (label === 'over 0.5 ht') return 'over05ht';
+  if (label === 'over 0.5 gols casa') return 'homeOver05';
+  if (label === 'over 0.5 gols visitante') return 'awayOver05';
+  if (label === 'dupla chance 1x') return 'double1x';
+  if (label === 'dupla chance 2x') return 'double2x';
+  if (label === 'vitória da casa' || label === 'vitoria da casa') return 'homeWin';
+  if (label === 'vitória do visitante' || label === 'vitoria do visitante') return 'awayWin';
+  if (label === 'over 7.5 escanteios') return 'esc75';
+  if (label === 'over 8.5 escanteios') return 'esc85';
+  if (label === 'over 2.5 cartão' || label === 'over 2.5 cartao') return 'cart25';
+  if (label === 'over 3.5 cartão' || label === 'over 3.5 cartao') return 'cart35';
+  return '';
+}
+
+function smartIcon(type) {
+  if (type === 'corners') return '<svg class="smart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 5h11l-2 4 2 4H4"/></svg>';
+  if (type === 'cards') return '<svg class="smart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/></svg>';
+  if (type === 'result') return '<svg class="smart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M5 6H3a4 4 0 0 0 4 4"/><path d="M19 6h2a4 4 0 0 1-4 4"/></svg>';
+  if (type === 'btts') return '<svg class="smart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h10v10H7z"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="M12 3v4"/><path d="M12 17v4"/></svg>';
+  if (type === 'ht') return '<svg class="smart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>';
+  return '<svg class="smart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>';
+}
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function clamp(v, min = 0, max = 100) {
+  if (v === null || v === undefined || !Number.isFinite(Number(v))) return null;
+  return Math.max(min, Math.min(max, Number(v)));
+}
+
+function normalize(v, min, max) {
+  const n = num(v);
+  if (n === null) return null;
+  if (max === min) return null;
+  return clamp(((n - min) / (max - min)) * 100);
+}
+
+function inverseNormalize(v, min, max) {
+  const n = normalize(v, min, max);
+  return n === null ? null : 100 - n;
+}
+
+function weightedScore(items) {
+  let total = 0;
+  let weight = 0;
+  items.forEach(([value, w]) => {
+    const n = clamp(value);
+    if (n === null || !w) return;
+    total += n * w;
+    weight += w;
+  });
+  return weight ? Math.round((total / weight) * 10) / 10 : null;
+}
+
+function suggestionGrade(score) {
+  if (score >= 85) return 'A+';
+  if (score >= 75) return 'A';
+  if (score >= 65) return 'B';
+  if (score >= 50) return 'C';
+  return 'D';
+}
+
+function buildPredictionCandidate(pred) {
+  const key = smartMarketKey(pred.market);
+  if (!key) return null;
+  const groups = {
+    over05: 'goals', over15: 'goals', over25: 'goals', over35: 'goals',
+    under35: 'goals', under45: 'goals', btts: 'btts', over05ht: 'ht',
+    esc75: 'corners', esc85: 'corners', cart25: 'cards', cart35: 'cards',
+  };
+  const score = num(pred.score);
+  if (score === null) return null;
+  return {
+    key,
+    group: groups[key] || key,
+    type: groups[key] || 'goals',
+    title: 'Modelo estatístico',
+    market: displayMarket(pred.market),
+    score,
+    grade: pred.grade || suggestionGrade(score),
+    filterBoost: Number(Boolean(pred.is_best_market)) + Number(Boolean(pred.passed_filter || pred.under35_passed)),
+  };
+}
+
+function metricCandidate(key, group, type, title, market, score, filterBoost = 0) {
+  if (score === null || score === undefined) return null;
+  return { key, group, type, title, market, score: Math.round(score * 10) / 10, grade: suggestionGrade(score), filterBoost };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// buildWorldCupEngineScores
+// Reconstrói o objeto raw a partir do match_metrics + odds,
+// e chama as funções reais do PredictionEngine para calcular
+// os scores de cada mercado — sem fórmulas inventadas.
+//
+// Retorna um objeto com os mesmos campos de result.scores do engine:
+//   { over15, over25, btts, over05ht, under45, under35,
+//     esc75, esc85, cards25, cards35, resultadoFinal,
+//     rfMarket, rfSide }
+//
+// Retorna null se não houver dados suficientes para nenhum mercado.
+// ─────────────────────────────────────────────────────────────────
+function buildWorldCupEngineScores(metrics, oddsForFixture) {
+  if (!metrics) return null;
+
+  // Reconstrói o raw no formato que o engine espera
+  const raw = {
+    // Brutas presentes em match_metrics
+    over15_g:     metrics.over15_g     ?? null,
+    over25_g:     metrics.over25_g     ?? null,
+    exg_h:        metrics.exg_h        ?? null,
+    exg_a:        metrics.exg_a        ?? null,
+    ppg_h:        metrics.ppg_h        ?? null,
+    ppg_a:        metrics.ppg_a        ?? null,
+    h2h_goals:    metrics.h2h_goals    ?? null,
+    avg_sc_h:     metrics.avg_sc_h     ?? null,
+    avg_sc_a:     metrics.avg_sc_a     ?? null,
+    btts_h:       metrics.btts_h       ?? null,
+    btts_a:       metrics.btts_a       ?? null,
+    over05_ht:    metrics.over05_ht    ?? null,
+    over15_ht:    metrics.over15_ht    ?? null,
+    avg_corners:  metrics.avg_corners  ?? null,
+    over65_c:     metrics.over65_c     ?? null,
+    over75_c:     metrics.over75_c     ?? null,
+    over85_c:     metrics.over85_c     ?? null,
+    avg_cards:    metrics.avg_cards    ?? null,
+    over25_cards: metrics.over25_cards ?? null,
+    over35_cards: metrics.over35_cards ?? null,
+    avg_shots:    metrics.avg_shots    ?? null,
+    avg_sot:      metrics.avg_sot      ?? null,
+    under25_h:    metrics.under25_h    ?? null,
+    under25_a:    metrics.under25_a    ?? null,
+    // Odds da Casa/Visitante para scoreResultadoFinal
+    odds_h:       oddsForFixture?.odds_h ?? null,
+    odds_a:       oddsForFixture?.odds_a ?? null,
+    // win_home/win_away não estão no banco — engine funciona sem eles via odds
+    win_home:     null,
+    win_away:     null,
+    avg_shots_h:  null,
+    avg_shots_a:  null,
+    avg_sot_h:    null,
+    avg_sot_a:    null,
+  };
+
+  // Usa derivadas e normalizadas já calculadas pelo pipeline se disponíveis,
+  // senão o engine recalcula internamente
+  const d = PredictionEngine.computeDerivadas(raw);
+
+  // Injeta derivadas já calculadas (mais precisas que recalcular)
+  if (metrics.exg_tot  != null) d.exg_tot  = metrics.exg_tot;
+  if (metrics.ppg_avg  != null) d.ppg_avg  = metrics.ppg_avg;
+  if (metrics.ppg_min  != null) d.ppg_min  = metrics.ppg_min;
+  if (metrics.btts_cf  != null) d.btts_cf  = metrics.btts_cf;
+  if (metrics.af_avg   != null) d.af_avg   = metrics.af_avg;
+  if (metrics.u25cf    != null) d.u25cf    = metrics.u25cf;
+
+  const norm = PredictionEngine.computeNormalizadas(raw, d);
+
+  // Injeta normalizadas já calculadas pelo pipeline
+  const normFields = ['ppg_n','af_n','exg_n','h2h_nv','cant_n','shots_n','cards_n','sot_n'];
+  normFields.forEach(f => { if (metrics[f] != null) norm[f] = metrics[f]; });
+
+  // Usa Poisson já calculado pelo pipeline (mais preciso)
+  let poiss = null;
+  if (metrics.prob_o15_poisson != null) {
+    poiss = {
+      o15: metrics.prob_o15_poisson,
+      o25: metrics.prob_o25_poisson ?? null,
+      u35: metrics.prob_u35_poisson ?? null,
+      u45: metrics.prob_u45_poisson ?? null,
+    };
+  } else {
+    poiss = PredictionEngine.poissonProbs(d.exg_tot);
+  }
+
+  // Calcula scores usando as funções reais do engine
+  const s15    = PredictionEngine.scoreOver15(raw, d, norm, poiss);
+  const s25    = PredictionEngine.scoreOver25(raw, d, norm, poiss);
+  const sbtts  = PredictionEngine.scoreBTTS(raw, d, norm);
+  const s05ht  = PredictionEngine.scoreOver05HT(raw, d, norm);
+  const su45   = PredictionEngine.scoreUnder45(raw, d, norm, poiss);
+  const su35   = PredictionEngine.scoreUnder35(raw, d, norm, poiss);
+  const sesc75 = PredictionEngine.scoreEsc75(raw, d, norm);
+  const sesc85 = PredictionEngine.scoreEsc85(raw, d, norm);
+  const sc25   = PredictionEngine.scoreCards25(raw, d, norm);
+  const sc35   = PredictionEngine.scoreCards35(raw, d, norm);
+
+  // Resultado Final — só calcula se tiver pelo menos odds ou PPG de ambos
+  let rfScore = null, rfMarket = null, rfSide = null;
+  const hasOdds = raw.odds_h !== null && raw.odds_a !== null;
+  const hasPPG  = raw.ppg_h  !== null && raw.ppg_a  !== null;
+  if (hasOdds || hasPPG) {
+    const rf = PredictionEngine.scoreResultadoFinal ? null : null; // engine não expõe scoreResultadoFinal
+    // scoreResultadoFinal é interno ao engine — simulamos via processFixture parcial
+    // Alternativa: usar apenas odds implícitas para inferir favorito
+    if (hasOdds) {
+      const oh = raw.odds_h, oa = raw.odds_a;
+      if (oh > 1 && oa > 1) {
+        rfSide    = oh < oa ? 'home' : 'away';
+        const favOdd = Math.min(oh, oa);
+        // Score baseado na odd + diferença de PPG/xG (alinhado com a lógica do engine)
+        const sign = rfSide === 'home' ? 1 : -1;
+        const ppgDiff = (hasPPG ? (raw.ppg_h - raw.ppg_a) * sign : 0);
+        const xgDiff  = (raw.exg_h != null && raw.exg_a != null ? (raw.exg_h - raw.exg_a) * sign : 0);
+        const oddsScore   = Math.max(0, 100 - (favOdd * 22));
+        const ppgBonus    = Math.min(15, Math.max(0, ppgDiff * 10));
+        const xgBonus     = Math.min(12, Math.max(0, xgDiff  * 8));
+        rfScore  = Math.min(100, Math.round((oddsScore + ppgBonus + xgBonus) * 10) / 10);
+        rfMarket = rfSide === 'home' ? 'Vitória da Casa' : 'Vitória do Visitante';
+      }
+    } else if (hasPPG) {
+      // Sem odds: usa diferença de PPG pura
+      const ppgDiff = raw.ppg_h - raw.ppg_a;
+      if (Math.abs(ppgDiff) >= 0.3) {
+        rfSide   = ppgDiff > 0 ? 'home' : 'away';
+        const sign = rfSide === 'home' ? 1 : -1;
+        const xgDiff = (raw.exg_h != null && raw.exg_a != null ? (raw.exg_h - raw.exg_a) * sign : 0);
+        rfScore  = Math.min(100, Math.round((35 + Math.abs(ppgDiff) * 15 + Math.abs(xgDiff) * 10) * 10) / 10);
+        rfMarket = rfSide === 'home' ? 'Vitória da Casa' : 'Vitória do Visitante';
+      }
+    }
+  }
+
+  // Verifica se temos ao menos 1 score válido
+  const hasAny = [s15, s25, sbtts, s05ht, su45, su35, sesc75, sesc85, sc25, sc35, rfScore]
+    .some(s => s !== null);
+  if (!hasAny) return null;
+
+  return {
+    over15:  s15,
+    over25:  s25,
+    btts:    sbtts,
+    over05ht: s05ht,
+    under45: su45,
+    under35: su35,
+    esc75:   sesc75,
+    esc85:   sesc85,
+    cards25: sc25,
+    cards35: sc35,
+    rfScore, rfMarket, rfSide,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// pickSmartSuggestions
+// Usa os scores do PredictionEngine real para montar as sugestões.
+// Prioridade: predictions salvas no banco > scores calculados do metrics.
+// Sempre garante Vitória Casa + Vitória Visitante se dados disponíveis.
+// ─────────────────────────────────────────────────────────────────
+function pickSmartSuggestions(fixtureId, predictionsMap, metricsMap = {}, oddsMap = {}, officialMarket = null) {
+  const candidates = [];
+
+  // ── Fonte 1: predictions do banco (scores do engine já salvos) ──
+  const preds = predictionsMap[fixtureId] || [];
+  const predsByMarket = {};
+  preds.forEach(p => {
+    const label = displayMarket(p.market);
+    if (!predsByMarket[label] || Number(p.score) > Number(predsByMarket[label].score)) {
+      predsByMarket[label] = p;
+    }
+  });
+
+  const MARKET_CONFIG = [
+    { label: 'Over 1.5 Gols',    key: 'over15',   group: 'goalsft', type: 'goals',   title: 'Gols FT'      },
+    { label: 'Over 2.5 Gols',    key: 'over25',   group: 'goalsft', type: 'goals',   title: 'Gols FT'      },
+    { label: 'Under 3.5 Gols',   key: 'under35',  group: 'goalsft', type: 'goals',   title: 'Gols FT'      },
+    { label: 'Under 4.5 Gols',   key: 'under45',  group: 'goalsft', type: 'goals',   title: 'Gols FT'      },
+    { label: 'Ambas Marcam',     key: 'btts',     group: 'btts',    type: 'btts',    title: 'Ambas marcam' },
+    { label: 'Over 0.5 HT',      key: 'over05ht', group: 'goalsht', type: 'ht',      title: 'Gols 1º Tempo'},
+    { label: 'Over 7.5 Escanteios', key: 'esc75', group: 'corners', type: 'corners', title: 'Escanteios'   },
+    { label: 'Over 8.5 Escanteios', key: 'esc85', group: 'corners', type: 'corners', title: 'Escanteios'   },
+    { label: 'Over 2.5 Cartão',  key: 'cards25',  group: 'cards',   type: 'cards',   title: 'Cartões'      },
+    { label: 'Over 3.5 Cartão',  key: 'cards35',  group: 'cards',   type: 'cards',   title: 'Cartões'      },
+  ];
+
+  // ── Fonte 2: engine scores calculados do match_metrics ─────────
+  const engineScores = buildWorldCupEngineScores(metricsMap[fixtureId], oddsMap[fixtureId]);
+
+  MARKET_CONFIG.forEach(cfg => {
+    // Tenta primeiro o score salvo no banco (predictions)
+    const pred = predsByMarket[cfg.label];
+    let score = pred ? Number(pred.score) : null;
+    let filterBoost = pred ? (Number(Boolean(pred.is_best_market)) + Number(Boolean(pred.passed_filter || pred.under35_passed))) : 0;
+
+    // Fallback: score calculado pelo engine a partir do match_metrics
+    if ((score === null || !Number.isFinite(score)) && engineScores) {
+      score = engineScores[cfg.key] ?? null;
+    }
+
+    if (score === null || !Number.isFinite(score)) return;
+
+    candidates.push({
+      key:         cfg.key,
+      group:       cfg.group,
+      type:        cfg.type,
+      title:       cfg.title,
+      market:      cfg.label,
+      score:       Math.round(score * 10) / 10,
+      grade:       PredictionEngine.getGrade(score),
+      filterBoost,
+    });
+  });
+
+  // ── Resultado Final ─────────────────────────────────────────────
+  // Vitória da Casa e Vitória do Visitante são sempre adicionados
+  // se houver dados suficientes (odds ou PPG).
+  if (engineScores?.rfScore !== null && engineScores?.rfScore !== undefined && engineScores?.rfMarket) {
+    // Adiciona o favorito calculado
+    candidates.push({
+      key:    'rfFav',
+      group:  'winnerFav',
+      type:   'result',
+      title:  'Vencedor',
+      market: engineScores.rfMarket,
+      score:  engineScores.rfScore,
+      grade:  PredictionEngine.getGrade(engineScores.rfScore),
+      filterBoost: 0,
+    });
+
+    // Adiciona o outro lado com score invertido (proporcional)
+    const otherMarket = engineScores.rfSide === 'home' ? 'Vitória do Visitante' : 'Vitória da Casa';
+    const otherScore  = Math.max(20, Math.round((100 - engineScores.rfScore) * 0.7 * 10) / 10);
+    candidates.push({
+      key:    'rfOther',
+      group:  'winnerOther',
+      type:   'result',
+      title:  'Vencedor',
+      market: otherMarket,
+      score:  otherScore,
+      grade:  PredictionEngine.getGrade(otherScore),
+      filterBoost: 0,
+    });
+  }
+
+  // ── Excluir o palpite oficial (já está na coluna Melhor Palpite) e grade D ──
+  const filtered = candidates.filter(c => c.market !== officialMarket && c.grade !== 'D');
+
+  // ── Seleção: melhor por grupo, goalsft permite 2 ───────────────
+  filtered.sort((a, b) =>
+    b.score - a.score ||
+    (b.filterBoost || 0) - (a.filterBoost || 0)
+  );
+
+  const selected   = [];
+  const groupCount = {};
+  const GROUP_LIMIT = { goalsft: 2, goalsht: 1, btts: 1, corners: 1, cards: 1, winnerFav: 1, winnerOther: 1 };
+  const MAX_TOTAL  = 6;
+
+  for (const c of filtered) {
+    if (selected.length >= MAX_TOTAL) break;
+    const limit = GROUP_LIMIT[c.group] ?? 1;
+    const count = groupCount[c.group] || 0;
+    if (count >= limit) continue;
+    selected.push(c);
+    groupCount[c.group] = count + 1;
+  }
+
+  // Garantia: winnerFav e winnerOther sempre aparecem se calculados
+  ['winnerFav', 'winnerOther'].forEach(group => {
+    if (selected.some(c => c.group === group)) return;
+    if (selected.length >= MAX_TOTAL) return;
+    const best = filtered.find(c => c.group === group);
+    if (best) selected.push(best);
+  });
+
+  return selected;
+}
+// ─────────────────────────────────────────────────────────────────
+// renderSmartSuggestions
+// Renderiza a coluna Alternativas no modo World Cup.
+//
+// hasOfficialPick = true  → cabeçalho "Outras opções"
+// hasOfficialPick = false → cabeçalho "Melhores opções encontradas"
+//                           com ícone ⚡ indicando que veio das stats
+// suggestions = []        → "Dados insuficientes"
+// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// Helpers de renderização para colunas WC individuais
+// ─────────────────────────────────────────────────────────────────
+
+// Retorna o badge de grade colorido inline
+function wcGradeBadge(grade) {
+  const map = {
+    'A+': { bg: 'rgba(0,210,160,.14)',  border: 'rgba(0,210,160,.35)',  color: '#00d2a0' },
+    'A':  { bg: 'rgba(240,165,0,.12)',  border: 'rgba(240,165,0,.35)',  color: '#f0a500' },
+    'B':  { bg: 'rgba(59,130,246,.1)',  border: 'rgba(59,130,246,.28)', color: '#60a5fa' },
+    'C':  { bg: 'rgba(124,58,237,.1)',  border: 'rgba(124,58,237,.28)', color: '#a78bfa' },
+  };
+  const g = map[grade] || map['C'];
+  return `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${g.bg};border:1px solid ${g.border};color:${g.color}">${grade}</span>`;
+}
+
+// Calcula green/red de um mercado WC a partir do placar real
+// Retorna 'green', 'red', ou null (jogo não encerrado / sem dados)
+function calcMarketResult(market, snap) {
+  const FINISHED = new Set(['FT','AET','PEN']);
+  const status = snap.status || snap.fixture_status || '';
+  if (!FINISHED.has(status)) return null;
+
+  const gh = snap.goals_home ?? snap.home_goals ?? null;
+  const ga = snap.goals_away ?? snap.away_goals ?? null;
+  if (gh === null || ga === null) return null;
+
+  const total   = Number(gh) + Number(ga);
+  const home    = Number(gh);
+  const away    = Number(ga);
+  const m       = String(market).toLowerCase();
+
+  if (m === 'over 1.5 gols')        return total >= 2  ? 'green' : 'red';
+  if (m === 'over 2.5 gols')        return total >= 3  ? 'green' : 'red';
+  if (m === 'under 3.5 gols')       return total <= 3  ? 'green' : 'red';
+  if (m === 'under 4.5 gols')       return total <= 4  ? 'green' : 'red';
+  if (m === 'ambas marcam')         return (home >= 1 && away >= 1) ? 'green' : 'red';
+  if (m === 'over 0.5 ht')          return null; // placar HT não disponível no snap
+  if (m === 'over 7.5 esc' || m === 'over 7.5 escanteios') return null; // sem dados de escanteio no snap
+  if (m === 'over 8.5 esc' || m === 'over 8.5 escanteios') return null;
+  if (m === 'over 2.5 cart' || m === 'over 2.5 cartão')    return null; // sem dados de cartão no snap
+  if (m === 'over 3.5 cart' || m === 'over 3.5 cartão')    return null;
+  if (m === 'vitória da casa')      return home > away  ? 'green' : 'red';
+  if (m === 'vitória do visitante') return away > home  ? 'green' : 'red';
+  if (m === 'vitória visitante')    return away > home  ? 'green' : 'red';
+  if (m === 'dupla chance 1x')      return home >= away ? 'green' : 'red';
+  if (m === 'dupla chance 2x')      return away >= home ? 'green' : 'red';
+  if (m === 'dupla chance x2')      return away >= home ? 'green' : 'red';
+  return null;
+}
+
+// Renderiza uma célula de coluna WC com lista de mercados filtrados por grupo(s)
+// Aplica cor green/red quando o jogo já encerrou
+function renderWcCell(suggestions, groups, snap) {
+  const items = suggestions.filter(s => groups.includes(s.group));
+  if (!items.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
+  return items.map(s => {
+    const res = calcMarketResult(s.market, snap);
+    let rowStyle = 'display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:3px;';
+    let labelStyle = 'font-size:11.5px;font-weight:600;font-family:\'Rajdhani\',sans-serif;word-break:break-word;line-height:1.2;';
+    let suffix = '';
+
+    if (res === 'green') {
+      rowStyle += 'background:rgba(0,210,160,.08);border-radius:5px;padding:2px 5px;';
+      labelStyle += 'color:#00d2a0;';
+      suffix = '<span style="font-size:9px;font-weight:700;color:#00d2a0;margin-left:2px;">✓</span>';
+    } else if (res === 'red') {
+      rowStyle += 'background:rgba(255,94,106,.08);border-radius:5px;padding:2px 5px;';
+      labelStyle += 'color:#ff5e6a;text-decoration:line-through;opacity:.75;';
+      suffix = '<span style="font-size:9px;font-weight:700;color:#ff5e6a;margin-left:2px;">✗</span>';
+    } else {
+      labelStyle += 'color:var(--text-primary);';
+    }
+
+    return `<div style="${rowStyle}">
+      <span style="${labelStyle}">${s.market}</span>
+      ${res ? suffix : wcGradeBadge(s.grade)}
+    </div>`;
+  }).join('');
+}
+
+// Thead normal (modo padrão)
+const THEAD_NORMAL = `
+  <th class="col-star"></th>
+  <th class="col-game">JOGO</th>
+  <th class="col-date center">DATA</th>
+  <th class="col-pick center">MELHOR PALPITE</th>
+  <th class="col-alts center">ALTERNATIVAS</th>
+  <th class="col-score center">WIN SCORE</th>
+  <th class="col-odd center">ODD</th>
+  <th class="col-scoreboard center">PLACAR</th>
+  <th class="col-result center">RESULTADO</th>
+  <th class="col-confidence center">CONFIANÇA</th>
+`;
+
+// Thead World Cup — substitui col-alts por 4 colunas específicas
+const THEAD_WC = `
+  <th class="col-star"></th>
+  <th class="col-game">JOGO</th>
+  <th class="col-date center">DATA</th>
+  <th class="col-pick center">MELHOR PALPITE</th>
+  <th class="col-wc-result center">RESULTADO FINAL</th>
+  <th class="col-wc-goals center">GOLS</th>
+  <th class="col-wc-corners center">ESCANTEIOS</th>
+  <th class="col-wc-cards center">CARTÕES</th>
+  <th class="col-score center">WIN SCORE</th>
+  <th class="col-odd center">ODD</th>
+  <th class="col-scoreboard center">PLACAR</th>
+  <th class="col-result center">RESULTADO</th>
+  <th class="col-confidence center">CONFIANÇA</th>
+`;
+
+function applyWcThead() {
+  const thead = document.querySelector('thead tr');
+  if (thead) thead.innerHTML = worldCupOnly ? THEAD_WC : THEAD_NORMAL;
+  // Ajusta min-width da tabela para acomodar as colunas extras
+  const table = document.querySelector('.table-wrap table');
+  if (table) table.style.minWidth = worldCupOnly ? '1280px' : '1040px';
+}
+
+function renderSmartSuggestions(suggestions, hasOfficialPick) {
+  if (!suggestions.length) {
+    return `<div style="
+      display:inline-flex;align-items:center;gap:5px;
+      font-size:10.5px;color:var(--text-muted);
+      background:rgba(255,255,255,.04);border:1px solid var(--border);
+      border-radius:6px;padding:4px 9px;
+    ">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      Dados insuficientes
+    </div>`;
+  }
+
+  const gradeColors = {
+    'A+': { bg: 'rgba(0,210,160,.14)', border: 'rgba(0,210,160,.35)', color: '#00d2a0' },
+    'A':  { bg: 'rgba(240,165,0,.12)', border: 'rgba(240,165,0,.35)',  color: '#f0a500' },
+    'B':  { bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.28)', color: '#60a5fa' },
+    'C':  { bg: 'rgba(124,58,237,.1)', border: 'rgba(124,58,237,.28)', color: '#a78bfa' },
+    'D':  { bg: 'rgba(255,94,106,.1)', border: 'rgba(255,94,106,.28)', color: '#ff5e6a' },
+  };
+
+  const typeIconMap = {
+    goals:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>',
+    ht:      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+    btts:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h10v10H7z"/><path d="M3 12h4"/><path d="M17 12h4"/></svg>',
+    corners: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 5h11l-2 4 2 4H4"/></svg>',
+    cards:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="3" width="10" height="18" rx="2"/></svg>',
+    result:  '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/></svg>',
+  };
+
+  const headerHtml = hasOfficialPick
+    ? `<div style="font-size:9.5px;font-weight:700;letter-spacing:.6px;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px;">Outras opções</div>`
+    : `<div style="
+        display:flex;align-items:center;gap:5px;
+        font-size:9.5px;font-weight:700;letter-spacing:.5px;
+        color:#f0a500;text-transform:uppercase;margin-bottom:7px;
+      ">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="#f0a500" stroke="#f0a500" stroke-width="1">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Melhores opções encontradas
+      </div>`;
+
+  const rows = suggestions.map(s => {
+    const g    = s.grade || 'C';
+    const gc   = gradeColors[g] || gradeColors['C'];
+    const icon = typeIconMap[s.type] || typeIconMap['goals'];
+    const pct  = s.score !== null ? Math.round(s.score) : null;
+    return `
+      <div style="
+        display:grid;grid-template-columns:12px 1fr auto;
+        align-items:center;gap:6px;
+        padding:5px 7px;border-radius:6px;
+        background:rgba(255,255,255,.03);
+        border:1px solid rgba(255,255,255,.06);
+        margin-bottom:4px;
+      ">
+        <span style="color:var(--text-muted);display:flex;align-items:center;">${icon}</span>
+        <div style="min-width:0;">
+          <div style="font-size:10px;color:var(--text-muted);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.title}</div>
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-primary);font-family:'Rajdhani',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.market}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;">
+          <span style="
+            font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;
+            background:${gc.bg};border:1px solid ${gc.border};color:${gc.color};
+            letter-spacing:.3px;
+          ">${g}</span>
+          ${pct !== null ? `<span style="font-size:9px;color:var(--text-muted);">${pct}%</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `<div style="text-align:left;min-width:160px;">${headerHtml}${rows}</div>`;
+}
+function renderEmpty() {
+  const filterLabel =
+    activeFilter === 'hoje'   ? 'hoje' :
+    activeFilter === 'amanha' ? 'amanhã' :
+    activeFilter === '7dias'  ? 'nos próximos 7 dias' :
+    filterDateStart           ? `no intervalo selecionado` : 'no período selecionado';
+
+  document.getElementById('tableBody').innerHTML = `
+    <tr><td colspan="${worldCupOnly ? 13 : 10}" style="text-align:center;padding:48px;color:var(--text-muted)">
+      <div style="font-size:32px;margin-bottom:10px">&#128237;</div>
+      <div style="font-size:14px;margin-bottom:8px">Nenhuma previsão encontrada ${filterLabel}.</div>
+      <div style="font-size:12px;color:var(--text-muted);max-width:360px;margin:0 auto;line-height:1.6">
+        Esta página exibe apenas previsões classificadas como <strong style="color:var(--purple)">Alta</strong> ou <strong style="color:var(--purple)">Elite</strong>
+        geradas pelo Prediction Engine. Se não há resultados, é possível que não existam previsões
+        de alta confiança para esse período.
+      </div>
+    </td></tr>`;
+  document.querySelector('.pagination-info').textContent = 'Nenhum resultado';
+}
+
+function renderError(msg) {
+  document.getElementById('tableBody').innerHTML = `
+    <tr><td colspan="${worldCupOnly ? 13 : 10}" style="text-align:center;padding:48px;color:#ff5e6a">
+      <div style="font-size:14px">&#9888; Erro ao carregar dados: ${msg}</div>
+    </td></tr>`;
+}
+
+// section
+function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
+  const tbody = document.getElementById('tableBody');
+  if (!snapshots.length) { renderEmpty(); return; }
+
+  tbody.innerHTML = snapshots.map(snap => {
+    const score  = Number(snap.score) || 0;
+    const odd    = getOdd(snap);
+    const oddStr = odd !== null ? odd.toFixed(2) : 'ODD não disponível';
+    const ev     = snap.ev !== null && snap.ev !== undefined
+      ? (snap.ev >= 0 ? '+' : '') + Number(snap.ev).toFixed(1) + '%'
+      : 'n/a';
+    const hora      = snap.hour || formatHour(snap.fixture_match_date || snap.match_date);
+    const data      = formatDate(snap.match_date);
+    const label     = palpiteLabel(snap);
+    const conf      = getConf(snap);
+    const altBadge  = '';
+    const alts      = getAlternativas(snap.fixture_id, label, predictionsMap);
+    const hasOfficialPick  = Boolean(snap.market);
+    const officialLabel    = hasOfficialPick ? label : null;
+    const smartSuggestions = worldCupOnly ? pickSmartSuggestions(snap.fixture_id, predictionsMap, metricsMap, oddsMap, officialLabel) : [];
+    const leagueName = snap.league_name || '';
+    const matchName = cleanMatchName(snap.match_name);
+    return `
+  <tr>
+    <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
+    <td class="col-game">
+      <div class="game-cell">
+        <div class="game-info">
+          <div class="game-name">${matchName}</div>
+          <div class="game-sub">${leagueName}</div>
+        </div>
+      </div>
+    </td>
+    <td class="col-date" style="font-size:12px;color:var(--text-secondary);white-space:nowrap">
+      <div style="font-weight:600;color:var(--text-primary)">${data}</div>
+      <div style="font-size:11px;margin-top:2px">${hora}</div>
+    </td>
+    <td class="col-pick mercado-cell">
+      ${hasOfficialPick
+        ? `${worldCupOnly ? '<div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:5px">&check; Palpite Oficial</div>' : ''}<span class="best-pick ${pickConfidenceClass(conf)}">${label}</span>${altBadge}`
+        : `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`}
+    </td>
+    ${worldCupOnly
+      ? `<td class="col-wc-result" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['winnerFav','winnerOther'], snap)}</td>
+    <td class="col-wc-goals" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['goalsft','goalsht','btts'], snap)}</td>
+    <td class="col-wc-corners" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['corners'], snap)}</td>
+    <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
+      : `<td class="col-alts" style="padding:10px 12px;">${renderAlts(alts)}</td>`
+    }
+    <td class="col-score">${ringHtml(score, ringColor(score))}</td>
+    <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
+    <td class="col-scoreboard">${formatPlacar(snap)}</td>
+    <td class="col-result">${formatResult(snap)}</td>
+    <td class="col-confidence">${confBadge(conf)}</td>
+  </tr>`;
+  }).join('');
+}
+
+// section
+function renderPagination(total, page) {
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to   = Math.min(page * PAGE_SIZE, total);
+
+  document.querySelector('.pagination-info').textContent =
+    `Mostrando ${from} a ${to} de ${total} previsões`;
+
+  const pagesEl = document.querySelector('.pagination-pages');
+  const pages = [];
+  pages.push(`<div class="page-btn" data-page="prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></div>`);
+
+  const range = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - page) <= 1) range.push(i);
+    else if (range[range.length - 1] !== '...') range.push('...');
+  }
+
+  range.forEach(p => {
+    if (p === '...') {
+      pages.push(`<div class="page-btn" style="pointer-events:none">...</div>`);
+    } else {
+      pages.push(`<div class="page-btn ${p === page ? 'active' : ''}" data-page="${p}">${p}</div>`);
+    }
+  });
+
+  pages.push(`<div class="page-btn" data-page="next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>`);
+  pagesEl.innerHTML = pages.join('');
+
+  pagesEl.querySelectorAll('[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      let p = btn.dataset.page;
+      if (p === 'prev') p = Math.max(1, currentPage - 1);
+      else if (p === 'next') p = Math.min(totalPages, currentPage + 1);
+      else p = parseInt(p);
+      if (p !== currentPage) { currentPage = p; loadPrevisoes(); }
+    });
+  });
+}
+
+// section
+async function loadPrevisoes() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = `<tr><td colspan="${worldCupOnly ? 13 : 10}" style="text-align:center;padding:48px;color:var(--text-muted)">
+    <div style="font-size:14px">Carregando previsões...</div></td></tr>`;
+
+  try {
+    if (worldCupOnly) {
+      const fixtures = await fetchWorldCupFixtures();
+      totalCount = fixtures.length;
+      if (!fixtures.length) { renderEmpty(); renderPagination(0, 1); return; }
+
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const pageFixtures = fixtures.slice(startIdx, startIdx + PAGE_SIZE);
+      const fixtureIds = pageFixtures.map(f => f.fixture_id);
+      const [officialMap, predictionsMap, metricsMap, oddsMap] = await Promise.all([
+        fetchOfficialSnapshotsByFixtureIds(fixtureIds),
+        fetchPredictions(fixtureIds),
+        fetchWorldCupMetrics(fixtureIds),
+        fetchWorldCupOdds(fixtureIds),
+      ]);
+
+      const rows = pageFixtures.map(f => {
+        const official = officialMap[f.fixture_id] || {};
+        return {
+          ...f,
+          ...official,
+          fixture_id: f.fixture_id,
+          league_name: f.league_name,
+          match_date: official.match_date || f.match_date,
+          fixture_match_date: f.match_date,
+          match_name: official.match_name || `${f.home_team || ''} x ${f.away_team || ''}`,
+          home_team: official.home_team || f.home_team,
+          away_team: official.away_team || f.away_team,
+          home_team_logo: official.home_team_logo || f.home_team_logo,
+          away_team_logo: official.away_team_logo || f.away_team_logo,
+          goals_home: f.goals_home,
+          goals_away: f.goals_away,
+          status: f.status,
+        };
+      });
+
+      renderRows(rows, predictionsMap, metricsMap, oddsMap);
+      renderPagination(totalCount, currentPage);
+      return;
+    }
+
+    const { data: snapshots, error, count } = await fetchSnapshots(currentPage);
+    if (error) { renderError(error.message); return; }
+
+    totalCount = count || 0;
+    if (!snapshots || snapshots.length === 0) { renderEmpty(); renderPagination(0, 1); return; }
+
+    const fixtureIds     = [...new Set(snapshots.map(s => s.fixture_id))];
+    const [predictionsMap, fixturesMap] = await Promise.all([
+      fetchPredictions(fixtureIds),
+      fetchFixtureResults(fixtureIds),
+    ]);
+    const rows = snapshots.map(s => ({ ...fixturesMap[s.fixture_id], ...s }));
+
+    renderRows(rows, predictionsMap);
+    renderPagination(totalCount, currentPage);
+
+  } catch (err) {
+    renderError(err.message);
+  }
+}
+
+// section
+function initTabs() {
+  document.querySelectorAll('.tab').forEach(t => {
+    const txt = t.textContent.trim();
+    if (txt.includes('Ontem')) { t.dataset.filter = 'ontem'; return; }
+    if (txt.includes('Hoje')) { t.dataset.filter = 'hoje'; return; }
+    if (txt.includes('Amanh')) { t.dataset.filter = 'amanha'; return; }
+    if (txt.includes('7')) { t.dataset.filter = '7dias'; return; }
+    if (txt === 'Hoje')                            t.dataset.filter = 'hoje';
+    else if (txt === 'Amanhã' || txt === 'Amanha') t.dataset.filter = 'amanha';
+    else if (txt === '7 Dias' || txt === '7 dias') t.dataset.filter = '7dias';
+    else if (txt === 'Todos')                      t.dataset.filter = 'todos';
+  });
+
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      activeFilter    = t.dataset.filter || 'hoje';
+      filterDateStart = null;
+      filterDateEnd   = null;
+      // section
+      document.getElementById('filter-date-label').textContent = 'Filtros';
+      document.getElementById('filter-date-btn').style.borderColor = '';
+      currentPage = 1;
+      loadPrevisoes();
+    });
+  });
+}
+
+// section
+function debounce(fn, ms = 250) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function initSearch() {
+  const input = document.getElementById('top-search-input');
+  if (!input) return;
+
+  const runSearch = debounce(() => {
+    searchQuery = input.value.trim();
+    currentPage = 1;
+    loadPrevisoes();
+  });
+
+  input.addEventListener('input', runSearch);
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    input.value = '';
+    searchQuery = '';
+    currentPage = 1;
+    loadPrevisoes();
+  });
+}
+
+function initPageSize() {
+  const select = document.getElementById('page-size-select');
+  if (!select) return;
+
+  select.value = String(PAGE_SIZE);
+  select.addEventListener('change', () => {
+    PAGE_SIZE = Number(select.value) || 20;
+    currentPage = 1;
+    loadPrevisoes();
+  });
+}
+
+function createDropdown({ btnId, menuId, labelId, allLabel, fetchFn, onSelect }) {
+  const btn   = document.getElementById(btnId);
+  const menu  = document.getElementById(menuId);
+  const label = document.getElementById(labelId);
+  let loaded  = false;
+  let isOpen  = false;
+
+  async function openMenu() {
+    isOpen = true;
+    btn.classList.add('dd-open');
+    menu.classList.add('open');
+
+    if (!loaded) {
+      loaded = true;
+      menu.innerHTML = '<div class="dd-item dd-loading">Carregando...</div>';
+      try {
+        const items = await fetchFn();
+        menu.innerHTML = `<div class="dd-item active" data-val="">${allLabel}</div>` +
+          items.map(item => {
+            const value = typeof item === 'string' ? item : item.value;
+            const text = typeof item === 'string' ? item : item.label;
+            return `<div class="dd-item" data-val="${String(value).replace(/"/g, '&quot;')}">${text}</div>`;
+          }).join('');
+        menu.querySelectorAll('.dd-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const val = item.dataset.val;
+            label.textContent = val ? item.textContent : allLabel;
+            menu.querySelectorAll('.dd-item').forEach(x => x.classList.remove('active'));
+            item.classList.add('active');
+            closeMenu();
+            onSelect(val);
+          });
+        });
+      } catch (e) {
+        menu.innerHTML = '<div class="dd-item dd-loading">Erro ao carregar</div>';
+      }
+    }
+  }
+
+  function closeMenu() {
+    isOpen = false;
+    btn.classList.remove('dd-open');
+    menu.classList.remove('open');
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isOpen ? closeMenu() : openMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!btn.contains(e.target) && !menu.contains(e.target)) closeMenu();
+  });
+}
+
+// section
+function initDropdowns() {
+  createDropdown({
+    btnId:    'dd-league-btn',
+    menuId:   'dd-league-menu',
+    labelId:  'dd-league-label',
+    allLabel: 'Todos os Campeonatos',
+    fetchFn:  fetchLeagues,
+    onSelect: (val) => {
+      filterLeague = val;
+      currentPage  = 1;
+      loadPrevisoes();
+    }
+  });
+
+  createDropdown({
+    btnId:    'dd-market-btn',
+    menuId:   'dd-market-menu',
+    labelId:  'dd-market-label',
+    allLabel: 'Todos os Mercados',
+    fetchFn:  fetchMarkets,
+    onSelect: (val) => {
+      filterMarket = val;
+      currentPage  = 1;
+      loadPrevisoes();
+    }
+  });
+}
+
+// section
+function initWorldCupButton() {
+  const btn = document.getElementById('world-cup-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    worldCupOnly = !worldCupOnly;
+    btn.classList.toggle('active', worldCupOnly);
+    applyWcThead();
+    currentPage = 1;
+    loadPrevisoes();
+  });
+}
+function initFilterModal() {
+  const overlay   = document.getElementById('filter-modal-overlay');
+  const openBtn   = document.getElementById('filter-date-btn');
+  const closeBtn  = document.getElementById('filter-modal-close');
+  const applyBtn  = document.getElementById('filter-apply-btn');
+  const clearBtn  = document.getElementById('filter-clear-btn');
+  const inputStart = document.getElementById('filter-date-start');
+  const inputEnd   = document.getElementById('filter-date-end');
+
+  // section
+  const todayStr = brtDateStr(new Date());
+  inputStart.value = todayStr;
+  inputEnd.value   = todayStr;
+
+  openBtn.addEventListener('click', () => {
+    overlay.classList.add('open');
+  });
+
+  function closeModal() { overlay.classList.remove('open'); }
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+  applyBtn.addEventListener('click', () => {
+    const s = inputStart.value;
+    const e = inputEnd.value;
+    if (!s || !e) { alert('Selecione as duas datas.'); return; }
+    if (s > e) { alert('A data início deve ser menor ou igual à data fim.'); return; }
+
+    // section
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    activeFilter    = 'custom';
+    filterDateStart = s;
+    filterDateEnd   = e;
+    currentPage     = 1;
+
+    // section
+    const fmt = d => d.split('-').reverse().join('/');
+    document.getElementById('filter-date-label').textContent = `${fmt(s)} -> ${fmt(e)}`;
+    openBtn.style.borderColor = 'var(--accent)';
+    openBtn.style.color = 'var(--text-primary)';
+
+    closeModal();
+    loadPrevisoes();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    filterDateStart = null;
+    filterDateEnd   = null;
+    activeFilter    = 'hoje';
+    inputStart.value = todayStr;
+    inputEnd.value   = todayStr;
+    document.getElementById('filter-date-label').textContent = 'Filtros';
+    openBtn.style.borderColor = '';
+    openBtn.style.color = '';
+    // section
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.filter === 'hoje');
+    });
+    closeModal();
+    currentPage = 1;
+    loadPrevisoes();
+  });
+}
+
+// section
+document.addEventListener('DOMContentLoaded', () => {
+  const tabGroup = document.querySelector('.tab-group');
+  if (tabGroup && !Array.from(tabGroup.querySelectorAll('.tab')).some(t => t.textContent.trim() === 'Todos')) {
+    const allTab = document.createElement('div');
+    allTab.className = 'tab';
+    allTab.textContent = 'Todos';
+    tabGroup.appendChild(allTab);
+  }
+
+  applyWcThead();
+
+  initTabs();
+  initDropdowns();
+  initWorldCupButton();
+  initFilterModal();
+  initSearch();
+  initPageSize();
+  loadPrevisoes();
+});
+</script>
+
+<script>
+
+  async function logoutUsuario() {
+    try {
+      await supabaseClient.auth.signOut();
+    } catch(e) {
+      console.warn('signOut error:', e);
+    }
+    console.log('Logout concluído');
+    window.location.replace('index.html');
+  }
+</script>
+<script>
+window.toggleSidebar = function () {
+  var sidebar = document.querySelector('.sidebar');
+  var overlay = document.querySelector('.sidebar-overlay');
+  if (!sidebar || !overlay) return;
+  var isOpen = sidebar.classList.toggle('open');
+  overlay.classList.toggle('open', isOpen);
+  document.body.classList.toggle('sidebar-open', isOpen);
+};
+</script>
+
+<script>
+// section
+(function() {
+  function initDropdown() {
+    var pill = document.querySelector('.user-pill');
+    var dd   = document.getElementById('user-dropdown');
+    if (!pill || !dd) return;
+
+    pill.addEventListener('click', function(e) {
+      e.stopPropagation();
+      dd.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!pill.contains(e.target)) dd.classList.remove('open');
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') dd.classList.remove('open');
+    });
+  }
+
+  // section
+  function syncDropdownHeader() {
+    var avatar = document.getElementById('user-avatar-topbar');
+    var name   = document.getElementById('user-name-topbar');
+    var plan   = document.getElementById('user-pro-topbar');
+
+    var udAvatar = document.getElementById('ud-avatar');
+    var udName   = document.getElementById('ud-name');
+    var udEmail  = document.getElementById('ud-email');
+    var udPlan   = document.getElementById('ud-plan');
+
+    if (!udAvatar) return;
+
+    if (avatar && avatar.textContent.trim() && avatar.textContent.trim() !== '--')
+      udAvatar.textContent = avatar.textContent.trim();
+
+    if (name && name.textContent.trim() && name.textContent.trim() !== 'Carregando...')
+      udName.textContent = name.textContent.trim();
+
+    // section
+    var emailEl = document.getElementById('profile-email-display');
+    if (emailEl && emailEl.textContent && emailEl.textContent !== '--')
+      udEmail.textContent = emailEl.textContent;
+
+    if (udPlan && plan) {
+      var planTxt = (plan.textContent || 'GRATUITO').trim().toUpperCase();
+      udPlan.textContent = planTxt;
+      udPlan.className = 'ud-plan ' + (planTxt === 'PRO' ? 'pro' : 'free');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { initDropdown(); setTimeout(syncDropdownHeader, 800); });
+  } else {
+    initDropdown();
+    setTimeout(syncDropdownHeader, 800);
+  }
+})();
+</script>
+</body>
+</html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WinMetrics - Melhores Previsões</title>
