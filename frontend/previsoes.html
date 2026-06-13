@@ -2426,6 +2426,10 @@ async function fetchSnapshots(page) {
 
   if (filterLeague) q = q.ilike('league_name', `%${filterLeague}%`);
 
+  const LEAGUE_BLACKLIST = ['2. Division - Group 2'];
+  q = q.not('league_name', 'in', `(${LEAGUE_BLACKLIST.map(l => `"${l}"`).join(',')})`);
+
+
   if (filterMarket) {
     q = q.eq('market', filterMarket);
   }
