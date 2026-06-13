@@ -2333,9 +2333,8 @@ const WORLD_CUP_LEAGUES = ['World: World Cup', 'FIFA World Cup', 'World Cup'];
 // section
 // section
 function brtDateStr(date) {
-  // section
-  const brt = new Date(date.getTime() - 3 * 60 * 60 * 1000);
-  return brt.toISOString().slice(0, 10); // section
+  // Usa America/Sao_Paulo para garantir o dia correto independente de DST
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 // section
