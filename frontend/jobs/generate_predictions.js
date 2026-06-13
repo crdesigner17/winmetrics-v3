@@ -923,19 +923,20 @@ async function upsertSnapshot(result, raw) {
   );
   const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
 
-  // §2.3: preserva resultado já confirmado se não FORCE
-  if (!FORCE) {
-    const { data: existing } = await supabase
-      .from('prediction_snapshots')
-      .select('id, result_status')
-      .eq('fixture_id', result.fixture_id)
-      .eq('market', canonicalMarket)   // usa canônico, não best_mkt possivelmente alterado
-      .single();
+  // §2.3: preserva resultado já confirmado SEMPRE — inclusive com --force.
+  // Snapshots confirmados (green/red) são imutáveis. O pipeline nunca deve
+  // sobrescrever um resultado real, independente de flags de execução.
+  // O único caminho para alterar um resultado confirmado é via confirmar.js.
+  const { data: existing } = await supabase
+    .from('prediction_snapshots')
+    .select('id, result_status')
+    .eq('fixture_id', result.fixture_id)
+    .eq('market', canonicalMarket)
+    .single();
 
-    if (existing?.result_status && existing.result_status !== null) {
-      LOG.dim(`    Snapshot ${result.fixture_id} já confirmado (${existing.result_status}) — preservado.`);
-      return false;
-    }
+  if (existing?.result_status && existing.result_status !== null) {
+    LOG.dim(`    Snapshot ${result.fixture_id} já confirmado (${existing.result_status}) — preservado (imutável).`);
+    return false;
   }
 
   // Determina ticket_type (§7.2)
