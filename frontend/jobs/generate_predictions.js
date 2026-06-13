@@ -964,6 +964,7 @@ async function upsertSnapshot(result, raw) {
     away_team_logo: raw.away_team_logo || null,
     league_name:    result.league_name,
     match_date:     result.match_date,
+    hour:           result.hour         ?? null,
     market:         canonicalMarket,    // sempre nome V1 canônico
     score:          Math.round(result.best_score * 100) / 100,
     grade:          result.best_grade,
