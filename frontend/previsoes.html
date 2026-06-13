@@ -339,7 +339,7 @@
   /* section */
   .game-cell { display: flex; align-items: center; min-width: 0; }
   .game-info { min-width: 0; }
-  .game-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Sans', sans-serif; min-width: 120px; }
   .game-sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 1px; }
 
   /* section */
@@ -547,8 +547,10 @@
   /* section */
   body{overflow-x:hidden}
   /* ── Tabela responsiva mobile ── */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { min-width: 600px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; overflow-y: visible; }
+  .table-wrap::-webkit-scrollbar { height: 4px; }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  table { min-width: 800px; }
 
   /* Esconde colunas menos importantes em mobile */
   th.col-alts, td.col-alts,
@@ -3559,7 +3561,17 @@ async function loadPrevisoes() {
       seenFixtures.add(s.fixture_id);
       return true;
     });
-    const rows = dedupedSnapshots.map(s => ({ ...fixturesMap[s.fixture_id], ...s }));
+    const rows = dedupedSnapshots.map(s => {
+      const f = fixturesMap[s.fixture_id] || {};
+      const merged = { ...f, ...s };
+      // Garante match_name com fallback home_team x away_team
+      if (!merged.match_name || merged.match_name.trim() === '') {
+        const h = merged.home_team || '';
+        const a = merged.away_team || '';
+        merged.match_name = h && a ? `${h} x ${a}` : (merged.league_name || '');
+      }
+      return merged;
+    });
 
     renderRows(rows, predictionsMap);
     renderPagination(totalCount, currentPage);
