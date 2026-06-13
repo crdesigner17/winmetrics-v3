@@ -256,10 +256,10 @@ function _extractOver02(row) {
  */
 function _extractEscanteios(row) {
   return {
-    avg_corners: _n(row[14]),
-    over65_c:    _n(row[37]),
-    over75_c:    _n(row[38]),
-    over85_c:    _n(row[49]),
+    avg_corners: _n(row[37]) ?? _n(row[14]),
+    over65_c:    _n(row[49]),
+    over75_c:    _n(row[50]),
+    over85_c:    _n(row[51]),
   };
 }
 
@@ -281,7 +281,7 @@ function _extractEscanteios(row) {
  */
 function _extractCartoes(row) {
   return {
-    avg_cards:     _n(row[23]),
+    avg_cards:     _n(row[33]) ?? _n(row[39]) ?? _n(row[23]),
     over25_cards:  _n(row[47]),
     over35_cards:  _n(row[48]),
     over45_cards:  _n(row[49]),
@@ -709,8 +709,16 @@ function applyCsvToRaw(raw, csvData, LOG) {
   for (const field of csvFallback) {
     const csvVal = csvData[field];
     const apiVal = raw[field];
-    if (csvVal !== null && csvVal !== undefined && (apiVal === null || apiVal === undefined)) {
-      changes.push(`${field}: null → ${csvVal} (CSV fallback)`);
+    if ((field === 'ppg_h' || field === 'ppg_a') && (csvVal < 0 || csvVal > 3)) {
+      if (process.env.DEBUG_CSV === '1') {
+        log.dim(`    • ${field}: ${csvVal} ignorado (fora do range PPG 0-3)`);
+      }
+      continue;
+    }
+    const apiMissing = apiVal === null || apiVal === undefined;
+    const zeroMeansMissing = (field === 'exg_h' || field === 'exg_a') && apiVal === 0 && csvVal > 0;
+    if (csvVal !== null && csvVal !== undefined && (apiMissing || zeroMeansMissing)) {
+      changes.push(`${field}: ${apiMissing ? 'null' : apiVal} → ${csvVal} (CSV fallback)`);
       raw[field] = csvVal;
     }
   }
