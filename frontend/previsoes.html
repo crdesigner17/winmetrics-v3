@@ -320,8 +320,8 @@
   th.col-star, td.col-star { width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; white-space: nowrap; }
   th.col-game, td.col-game { min-width: 160px; text-align: left; }
   th.col-date, td.col-date { width: 70px; text-align: center; white-space: nowrap; }
-  th.col-pick, td.col-pick { min-width: 100px; text-align: center; white-space: normal; }
-  th.col-alts, td.col-alts { min-width: 140px; text-align: center; }
+  th.col-pick, td.col-pick { min-width: 100px; width: auto; text-align: left; white-space: normal; }
+  th.col-alts, td.col-alts { min-width: 120px; width: auto; text-align: left; }
   /* World Cup mode — colunas específicas por mercado */
   th.col-wc-result, td.col-wc-result { min-width: 100px; text-align: center; white-space: normal; }
   th.col-wc-goals,  td.col-wc-goals  { min-width: 110px; text-align: center; }
@@ -332,8 +332,8 @@
   th.col-scoreboard, td.col-scoreboard { min-width: 60px; text-align: center; white-space: nowrap; }
   th.col-result, td.col-result { min-width: 70px; text-align: center; white-space: nowrap; }
   th.col-confidence, td.col-confidence { min-width: 90px; text-align: center; white-space: nowrap; }
-  .table-wrap thead th:not(.col-game),
-  .table-wrap tbody td:not(.col-game) { text-align: center; }
+  .table-wrap thead th:not(.col-game):not(.col-pick):not(.col-alts),
+  .table-wrap tbody td:not(.col-game):not(.col-pick):not(.col-alts) { text-align: center; }
 
   /* section */
   .star-btn { cursor: pointer; color: var(--text-muted); transition: color .15s; }
@@ -566,7 +566,7 @@
 
   /* Ajusta larguras */
   th.col-game, td.col-game { width: 38%; }
-  th.col-pick, td.col-pick { width: 130px; }
+  th.col-pick, td.col-pick { width: 130px; text-align: left; }
   th.col-score, td.col-score { width: 70px; }
   th.col-odd, td.col-odd { width: 80px; }
   th.col-confidence, td.col-confidence { width: 90px; }
@@ -1069,8 +1069,8 @@ async function getCurrentProfile() {
             <th class="col-star"></th>
             <th class="col-game">JOGO</th>
             <th class="col-date center">DATA</th>
-            <th class="col-pick center">MELHOR PALPITE</th>
-            <th class="col-alts center">ALTERNATIVAS</th>
+            <th class="col-pick">MELHOR PALPITE</th>
+            <th class="col-alts">ALTERNATIVAS</th>
             <th class="col-score center">WIN SCORE</th>
             <th class="col-odd center">ODD</th>
             <th class="col-scoreboard center">PLACAR</th>
@@ -3574,8 +3574,8 @@ const THEAD_NORMAL = `
   <th class="col-star"></th>
   <th class="col-game">JOGO</th>
   <th class="col-date center">DATA</th>
-  <th class="col-pick center">MELHOR PALPITE</th>
-  <th class="col-alts center">ALTERNATIVAS</th>
+  <th class="col-pick">MELHOR PALPITE</th>
+  <th class="col-alts">ALTERNATIVAS</th>
   <th class="col-score center">WIN SCORE</th>
   <th class="col-odd center">ODD</th>
   <th class="col-scoreboard center">PLACAR</th>
@@ -3588,7 +3588,7 @@ const THEAD_WC = `
   <th class="col-star"></th>
   <th class="col-game">JOGO</th>
   <th class="col-date center">DATA</th>
-  <th class="col-pick center">MELHOR PALPITE</th>
+  <th class="col-pick">MELHOR PALPITE</th>
   <th class="col-wc-result center">RESULTADO FINAL</th>
   <th class="col-wc-goals center">GOLS</th>
   <th class="col-wc-corners center">ESCANTEIOS</th>
@@ -3751,7 +3751,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
       <div style="font-weight:600;color:var(--text-primary);font-size:12px;">${data}</div>
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
-    <td class="col-pick mercado-cell">
+    <td class="col-pick mercado-cell" style="text-align:left;">
       ${worldCupOnly && hasOfficialPick ? '<div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:5px">&check; Palpite Oficial</div>' : ''}
       ${renderMainPalpites(mainPicks)}${altBadge}
     </td>
@@ -3760,7 +3760,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     <td class="col-wc-goals" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['goalsft','goalsht','btts'], snap)}</td>
     <td class="col-wc-corners" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['corners'], snap)}</td>
     <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
-      : `<td class="col-alts" style="padding:10px 12px;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>`
+      : `<td class="col-alts" style="padding:10px 12px;text-align:left;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>`
     }
     <td class="col-score">${ringHtml(score, ringColor(score))}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
@@ -3880,6 +3880,11 @@ async function loadPrevisoes() {
     const rows = dedupedSnapshots.map(s => {
       const f = fixturesMap[s.fixture_id] || {};
       const merged = { ...f, ...s };
+      // Fixture fields that must NOT be overwritten by snapshot
+      if (f.goals_home   !== undefined) merged.goals_home    = f.goals_home;
+      if (f.goals_away   !== undefined) merged.goals_away    = f.goals_away;
+      if (f.corners_total !== undefined) merged.corners_total = f.corners_total;
+      if (f.cards_total  !== undefined) merged.cards_total   = f.cards_total;
       // Garante match_name com fallback home_team x away_team
       if (!merged.match_name || merged.match_name.trim() === '') {
         const h = merged.home_team || '';
