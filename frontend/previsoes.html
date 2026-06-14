@@ -2313,11 +2313,11 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
   const mainMarkets = new Set(
     preds
       .filter(p => p.is_best_market)
-      .map(p => displayMarket(p.market))
+      .map(p => canonicalMarketKey(p.market))
   );
-  if (mainMarket) mainMarkets.add(mainMarket);
+  if (mainMarket) mainMarkets.add(canonicalMarketKey(mainMarket));
   return preds
-    .filter(p => !mainMarkets.has(displayMarket(p.market)))
+    .filter(p => !mainMarkets.has(canonicalMarketKey(p.market)))
     .filter(p => {
       const rule = MKT_MIN[p.market] || MKT_MIN[displayMarket(p.market)];
       if (!rule) return false;
@@ -2330,7 +2330,7 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
       b.score - a.score
     )
     .filter(p => {
-      const key = displayMarket(p.market);
+      const key = canonicalMarketKey(p.market);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -2345,18 +2345,20 @@ function getMainPalpites(snap, predictionsMap) {
   const items = preds
     .filter(p => p.is_best_market)
     .map(p => ({
+      key: canonicalMarketKey(p.market),
       market: displayMarket(p.market),
       score: Number(p.score ?? 0),
       grade: p.grade || suggestionGrade(Number(p.score ?? 0)),
     }))
     .filter(p => {
-      if (!p.market || seen.has(p.market)) return false;
-      seen.add(p.market);
+      if (!p.key || seen.has(p.key)) return false;
+      seen.add(p.key);
       return true;
     });
 
   if (!items.length && snap.market) {
     items.push({
+      key: canonicalMarketKey(snap.market),
       market: displayMarket(snap.market),
       score: Number(snap.score ?? 0),
       grade: snap.grade || suggestionGrade(Number(snap.score ?? 0)),
@@ -2676,6 +2678,16 @@ function marketNaturalRank(market) {
 
 function displayMarket(market) {
   const name = String(market || '');
+  const norm = name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/ã£/g, 'a')
+    .replace(/ã³/g, 'o');
+  if (norm.includes('over 2.5 cart')) return 'Over 2.5 Cartão';
+  if (norm.includes('over 3.5 cart')) return 'Over 3.5 Cartão';
+  if (norm.includes('over 5.5 cart')) return 'Over 5.5 Cartão';
+  if (norm === 'cart 2.5') return 'Over 2.5 Cartão';
+  if (norm === 'cart 3.5') return 'Over 3.5 Cartão';
+  if (norm === 'cart 5.5') return 'Over 5.5 Cartão';
   if (name === 'Resultado Final (1X2) - Casa DNB') return 'Casa empate anula';
   if (name === 'Resultado Final (1X2) - Visitante DNB') return 'Visitante empate anula';
   if (name === 'Resultado Final (1X2) - Dupla Chance 1X') return 'Dupla Chance 1X';
@@ -2695,6 +2707,31 @@ function displayMarket(market) {
   if (name === 'Cart 3.5' || name === 'Over 3.5 cartÃ£o' || name === 'Over 3.5 CartÃ£o') return 'Over 3.5 CartÃ£o';
   if (name === 'Cart 5.5' || name === 'Over 5.5 cartÃ£o' || name === 'Over 5.5 CartÃ£o') return 'Over 5.5 CartÃ£o';
   return name;
+}
+
+function canonicalMarketKey(market) {
+  const label = displayMarket(market).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/ã£/g, 'a')
+    .replace(/ã³/g, 'o');
+  if (label.includes('dupla chance 1x')) return 'dc1x';
+  if (label.includes('dupla chance x2') || label.includes('dupla chance 2x')) return 'dcx2';
+  if (label.includes('casa empate anula')) return 'home_dnb';
+  if (label.includes('visitante empate anula')) return 'away_dnb';
+  if (label.includes('vitoria da casa')) return 'home_win';
+  if (label.includes('vitoria do visitante')) return 'away_win';
+  if (label.includes('over 1.5 gols')) return 'over15';
+  if (label.includes('over 2.5 gols')) return 'over25';
+  if (label.includes('under 3.5 gols')) return 'under35';
+  if (label.includes('under 4.5 gols')) return 'under45';
+  if (label.includes('ambas marcam')) return 'btts';
+  if (label.includes('over 0.5 ht')) return 'over05ht';
+  if (label.includes('7.5 escanteios')) return 'esc75';
+  if (label.includes('8.5 escanteios')) return 'esc85';
+  if (label.includes('2.5 cart')) return 'cards25';
+  if (label.includes('3.5 cart')) return 'cards35';
+  if (label.includes('5.5 cart')) return 'cards55';
+  return label;
 }
 
 const FUNCTIONAL_MARKETS = new Set([
