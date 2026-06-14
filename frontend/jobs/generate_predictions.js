@@ -850,7 +850,7 @@ async function upsertOdds(raw) {
  * Se houver linha alternativa, usa o label real (ex: Esc 9.5) e
  * salva os metadados original_market / final_market / is_alternative_line.
  */
-async function upsertPredictions(result) {
+async function upsertPredictions(result, raw = {}) {
   // Monta mapa de overrides de label a partir de altLines
   const altLabelByKey = {};
   for (const alt of (result.altLines || [])) {
@@ -887,16 +887,25 @@ async function upsertPredictions(result) {
     // V1_COMPAT: apenas colunas que existem no schema base.
     // Removidos: probability, confidence, odd_justa, ev,
     //            original_market, is_alternative_line — ausentes no schema.
+
+    // [NOVO] Score/grade enriquecidos pela fusão PackBall + odd externa (60/40)
+    const scoreEnriq = result.scores_enriquecidos?.[key] ?? null;
+    const gradeEnriq = result.graus_enriquecidos?.[key]  ?? null;
+
     return {
-      fixture_id:      result.fixture_id,
+      fixture_id:         result.fixture_id,
       market,
-      score:           Math.round(score * 100) / 100,
+      score:              Math.round(score * 100) / 100,
       grade,
-      passed_filter:   passedFilter,
-      under35_passed:  under35Passed,
-      is_best_market:  isBest,
+      passed_filter:      passedFilter,
+      under35_passed:     under35Passed,
+      is_best_market:     isBest,
       odd,
-      created_at:      new Date().toISOString(),
+      // [NOVO] campos enriquecidos — null se não houver odd externa
+      score_enriquecido:  scoreEnriq !== null ? Math.round(scoreEnriq * 100) / 100 : null,
+      grade_enriquecido:  gradeEnriq,
+      odds_fonte:         raw.odds_fonte || 'packball',
+      created_at:         new Date().toISOString(),
     };
   }).filter(Boolean);
 
@@ -921,7 +930,10 @@ async function upsertPredictions(result) {
  */
 async function upsertSnapshot(result, raw) {
   if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
-  if (!result.is_official || !GRADES_OFICIAIS.has(result.best_grade)) return 0;
+  // [NOVO] Opção B: aceita também jogos onde o grade ENRIQUECIDO atingiu A/A+
+  // mesmo que o grade original PackBall seja B/C
+  const _gradeParaValidar = result.best_grade_enriquecido ?? result.best_grade;
+  if (!result.is_official || !GRADES_OFICIAIS.has(_gradeParaValidar)) return 0;
 
   const _altForCanonical = (result.altLines || []).find(
     a => a.final_market === result.best_mkt || a.original_market === result.best_mkt
@@ -941,23 +953,39 @@ async function upsertSnapshot(result, raw) {
     return 0;
   }
 
+  // [NOVO] Opção B: usa score/grade enriquecidos se disponíveis
+  // O score enriquecido combina PackBall (60%) + prob. implícita da odd externa (40%)
+  // Isso permite que jogos antes em B/C subam para A/A+ quando o mercado confirma
+  const scoreFinal = result.best_score_enriquecido ?? result.best_score;
+  const gradeFinal = result.best_grade_enriquecido ?? result.best_grade;
+
+  // Revalida elegibilidade com o grade enriquecido
+  if (!GRADES_OFICIAIS.has(gradeFinal)) {
+    LOG.dim(`    Snapshot ${result.fixture_id}: grade enriquecido ${gradeFinal} < A — não gera snapshot.`);
+    return 0;
+  }
+
   const row = {
-    fixture_id:     result.fixture_id,
-    match_name:     result.jogo,
-    home_team:      result.home_team,
-    away_team:      result.away_team,
-    home_team_logo: raw.home_team_logo || null,
-    away_team_logo: raw.away_team_logo || null,
-    league_name:    result.league_name,
-    match_date:     result.match_date,
-    hour:           result.hour         ?? null,
-    market:         canonicalMarket,
-    score:          Math.round(Number(result.best_score) * 100) / 100,
-    grade:          result.best_grade,
-    odd:            result.best_odd  ?? null,
-    result_status:  null,
-    source:         'generate_predictions',
-    created_at:     new Date().toISOString(),
+    fixture_id:        result.fixture_id,
+    match_name:        result.jogo,
+    home_team:         result.home_team,
+    away_team:         result.away_team,
+    home_team_logo:    raw.home_team_logo || null,
+    away_team_logo:    raw.away_team_logo || null,
+    league_name:       result.league_name,
+    match_date:        result.match_date,
+    hour:              result.hour         ?? null,
+    market:            canonicalMarket,
+    score:             Math.round(Number(scoreFinal) * 100) / 100,
+    grade:             gradeFinal,
+    odd:               result.best_odd  ?? null,
+    result_status:     null,
+    source:            'generate_predictions',
+    // [NOVO] auditoria: score original PackBall + fonte das odds
+    score_enriquecido: result.best_score_enriquecido !== null ? Math.round(Number(result.best_score_enriquecido) * 100) / 100 : null,
+    grade_enriquecido: result.best_grade_enriquecido ?? null,
+    odds_fonte:        raw.odds_fonte || 'packball',
+    created_at:        new Date().toISOString(),
   };
 
   const { error } = await supabase
@@ -1237,7 +1265,7 @@ async function run() {
         await upsertFixture(raw, entry.liga);
         await upsertMetrics(raw, result);
         await upsertOdds(raw);
-        await upsertPredictions(result);
+        await upsertPredictions(result, raw);
         savedSnapshot = await upsertSnapshot(result, raw);
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
