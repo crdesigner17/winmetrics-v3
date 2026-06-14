@@ -1,46 +1,46 @@
 #!/usr/bin/env node
 /**
- * WinMetrics Analytics â€” Generate Predictions
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Pipeline de geraÃ§Ã£o de previsÃµes reais.
- * ImplementaÃ§Ã£o fiel ao coletar.py do PackBall v3.0 (seÃ§Ãµes 2â€“7).
+ * WinMetrics Analytics Ã¢â‚¬â€ Generate Predictions
+ * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+ * Pipeline de geraÃƒÂ§ÃƒÂ£o de previsÃƒÂµes reais.
+ * ImplementaÃƒÂ§ÃƒÂ£o fiel ao coletar.py do PackBall v3.0 (seÃƒÂ§ÃƒÂµes 2Ã¢â‚¬â€œ7).
  *
  * Fluxo:
  *   1. Buscar fixtures do dia nas ligas suportadas
  *   2. Coletar dados da API-Football (5 chamadas paralelas por jogo)
- *   3. Mapear â†’ PackBallMapper.mapFixtureToPackBall()
- *   4. Calcular â†’ PredictionEngine.processFixture()
- *   5. Salvar â†’ fixtures, match_metrics, odds, predictions, prediction_snapshots
+ *   3. Mapear Ã¢â€ â€™ PackBallMapper.mapFixtureToPackBall()
+ *   4. Calcular Ã¢â€ â€™ PredictionEngine.processFixture()
+ *   5. Salvar Ã¢â€ â€™ fixtures, match_metrics, odds, predictions, prediction_snapshots
  *   6. Log detalhado por fixture
  *
  * Uso:
  *   node generate_predictions.js [--date YYYY-MM-DD] [--days N] [--dry-run] [--force] [--only-new] [--limit N]
  *
- * Exemplos econÃ´micos:
+ * Exemplos econÃƒÂ´micos:
  *   node generate_predictions.js --days=3 --only-new --dry-run
  *   node generate_predictions.js --days=3 --only-new
  *   node generate_predictions.js --date=2026-06-10 --force
  *
- * VariÃ¡veis de ambiente:
- *   SUPABASE_URL          â€” URL do projeto Supabase
- *   SUPABASE_SERVICE_KEY  â€” service_role key (bypass RLS)
- *   API_FOOTBALL_KEY      â€” chave da API-Football v3
+ * VariÃƒÂ¡veis de ambiente:
+ *   SUPABASE_URL          Ã¢â‚¬â€ URL do projeto Supabase
+ *   SUPABASE_SERVICE_KEY  Ã¢â‚¬â€ service_role key (bypass RLS)
+ *   API_FOOTBALL_KEY      Ã¢â‚¬â€ chave da API-Football v3
  *
- * DependÃªncias (package.json):
+ * DependÃƒÂªncias (package.json):
  *   @supabase/supabase-js ^2
  *   node-fetch ^3   (ou Node 18+ nativo)
  */
 
 'use strict';
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // IMPORTS
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const path  = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-// Carrega os mÃ³dulos locais relativos a este arquivo
+// Carrega os mÃƒÂ³dulos locais relativos a este arquivo
 const PredictionEngine       = require('../lib/prediction_engine_v1.js');
 const PackBallMapper         = require('../lib/packball_mapper.js');
 const AltLineResolver        = require('../lib/alternative_line_resolver.js');
@@ -48,16 +48,16 @@ const { enrichFromWorldCup } = require('../lib/enrichFromWorldCup.js');
 const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enricher.js');
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// CONFIGURAÃ‡ÃƒO
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// CONFIGURAÃƒâ€¡ÃƒÆ’O
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const SUPABASE_URL  = process.env.SUPABASE_URL         || '';
 const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
 const API_KEY       = process.env.API_FOOTBALL_KEY     || '';
 const API_BASE      = 'https://v3.football.api-sports.io';
 
-// Flags de execuÃ§Ã£o
+// Flags de execuÃƒÂ§ÃƒÂ£o
 const args      = process.argv.slice(2);
 const DRY_RUN   = args.includes('--dry-run');
 const FORCE     = args.includes('--force');
@@ -70,23 +70,23 @@ const TODAY     = dateArg || new Date().toISOString().slice(0, 10);  // YYYY-MM-
 const DAYS      = Math.max(1, Math.min(14, parseInt(daysArg || '1', 10) || 1));
 const LIMIT     = limitArg ? Math.max(1, parseInt(limitArg, 10) || 1) : null;
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// MODO COMPATÃVEL V1
-// Ativado por padrÃ£o enquanto V1 for fonte de verdade.
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// MODO COMPATÃƒÂVEL V1
+// Ativado por padrÃƒÂ£o enquanto V1 for fonte de verdade.
 // Desative com --no-v1-compat apenas quando o V3 estiver validado.
 //
 // Com V1_COMPAT_MODE = true:
-//   â€¢ Linhas alternativas NÃƒO sÃ£o aplicadas (AltLineResolver ignorado)
-//   â€¢ market salvo = nome canÃ´nico V1 (mkt original, sem final_market)
-//   â€¢ passou_filtro afeta apenas a elegibilidade do Over 1.5
-//   â€¢ Sem filtros extras por probability / confidence / edge / odd
-//   â€¢ Sem filtros por status ou league
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//   Ã¢â‚¬Â¢ Linhas alternativas NÃƒÆ’O sÃƒÂ£o aplicadas (AltLineResolver ignorado)
+//   Ã¢â‚¬Â¢ market salvo = nome canÃƒÂ´nico V1 (mkt original, sem final_market)
+//   Ã¢â‚¬Â¢ passou_filtro afeta apenas a elegibilidade do Over 1.5
+//   Ã¢â‚¬Â¢ Sem filtros extras por probability / confidence / edge / odd
+//   Ã¢â‚¬Â¢ Sem filtros por status ou league
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const V1_COMPAT_MODE = !args.includes('--no-v1-compat');
 
-// Ligas suportadas (Â§2.2)
+// Ligas suportadas (Ã‚Â§2.2)
 const LIGAS = [
-  // â”€â”€ Tier elite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Tier elite Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   { id: 2,   season: 2025, name: 'Champions League',          tier: 'elite'  },
   { id: 3,   season: 2025, name: 'UEFA Europa League',        tier: 'elite'  },
   { id: 39,  season: 2025, name: 'Premier League',            tier: 'elite'  },
@@ -97,7 +97,7 @@ const LIGAS = [
   { id: 13,  season: 2026, name: 'Copa Libertadores',         tier: 'elite'  },
   { id: 1,   season: 2026, name: 'FIFA World Cup',            tier: 'elite'  },
   { id: 15,  season: 2025, name: 'FIFA Club World Cup',       tier: 'elite'  },
-  // â”€â”€ Tier normal â€” Europa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Tier normal Ã¢â‚¬â€ Europa Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   { id: 848, season: 2025, name: 'UEFA Europa Conference League', tier: 'normal' },
   { id: 40,  season: 2025, name: 'Championship',              tier: 'normal' },
   { id: 141, season: 2025, name: 'La Liga 2',                 tier: 'normal' },
@@ -113,28 +113,28 @@ const LIGAS = [
   { id: 103, season: 2026, name: 'Eliteserien',               tier: 'normal' },
   { id: 307, season: 2025, name: 'Pro League',                tier: 'normal' },
   { id: 323, season: 2024, name: 'Euro Qualification',        tier: 'normal' },
-  // â”€â”€ Tier normal â€” AmÃ©ricas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Tier normal Ã¢â‚¬â€ AmÃƒÂ©ricas Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   { id: 11,  season: 2026, name: 'Copa Sudamericana',         tier: 'normal' },
   { id: 9,   season: 2024, name: 'Copa America',              tier: 'normal' },
-  { id: 71,  season: 2026, name: 'BrasileirÃ£o SÃ©rie A',       tier: 'normal' },
-  { id: 72,  season: 2026, name: 'BrasileirÃ£o SÃ©rie B',       tier: 'normal' },
+  { id: 71,  season: 2026, name: 'BrasileirÃƒÂ£o SÃƒÂ©rie A',       tier: 'normal' },
+  { id: 72,  season: 2026, name: 'BrasileirÃƒÂ£o SÃƒÂ©rie B',       tier: 'normal' },
   { id: 75,  season: 2026, name: 'Copa do Brasil',            tier: 'normal' },
-  { id: 73,  season: 2026, name: 'BrasileirÃ£o SÃ©rie C',       tier: 'normal' },
+  { id: 73,  season: 2026, name: 'BrasileirÃƒÂ£o SÃƒÂ©rie C',       tier: 'normal' },
   { id: 475, season: 2026, name: 'Copa do Nordeste',          tier: 'normal' },
   { id: 474, season: 2026, name: 'Carioca Serie A',           tier: 'normal' },
   { id: 477, season: 2026, name: 'Paulista A1',               tier: 'normal' },
   { id: 478, season: 2026, name: 'Mineiro 1',                 tier: 'normal' },
-  { id: 128, season: 2026, name: 'Liga Profesional de FÃºtbol', tier: 'normal' },
+  { id: 128, season: 2026, name: 'Liga Profesional de FÃƒÂºtbol', tier: 'normal' },
   { id: 136, season: 2025, name: 'Serie B',                   tier: 'normal' },
-  // â”€â”€ Tier normal â€” Mundial / Amistosos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Tier normal Ã¢â‚¬â€ Mundial / Amistosos Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   { id: 10,  season: 2026, name: 'Friendlies',                tier: 'normal' },
   { id: 960, season: 2025, name: 'UEFA Nations League',       tier: 'normal' },
 ];
 
-// Status de jogo aceitos Â§2.3
+// Status de jogo aceitos Ã‚Â§2.3
 const VALID_STATUS = new Set(['NS','1H','HT','2H','ET','P','LIVE','FT','AET','PEN']);
 
-// Termos que bloqueiam jogos sub-20/21 Â§2.3
+// Termos que bloqueiam jogos sub-20/21 Ã‚Â§2.3
 const BLOCKED_TERMS = [
   'women','womens','feminino','feminina','femenino','femenina',
   'ladies','frauenliga','wpsl','nwsl',
@@ -145,16 +145,16 @@ const BLOCKED_TERMS = [
   'youth','academy','reserve','reserves','reserva','amateur',
 ];
 
-// Grades exibÃ­veis nas previsÃµes. A+/A seguem como destaque; Todos inclui B/C/D.
+// Grades exibÃƒÂ­veis nas previsÃƒÂµes. A+/A seguem como destaque; Todos inclui B/C/D.
 const GRADES_OFICIAIS = new Set(['A+', 'A', 'B', 'C', 'D']);
 
-// Bilhete do dia: grade A+ E score >= 90 (Â§7.2)
+// Bilhete do dia: grade A+ E score >= 90 (Ã‚Â§7.2)
 const TICKET_DIA_MIN_SCORE = 90;
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // CLIENTES
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const supabase = SUPABASE_URL && SUPABASE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -162,14 +162,14 @@ const supabase = SUPABASE_URL && SUPABASE_KEY
     })
   : null;
 
-// â”€â”€ PackBall CSV Enricher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬ PackBall CSV Enricher Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const CSV_DIR = process.env.PACKBALL_CSV_DIR || path.join(__dirname, '../data/packball');
 const csvEnricher = new PackBallCSVEnricher(CSV_DIR);
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // LOGGER
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const LOG = {
   _ts:   () => new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -181,20 +181,20 @@ const LOG = {
 };
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// API-FOOTBALL â€” chamada base com retry
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// API-FOOTBALL Ã¢â‚¬â€ chamada base com retry
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /**
  * apiFetch(endpoint, params, retries)
- * Chamada Ã  API-Football com headers corretos e retry em rate limit.
+ * Chamada ÃƒÂ  API-Football com headers corretos e retry em rate limit.
  *
- * @param {string} endpoint  â€” ex: '/fixtures'
- * @param {object} params    â€” query params
- * @param {number} retries   â€” tentativas restantes
- * @returns {object}         â€” { response: [...], errors: [...] }
+ * @param {string} endpoint  Ã¢â‚¬â€ ex: '/fixtures'
+ * @param {object} params    Ã¢â‚¬â€ query params
+ * @param {number} retries   Ã¢â‚¬â€ tentativas restantes
+ * @returns {object}         Ã¢â‚¬â€ { response: [...], errors: [...] }
  */
-// Erro especial para quota esgotada â€” capturado pelo run() para exit limpo
+// Erro especial para quota esgotada Ã¢â‚¬â€ capturado pelo run() para exit limpo
 class QuotaExceededError extends Error {
   constructor() { super('QUOTA_EXCEEDED'); this.code = 'QUOTA_EXCEEDED'; }
 }
@@ -216,7 +216,7 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
       // Rate limit: aguarda e tenta de novo
       if (res.status === 429) {
         const wait = Math.pow(2, attempt) * 1000;
-        LOG.warn(`Rate limit em ${endpoint} â€” aguardando ${wait}ms...`);
+        LOG.warn(`Rate limit em ${endpoint} Ã¢â‚¬â€ aguardando ${wait}ms...`);
         await delay(wait);
         continue;
       }
@@ -227,8 +227,8 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
 
       const json = await res.json();
 
-      // Quota diÃ¡ria esgotada â€” API retorna errors com "requests" ou status 499
-      // Header x-ratelimit-requests-remaining = 0 tambÃ©m indica quota zero
+      // Quota diÃƒÂ¡ria esgotada Ã¢â‚¬â€ API retorna errors com "requests" ou status 499
+      // Header x-ratelimit-requests-remaining = 0 tambÃƒÂ©m indica quota zero
       const remaining = res.headers?.get?.('x-ratelimit-requests-remaining');
       const apiErrors = Array.isArray(json?.errors)
         ? json.errors
@@ -252,7 +252,7 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
     }
   }
 
-  LOG.error(`apiFetch falhou apÃ³s ${retries} tentativas: ${endpoint}`, lastErr?.message);
+  LOG.error(`apiFetch falhou apÃƒÂ³s ${retries} tentativas: ${endpoint}`, lastErr?.message);
   return { response: [], errors: [lastErr?.message] };
 }
 
@@ -275,10 +275,10 @@ function hoursAgo(iso) {
 
 /**
  * shouldSkipFixture(entry)
- * EstratÃ©gia de economia da API:
- * - roda apenas quando --only-new estÃ¡ ativo, existe Supabase e nÃ£o estÃ¡ em --force
- * - se jÃ¡ existe snapshot e status nÃ£o mudou, pula
- * - se jÃ¡ houve predictions nas Ãºltimas 6h, pula
+ * EstratÃƒÂ©gia de economia da API:
+ * - roda apenas quando --only-new estÃƒÂ¡ ativo, existe Supabase e nÃƒÂ£o estÃƒÂ¡ em --force
+ * - se jÃƒÂ¡ existe snapshot e status nÃƒÂ£o mudou, pula
+ * - se jÃƒÂ¡ houve predictions nas ÃƒÂºltimas 6h, pula
  */
 async function shouldSkipFixture(entry) {
   if (!ONLY_NEW || FORCE || !supabase) {
@@ -316,7 +316,7 @@ async function shouldSkipFixture(entry) {
   if (hasSnapshot && statusUnchanged) {
     return {
       skip: true,
-      reason: 'snapshot existente + status sem mudanÃ§a',
+      reason: 'snapshot existente + status sem mudanÃƒÂ§a',
       savedCalls: 7,
     };
   }
@@ -324,7 +324,7 @@ async function shouldSkipFixture(entry) {
   if (lastPred?.created_at && hoursAgo(lastPred.created_at) < 6) {
     return {
       skip: true,
-      reason: `predictions atualizadas hÃ¡ ${hoursAgo(lastPred.created_at).toFixed(1)}h`,
+      reason: `predictions atualizadas hÃƒÂ¡ ${hoursAgo(lastPred.created_at).toFixed(1)}h`,
       savedCalls: 7,
     };
   }
@@ -334,13 +334,13 @@ async function shouldSkipFixture(entry) {
 
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// FASE 1 â€” BUSCAR FIXTURES DO DIA
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// FASE 1 Ã¢â‚¬â€ BUSCAR FIXTURES DO DIA
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /**
  * blockedName(name)
- * Retorna true se o nome do jogo contiver termos de sub-20/21 (Â§2.3).
+ * Retorna true se o nome do jogo contiver termos de sub-20/21 (Ã‚Â§2.3).
  */
 function blockedName(name) {
   if (!name) return false;
@@ -382,7 +382,7 @@ async function fetchTodayFixtures() {
 
       for (const { liga, data, targetDate } of results) {
         const fixtures = data?.response || [];
-        LOG.dim(`  ${targetDate} Â· ${liga.name}: ${fixtures.length} fixture(s)`);
+        LOG.dim(`  ${targetDate} Ã‚Â· ${liga.name}: ${fixtures.length} fixture(s)`);
 
         for (const fx of fixtures) {
           const homeName = fx?.teams?.home?.name || '';
@@ -390,7 +390,7 @@ async function fetchTodayFixtures() {
           const matchName = `${homeName} vs ${awayName}`;
           const status   = fx?.fixture?.status?.short || '';
 
-          // Filtros Â§2.3
+          // Filtros Ã‚Â§2.3
           if (!VALID_STATUS.has(status))       continue;
           if (blockedName(matchName))          continue;
           if (blockedName(liga.name))          continue;
@@ -409,22 +409,22 @@ async function fetchTodayFixtures() {
   }
 
   if (LIMIT && allFixtures.length > LIMIT) {
-    LOG.warn(`Aplicando --limit=${LIMIT}: ${allFixtures.length} â†’ ${LIMIT} fixtures.`);
+    LOG.warn(`Aplicando --limit=${LIMIT}: ${allFixtures.length} Ã¢â€ â€™ ${LIMIT} fixtures.`);
     allFixtures.length = LIMIT;
   }
 
-  LOG.info(`Total: ${allFixtures.length} fixtures vÃ¡lidas encontradas.`);
+  LOG.info(`Total: ${allFixtures.length} fixtures vÃƒÂ¡lidas encontradas.`);
   return allFixtures;
 }
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// FASE 2 â€” COLETAR DADOS COMPLETOS POR FIXTURE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// FASE 2 Ã¢â‚¬â€ COLETAR DADOS COMPLETOS POR FIXTURE
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /**
  * fetchAllData(fixtureEntry)
- * Executa atÃ© 7 chamadas paralelas para um Ãºnico fixture.
+ * Executa atÃƒÂ© 7 chamadas paralelas para um ÃƒÂºnico fixture.
  * Retorna o objeto apiData esperado pelo PackBallMapper.
  *
  * @param {{ fixture, liga }} fixtureEntry
@@ -451,7 +451,7 @@ async function enrichGamesWithStatistics(games, maxGames = 10) {
       statistics: statsRaw?.response || [],
     });
 
-    // Pequena pausa para reduzir risco de rate limit ao enriquecer jogos histÃ³ricos.
+    // Pequena pausa para reduzir risco de rate limit ao enriquecer jogos histÃƒÂ³ricos.
     await delay(120);
   }
 
@@ -497,89 +497,89 @@ async function fetchAllData({ fixture, liga }) {
     apiFetch('/predictions', { fixture: fixtureId }),
   ]);
 
-  // â”€â”€ Odds com fallback real â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Odds com fallback real Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   // Tentativa 1: bookmaker=6 (Bet365)
   let oddsRaw = await apiFetch('/odds', { fixture: fixtureId, bookmaker: 6 });
   const hasOdds1 = Array.isArray(oddsRaw?.response) && oddsRaw.response.length > 0;
 
   if (!hasOdds1) {
-    LOG.dim(`  Odds bookmaker=6 vazias para fixture ${fixtureId} â€” tentando sem filtro de bookmaker...`);
+    LOG.dim(`  Odds bookmaker=6 vazias para fixture ${fixtureId} Ã¢â‚¬â€ tentando sem filtro de bookmaker...`);
     // Tentativa 2: qualquer bookmaker
     oddsRaw = await apiFetch('/odds', { fixture: fixtureId });
     const hasOdds2 = Array.isArray(oddsRaw?.response) && oddsRaw.response.length > 0;
 
     if (!hasOdds2) {
-      LOG.dim(`  Odds indisponÃ­veis para este fixture â€” odd=null ev=null`);
-      oddsRaw = { response: [] };  // garante estrutura vÃ¡lida, nÃ£o quebra pipeline
+      LOG.dim(`  Odds indisponÃƒÂ­veis para este fixture Ã¢â‚¬â€ odd=null ev=null`);
+      oddsRaw = { response: [] };  // garante estrutura vÃƒÂ¡lida, nÃƒÂ£o quebra pipeline
     } else {
       const bms = oddsRaw.response.flatMap(i => i?.bookmakers || []);
       const names = [...new Set(bms.map(b => `${b.name}(${b.id})`))].join(', ');
-      LOG.dim(`  Odds via fallback â€” bookmakers: ${names}`);
+      LOG.dim(`  Odds via fallback Ã¢â‚¬â€ bookmakers: ${names}`);
     }
   }
 
-  // â”€â”€ ODDS AUDIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ ODDS AUDIT Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   if (process.env.DEBUG_ODDS === '1') (function auditOdds() {
     const resp = oddsRaw?.response;
-    console.log('\nâ•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
-    console.log(`â•‘ ODDS AUDIT â€” fixture ${fixtureId}`);
-    console.log('â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
-    console.log(`â•‘ URL chamada: GET /odds?fixture=${fixtureId}&bookmaker=6`);
-    console.log(`â•‘ oddsRaw keys: ${oddsRaw ? Object.keys(oddsRaw).join(', ') : 'null'}`);
+    console.log('\nÃ¢â€¢â€Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â');
+    console.log(`Ã¢â€¢â€˜ ODDS AUDIT Ã¢â‚¬â€ fixture ${fixtureId}`);
+    console.log('Ã¢â€¢Â Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â');
+    console.log(`Ã¢â€¢â€˜ URL chamada: GET /odds?fixture=${fixtureId}&bookmaker=6`);
+    console.log(`Ã¢â€¢â€˜ oddsRaw keys: ${oddsRaw ? Object.keys(oddsRaw).join(', ') : 'null'}`);
 
     if (!resp) {
-      console.log('â•‘ response: AUSENTE (oddsRaw.response = undefined)');
-      console.log('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n');
+      console.log('Ã¢â€¢â€˜ response: AUSENTE (oddsRaw.response = undefined)');
+      console.log('Ã¢â€¢Å¡Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â\n');
       return;
     }
 
     if (!Array.isArray(resp) || resp.length === 0) {
-      console.log(`â•‘ response.length: ${Array.isArray(resp) ? 0 : '(nÃ£o Ã© array) ' + typeof resp}`);
-      console.log('â•‘ âš   RESPONSE VAZIO â€” API nÃ£o retornou odds para este fixture');
-      console.log('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n');
+      console.log(`Ã¢â€¢â€˜ response.length: ${Array.isArray(resp) ? 0 : '(nÃƒÂ£o ÃƒÂ© array) ' + typeof resp}`);
+      console.log('Ã¢â€¢â€˜ Ã¢Å¡Â   RESPONSE VAZIO Ã¢â‚¬â€ API nÃƒÂ£o retornou odds para este fixture');
+      console.log('Ã¢â€¢Å¡Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â\n');
       return;
     }
 
-    console.log(`â•‘ response.length: ${resp.length}`);
+    console.log(`Ã¢â€¢â€˜ response.length: ${resp.length}`);
 
     resp.forEach((item, idx) => {
       const bms = item?.bookmakers || [];
-      console.log(`â•‘ response[${idx}].bookmakers.length: ${bms.length}`);
+      console.log(`Ã¢â€¢â€˜ response[${idx}].bookmakers.length: ${bms.length}`);
 
       if (bms.length === 0) {
-        console.log(`â•‘   âš   Nenhum bookmaker em response[${idx}]`);
+        console.log(`Ã¢â€¢â€˜   Ã¢Å¡Â   Nenhum bookmaker em response[${idx}]`);
         return;
       }
 
       bms.forEach(bm => {
         const bets = bm?.bets || [];
-        console.log(`â•‘   Bookmaker: ${bm.name} (id=${bm.id})  bets.length=${bets.length}`);
+        console.log(`Ã¢â€¢â€˜   Bookmaker: ${bm.name} (id=${bm.id})  bets.length=${bets.length}`);
 
         bets.forEach(bet => {
           const vals = bet?.values || [];
-          console.log(`â•‘     Market: "${bet.name}"  values.length=${vals.length}`);
+          console.log(`Ã¢â€¢â€˜     Market: "${bet.name}"  values.length=${vals.length}`);
           vals.forEach(v => {
-            console.log(`â•‘       value="${v.value}"  odd=${v.odd}`);
+            console.log(`Ã¢â€¢â€˜       value="${v.value}"  odd=${v.odd}`);
           });
         });
       });
     });
 
-    // â”€â”€ Mostrar qual bookmaker seria selecionado e por quÃª â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Mostrar qual bookmaker seria selecionado e por quÃƒÂª Ã¢â€â‚¬Ã¢â€â‚¬
     const allBms = resp.flatMap(i => i?.bookmakers || []);
     const bm6 = allBms.find(b => Number(b.id) === 6);
     const chosen = bm6 || (allBms.length > 0
       ? allBms.reduce((best, bm) => (bm.bets?.length||0) > (best.bets?.length||0) ? bm : best, allBms[0])
       : null);
 
-    console.log('â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
+    console.log('Ã¢â€¢Â Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â');
     if (!chosen) {
-      console.log('â•‘ âš   Nenhum bookmaker vÃ¡lido encontrado â†’ todas odds null');
+      console.log('Ã¢â€¢â€˜ Ã¢Å¡Â   Nenhum bookmaker vÃƒÂ¡lido encontrado Ã¢â€ â€™ todas odds null');
     } else {
-      console.log(`â•‘ Bookmaker SELECIONADO: ${chosen.name} (id=${chosen.id})${bm6 ? ' [id=6 encontrado]' : ' [FALLBACK â€” id=6 ausente]'}`);
+      console.log(`Ã¢â€¢â€˜ Bookmaker SELECIONADO: ${chosen.name} (id=${chosen.id})${bm6 ? ' [id=6 encontrado]' : ' [FALLBACK Ã¢â‚¬â€ id=6 ausente]'}`);
       const bets = chosen.bets || [];
 
-      // â”€â”€ Cross-reference: expected markets vs found â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ Cross-reference: expected markets vs found Ã¢â€â‚¬Ã¢â€â‚¬
       const EXPECTED = [
         { label: 'Over 1.5',   marketHints: ['Goals Over/Under','Total Goals','Match Goals','Over/Under'], value: 'Over 1.5'  },
         { label: 'Over 2.5',   marketHints: ['Goals Over/Under','Total Goals','Match Goals','Over/Under'], value: 'Over 2.5'  },
@@ -592,17 +592,17 @@ async function fetchAllData({ fixture, liga }) {
         { label: 'Cart Over 3.5',marketHints: ['Total Cards','Booking Points','Cards Over/Under','Total Bookings'], value: 'Over 3.5' },
       ];
 
-      console.log('â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
-      console.log('â•‘ CROSS-REFERENCE: esperado â†’ encontrado');
-      console.log('â•‘');
+      console.log('Ã¢â€¢Â Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â');
+      console.log('Ã¢â€¢â€˜ CROSS-REFERENCE: esperado Ã¢â€ â€™ encontrado');
+      console.log('Ã¢â€¢â€˜');
       for (const exp of EXPECTED) {
         // Find matching bet
         const matchedBet = bets.find(b =>
           exp.marketHints.some(h => b.name?.toLowerCase().includes(h.toLowerCase()))
         );
         if (!matchedBet) {
-          console.log(`â•‘  âŒ Esperado market "${exp.label}"  â†’ nenhum market encontrado`);
-          console.log(`â•‘     (buscou por: ${exp.marketHints.slice(0,2).join(', ')})`);
+          console.log(`Ã¢â€¢â€˜  Ã¢ÂÅ’ Esperado market "${exp.label}"  Ã¢â€ â€™ nenhum market encontrado`);
+          console.log(`Ã¢â€¢â€˜     (buscou por: ${exp.marketHints.slice(0,2).join(', ')})`);
           continue;
         }
 
@@ -616,21 +616,21 @@ async function fetchAllData({ fixture, liga }) {
         });
 
         if (matchedVal) {
-          console.log(`â•‘  âœ… Esperado: "${exp.label}" (value="${exp.value}")`);
-          console.log(`â•‘     Recebido: market="${matchedBet.name}"  value="${matchedVal.value}"  odd=${matchedVal.odd}`);
+          console.log(`Ã¢â€¢â€˜  Ã¢Å“â€¦ Esperado: "${exp.label}" (value="${exp.value}")`);
+          console.log(`Ã¢â€¢â€˜     Recebido: market="${matchedBet.name}"  value="${matchedVal.value}"  odd=${matchedVal.odd}`);
         } else {
           const availableVals = (matchedBet.values||[]).map(v=>v.value).join(', ');
-          console.log(`â•‘  âŒ Esperado: "${exp.label}" (value="${exp.value}")`);
-          console.log(`â•‘     Market encontrado: "${matchedBet.name}"  MAS value="${exp.value}" NÃƒO encontrado`);
-          console.log(`â•‘     Values disponÃ­veis: ${availableVals}`);
+          console.log(`Ã¢â€¢â€˜  Ã¢ÂÅ’ Esperado: "${exp.label}" (value="${exp.value}")`);
+          console.log(`Ã¢â€¢â€˜     Market encontrado: "${matchedBet.name}"  MAS value="${exp.value}" NÃƒÆ’O encontrado`);
+          console.log(`Ã¢â€¢â€˜     Values disponÃƒÂ­veis: ${availableVals}`);
         }
       }
     }
-    console.log('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n');
+    console.log('Ã¢â€¢Å¡Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â\n');
   })();
 
-  // /fixtures?team&last=10 nÃ£o traz statistics embutido de forma confiÃ¡vel.
-  // Para cantos, cartÃµes, chutes e SOT, enriquecemos cada fixture histÃ³rico
+  // /fixtures?team&last=10 nÃƒÂ£o traz statistics embutido de forma confiÃƒÂ¡vel.
+  // Para cantos, cartÃƒÂµes, chutes e SOT, enriquecemos cada fixture histÃƒÂ³rico
   // com /fixtures/statistics?fixture=ID antes de enviar ao PackBallMapper.
   const homeGamesBase = homeGamesRaw?.response || [];
   const awayGamesBase = awayGamesRaw?.response || [];
@@ -651,16 +651,16 @@ async function fetchAllData({ fixture, liga }) {
     awayGames,
     h2hGames:    h2hRaw?.response || [],
 
-    // Manter resposta completa; o mapper jÃ¡ normaliza predictions.response[0].
+    // Manter resposta completa; o mapper jÃƒÂ¡ normaliza predictions.response[0].
     predictions: predictionsRaw,
     odds:        oddsRaw,
   };
 }
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// FASE 4 â€” SALVAR NO SUPABASE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// FASE 4 Ã¢â‚¬â€ SALVAR NO SUPABASE
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const MKT_TO_LABEL = {
   resultadoFinal: 'Resultado Final (1X2)',
@@ -672,18 +672,18 @@ const MKT_TO_LABEL = {
   under35:  'Under 3.5 gols',
   esc75:    'Over 7.5 cantos',
   esc85:    'Over 8.5 cantos',
-  cards25:  'Over 2.5 cartÃ£o',
-  cards35:  'Over 3.5 cartÃ£o',
-  cards55:  'Over 5.5 cartÃ£o',
+  cards25:  'Over 2.5 cartÃƒÂ£o',
+  cards35:  'Over 3.5 cartÃƒÂ£o',
+  cards55:  'Over 5.5 cartÃƒÂ£o',
 };
 
-// Labels alternativos de mercado (linha alternativa resolve em tempo de execuÃ§Ã£o)
-// Usado para exibiÃ§Ã£o no log e no banco â€” gerado pelo AltLineResolver
+// Labels alternativos de mercado (linha alternativa resolve em tempo de execuÃƒÂ§ÃƒÂ£o)
+// Usado para exibiÃƒÂ§ÃƒÂ£o no log e no banco Ã¢â‚¬â€ gerado pelo AltLineResolver
 const MKT_ALT_LABELS = {
   // Escanteios
   'Esc 9.5':  'esc75', 'Esc 10.5': 'esc75',
   'Esc 9.5_85': 'esc85', 'Esc 10.5_85': 'esc85',
-  // CartÃµes
+  // CartÃƒÂµes
     'Cart 4.5': 'cards25', 'Cart 5.5': 'cards25',
     'Cart 4.5_35': 'cards35', 'Cart 5.5_35': 'cards35',
 };
@@ -728,7 +728,7 @@ async function upsertFixture(raw, liga) {
 
 /**
  * upsertMetrics(raw, result)
- * Upsert na tabela match_metrics com variÃ¡veis brutas + derivadas.
+ * Upsert na tabela match_metrics com variÃƒÂ¡veis brutas + derivadas.
  */
 async function upsertMetrics(raw, result) {
   const d = result.derivadas;
@@ -782,7 +782,7 @@ async function upsertMetrics(raw, result) {
     shots_n:  n.shots_n,
     cards_n:  n.cards_n,
     sot_n:    n.sot_n,
-    // Odds justas (null por enquanto â€” calculadas futuramente)
+    // Odds justas (null por enquanto Ã¢â‚¬â€ calculadas futuramente)
     odd_justa_15:     raw.odd_justa_15     ?? null,
     odd_justa_25:     raw.odd_justa_25     ?? null,
     odd_justa_btts:   raw.odd_justa_btts   ?? null,
@@ -816,9 +816,9 @@ async function upsertOdds(raw) {
     'Under 4.5 gols': raw.odd_u45,
     'Over 7.5 cantos': raw.odd_esc75,
     'Over 8.5 cantos': raw.odd_esc85,
-    'Over 2.5 cartÃ£o': raw.odd_c25,
-    'Over 3.5 cartÃ£o': raw.odd_c35,
-    'Over 5.5 cartÃ£o': raw.odd_c55,
+    'Over 2.5 cartÃƒÂ£o': raw.odd_c25,
+    'Over 3.5 cartÃƒÂ£o': raw.odd_c35,
+    'Over 5.5 cartÃƒÂ£o': raw.odd_c55,
   };
 
   const rows = Object.entries(oddMap)
@@ -826,7 +826,7 @@ async function upsertOdds(raw) {
     .map(([market, odd]) => ({
       fixture_id:    raw.fixture_id,
       market,
-      value:        'Over',   // simplificado â€” refinado futuramente
+      value:        'Over',   // simplificado Ã¢â‚¬â€ refinado futuramente
       odd,
       bookmaker_id: 6,
       bookmaker_name: 'bet365',
@@ -869,15 +869,15 @@ async function upsertPredictions(result) {
     const odd        = result.odds[key]  ?? null;
     const ev         = result.evs[key]   ?? null;
 
-    // market Ã© sempre o label canÃ´nico V1 â€” nunca substituÃ­do por final_market.
+    // market ÃƒÂ© sempre o label canÃƒÂ´nico V1 Ã¢â‚¬â€ nunca substituÃƒÂ­do por final_market.
     // Metadados de linha alternativa ficam em original_market / final_market (colunas separadas).
     const altInfo    = altLabelByKey[key];
     const market     = key === 'resultadoFinal'
       ? (result.filters.resultadoFinal_market || marketDefault)
-      : marketDefault;   // canÃ´nico V1: 'Esc 7.5', nÃ£o 'Esc 9.5'
+      : marketDefault;   // canÃƒÂ´nico V1: 'Esc 7.5', nÃƒÂ£o 'Esc 9.5'
     const isBest     = mainMarketSet.has(market) || marketDefault === result.best_mkt;
 
-    // Filtros especÃ­ficos
+    // Filtros especÃƒÂ­ficos
     let passedFilter   = false;
     let under35Passed  = false;
     if (key === 'over15')  passedFilter  = result.filters.over15_passed;
@@ -885,7 +885,7 @@ async function upsertPredictions(result) {
 
     // V1_COMPAT: apenas colunas que existem no schema base.
     // Removidos: probability, confidence, odd_justa, ev,
-    //            original_market, is_alternative_line â€” ausentes no schema.
+    //            original_market, is_alternative_line Ã¢â‚¬â€ ausentes no schema.
     return {
       fixture_id:      result.fixture_id,
       market,
@@ -913,111 +913,96 @@ async function upsertPredictions(result) {
  * Cria/atualiza registro em prediction_snapshots.
  * Apenas para grade A+ ou A (GRADES_OFICIAIS).
  *
- * O snapshot usa o best_mkt â€” mercado oficial congelado (Â§7.1).
- * Preserva resultado se jogo jÃ¡ confirmado (FORCE=false).
+ * O snapshot usa o best_mkt Ã¢â‚¬â€ mercado oficial congelado (Ã‚Â§7.1).
+ * Preserva resultado se jogo jÃƒÂ¡ confirmado (FORCE=false).
  *
  * @returns {boolean} true se snapshot foi salvo
  */
 async function upsertSnapshot(result, raw) {
-  const markets = Array.isArray(result.main_markets) && result.main_markets.length
-    ? result.main_markets
-    : [{
-        market: result.best_mkt,
-        score: result.best_score,
-        grade: result.best_grade,
-        odd: result.best_odd,
-      }];
+  if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
 
-  let saved = 0;
+  const _altForCanonical = (result.altLines || []).find(
+    a => a.final_market === result.best_mkt || a.original_market === result.best_mkt
+  );
+  const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
 
-  for (const item of markets) {
-    if (!item.market || item.score === null || item.score === undefined) continue;
+  // Snapshots confirmados (green/red) sao imutaveis.
+  const { data: existing } = await supabase
+    .from('prediction_snapshots')
+    .select('id, result_status')
+    .eq('fixture_id', result.fixture_id)
+    .eq('market', canonicalMarket)
+    .single();
 
-    const _altForCanonical = (result.altLines || []).find(
-      a => a.final_market === item.market || a.original_market === item.market
-    );
-    const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : item.market;
-
-    // Snapshots confirmados (green/red) sao imutaveis.
-    const { data: existing } = await supabase
-      .from('prediction_snapshots')
-      .select('id, result_status')
-      .eq('fixture_id', result.fixture_id)
-      .eq('market', canonicalMarket)
-      .single();
-
-    if (existing?.result_status && existing.result_status !== null) {
-      LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} ja confirmado (${existing.result_status}) - preservado.`);
-      continue;
-    }
-
-    const row = {
-      fixture_id:     result.fixture_id,
-      match_name:     result.jogo,
-      home_team:      result.home_team,
-      away_team:      result.away_team,
-      home_team_logo: raw.home_team_logo || null,
-      away_team_logo: raw.away_team_logo || null,
-      league_name:    result.league_name,
-      match_date:     result.match_date,
-      hour:           result.hour         ?? null,
-      market:         canonicalMarket,
-      score:          Math.round(Number(item.score) * 100) / 100,
-      grade:          item.grade,
-      odd:            item.odd  ?? null,
-      result_status:  null,
-      source:         'generate_predictions',
-      created_at:     new Date().toISOString(),
-    };
-
-    const { error } = await supabase
-      .from('prediction_snapshots')
-      .upsert(row, { onConflict: 'fixture_id,market' });
-
-    if (error) throw new Error(`upsertSnapshot: ${error.message}`);
-    saved++;
+  if (existing?.result_status && existing.result_status !== null) {
+    LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} ja confirmado (${existing.result_status}) - preservado.`);
+    return 0;
   }
 
-  return saved;
+  const row = {
+    fixture_id:     result.fixture_id,
+    match_name:     result.jogo,
+    home_team:      result.home_team,
+    away_team:      result.away_team,
+    home_team_logo: raw.home_team_logo || null,
+    away_team_logo: raw.away_team_logo || null,
+    league_name:    result.league_name,
+    match_date:     result.match_date,
+    hour:           result.hour         ?? null,
+    market:         canonicalMarket,
+    score:          Math.round(Number(result.best_score) * 100) / 100,
+    grade:          result.best_grade,
+    odd:            result.best_odd  ?? null,
+    result_status:  null,
+    source:         'generate_predictions',
+    created_at:     new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('prediction_snapshots')
+    .upsert(row, { onConflict: 'fixture_id,market' });
+
+  if (error) throw new Error(`upsertSnapshot: ${error.message}`);
+  return 1;
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// FASE 5 â€” LOG DETALHADO POR FIXTURE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// FASE 5 Ã¢â‚¬â€ LOG DETALHADO POR FIXTURE
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /**
  * printFixtureLog(raw, result, savedSnapshot, validation)
  * Imprime um log completo e estruturado para um fixture processado.
  */
 function printFixtureLog(raw, result, savedSnapshot, validation) {
-  const hr = 'â”€'.repeat(64);
+  const hr = 'Ã¢â€â‚¬'.repeat(64);
 
   console.log(`\n${hr}`);
-  console.log(` âš½  ${result.jogo}`);
-  console.log(`     ${result.league_name}  â€¢  ${result.match_date?.slice(0,10)}  â€¢  ${result.hour}`);
+  console.log(` Ã¢Å¡Â½  ${result.jogo}`);
+  console.log(`     ${result.league_name}  Ã¢â‚¬Â¢  ${result.match_date?.slice(0,10)}  Ã¢â‚¬Â¢  ${result.hour}`);
   console.log(`     fixture_id: ${result.fixture_id}  |  status: ${raw.status}`);
   console.log(hr);
 
-  // VariÃ¡veis-chave
+  // VariÃƒÂ¡veis-chave
   const d = result.derivadas;
-  console.log(' ðŸ“Š  VariÃ¡veis:');
+  console.log(' Ã°Å¸â€œÅ   VariÃƒÂ¡veis:');
   console.log(`     xG:  h=${d.exg_h?.toFixed(2)??'null'} a=${d.exg_a?.toFixed(2)??'null'} tot=${d.exg_tot?.toFixed(2)??'null (sem xG)'}`);
   console.log(`     PPG: h=${d.ppg_avg?.toFixed(2)??'null'} min=${d.ppg_min?.toFixed(2)??'null'}`);
   console.log(`     H2H gols: ${raw.h2h_goals?.toFixed(1)??'null'}`);
   console.log(`     BTTS cf: ${d.btts_cf?.toFixed(1)??'null'}%`);
   console.log(`     Cantos: avg=${raw.avg_corners?.toFixed(1)??'null'}  over7.5=${raw.over75_c?.toFixed(0)??'null'}%`);
-  console.log(`     CartÃµes: avg=${raw.avg_cards?.toFixed(1)??'null'}  over2.5=${raw.over25_cards?.toFixed(0)??'null'}%`);
+  console.log(`     CartÃƒÂµes: avg=${raw.avg_cards?.toFixed(1)??'null'}  over2.5=${raw.over25_cards?.toFixed(0)??'null'}%`);
   if (result.poisson) {
     console.log(`     Poisson: o15=${result.poisson.o15.toFixed(1)}%  o25=${result.poisson.o25.toFixed(1)}%  u35=${result.poisson.u35.toFixed(1)}%`);
   }
 
-  // Warnings de validaÃ§Ã£o
+  // Warnings de validaÃƒÂ§ÃƒÂ£o
   if (validation.warnings.length > 0) {
-    console.log(` âš ï¸   Avisos: ${validation.warnings.join(' | ')}`);
+    console.log(` Ã¢Å¡Â Ã¯Â¸Â   Avisos: ${validation.warnings.join(' | ')}`);
   }
 
   // Tabela de scores
-  console.log('\n ðŸŽ¯  Scores por mercado:');
+  console.log('\n Ã°Å¸Å½Â¯  Scores por mercado:');
   console.log(`     ${'Mercado'.padEnd(14)} ${'Score'.padStart(6)} ${'Grade'.padEnd(4)} ${'Odd'.padStart(6)} ${'EV'.padStart(8)}  Filtro`);
   console.log(`     ${'-'.repeat(56)}`);
 
@@ -1030,10 +1015,10 @@ function printFixtureLog(raw, result, savedSnapshot, validation) {
     const isBest = market === result.best_mkt;
 
     let filtro = '';
-    if (key === 'over15')  filtro = result.filters.over15_passed  ? `âœ“ Via${result.filters.over15_via}` : 'âœ—';
-    if (key === 'under35') filtro = result.filters.under35_passed ? 'âœ“' : 'âœ—';
+    if (key === 'over15')  filtro = result.filters.over15_passed  ? `Ã¢Å“â€œ Via${result.filters.over15_via}` : 'Ã¢Å“â€”';
+    if (key === 'under35') filtro = result.filters.under35_passed ? 'Ã¢Å“â€œ' : 'Ã¢Å“â€”';
 
-    const marker  = isBest ? ' â˜…' : '  ';
+    const marker  = isBest ? ' Ã¢Ëœâ€¦' : '  ';
     const grColor = gr === 'A+' ? '\x1b[32m' : gr === 'A' ? '\x1b[36m' : '\x1b[90m';
 
     console.log(
@@ -1055,66 +1040,66 @@ function printFixtureLog(raw, result, savedSnapshot, validation) {
 
   // Linhas alternativas usadas
   if (result.altLines && result.altLines.length > 0) {
-    console.log('\n \x1b[33mðŸ”€  Linhas alternativas:\x1b[0m');
+    console.log('\n \x1b[33mÃ°Å¸â€â‚¬  Linhas alternativas:\x1b[0m');
     for (const alt of result.altLines) {
       console.log(
-        `     ${alt.original_market} â†’ \x1b[33m${alt.final_market}\x1b[0m` +
+        `     ${alt.original_market} Ã¢â€ â€™ \x1b[33m${alt.final_market}\x1b[0m` +
         `  odd=${alt.odd_used}  score=${alt.score?.toFixed(1)}` +
         `  ev=${alt.ev !== null ? (alt.ev >= 0 ? '+' : '') + alt.ev + '%' : 'n/a'}` +
-        `  [linha alternativa â€” gap=${alt.final_line - alt.original_line}]`
+        `  [linha alternativa Ã¢â‚¬â€ gap=${alt.final_line - alt.original_line}]`
       );
     }
   }
 
   // Snapshot
   if (result.is_official) {
-    const snap = savedSnapshot ? '\x1b[32mâœ“ snapshot salvo\x1b[0m' : '\x1b[33mâŸ³ snapshot preservado\x1b[0m';
-    console.log(`     ${snap}  (grade ${result.best_grade} â€” palpite oficial)`);
+    const snap = savedSnapshot ? '\x1b[32mÃ¢Å“â€œ snapshot salvo\x1b[0m' : '\x1b[33mÃ¢Å¸Â³ snapshot preservado\x1b[0m';
+    console.log(`     ${snap}  (grade ${result.best_grade} Ã¢â‚¬â€ palpite oficial)`);
   } else {
-    console.log(`     \x1b[90mNÃ£o gera snapshot (grade ${result.best_grade} < A)\x1b[0m`);
+    console.log(`     \x1b[90mNÃƒÂ£o gera snapshot (grade ${result.best_grade} < A)\x1b[0m`);
   }
 
   console.log(hr);
 }
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // PIPELINE PRINCIPAL
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /**
  * run()
  * Ponto de entrada do job. Executa o pipeline completo.
  */
 async function run() {
-  console.log('\n' + 'â•'.repeat(64));
-  console.log(' WinMetrics Analytics â€” Generate Predictions');
+  console.log('\n' + 'Ã¢â€¢Â'.repeat(64));
+  console.log(' WinMetrics Analytics Ã¢â‚¬â€ Generate Predictions');
   console.log(` Data inicial: ${TODAY}  |  days: ${DAYS}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}  |  only-new: ${ONLY_NEW}  |  limit: ${LIMIT || 'sem limite'}`);
-  console.log('â•'.repeat(64) + '\n');
+  console.log('Ã¢â€¢Â'.repeat(64) + '\n');
 
-  // â”€â”€ Carrega CSVs do PackBall â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Carrega CSVs do PackBall Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   await csvEnricher.load();
   LOG.info(`[CSVEnricher] ${csvEnricher.index.size} jogos indexados dos CSVs do PackBall`);
 
-  // ValidaÃ§Ã£o de ambiente
+  // ValidaÃƒÂ§ÃƒÂ£o de ambiente
   if (!API_KEY) {
-    LOG.error('API_FOOTBALL_KEY nÃ£o configurada. Abortando.');
+    LOG.error('API_FOOTBALL_KEY nÃƒÂ£o configurada. Abortando.');
     process.exit(1);
   }
   if (!DRY_RUN && (!SUPABASE_URL || !SUPABASE_KEY)) {
-    LOG.error('SUPABASE_URL ou SUPABASE_SERVICE_KEY nÃ£o configurados. Use --dry-run para testar sem banco.');
+    LOG.error('SUPABASE_URL ou SUPABASE_SERVICE_KEY nÃƒÂ£o configurados. Use --dry-run para testar sem banco.');
     process.exit(1);
   }
   if (DRY_RUN) {
-    LOG.warn('Modo DRY-RUN: nenhuma escrita no Supabase serÃ¡ feita.');
+    LOG.warn('Modo DRY-RUN: nenhuma escrita no Supabase serÃƒÂ¡ feita.');
   }
   if (V1_COMPAT_MODE) {
-    LOG.info('V1_COMPAT_MODE ativo: AltLineResolver desabilitado, market = nome canÃ´nico V1.');
+    LOG.info('V1_COMPAT_MODE ativo: AltLineResolver desabilitado, market = nome canÃƒÂ´nico V1.');
   } else {
     LOG.warn('V1_COMPAT_MODE desativado (--no-v1-compat): linhas alternativas habilitadas.');
   }
 
-  // EstatÃ­sticas globais
+  // EstatÃƒÂ­sticas globais
   const stats = {
     fixtures_total: 0, fixtures_ok: 0, fixtures_error: 0,
     fixtures_skipped: 0,
@@ -1125,7 +1110,7 @@ async function run() {
     api_calls_saved: 0,
   };
 
-  // â”€â”€ FASE 1: Buscar fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 1: Buscar fixtures Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const fixtureEntries = await fetchTodayFixtures();
   stats.fixtures_total = fixtureEntries.length;
 
@@ -1134,72 +1119,72 @@ async function run() {
     return;
   }
 
-  // â”€â”€ PROCESSAR CADA FIXTURE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ PROCESSAR CADA FIXTURE Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   for (const entry of fixtureEntries) {
     const fixtureId = entry.fixture?.fixture?.id;
 
     try {
-      // â”€â”€ CACHE: pula detalhes se jÃ¡ processado recentemente â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ CACHE: pula detalhes se jÃƒÂ¡ processado recentemente Ã¢â€â‚¬Ã¢â€â‚¬
       const cacheDecision = await shouldSkipFixture(entry);
       if (cacheDecision.skip) {
         stats.fixtures_skipped++;
         stats.api_calls_saved += cacheDecision.savedCalls || 0;
-        LOG.dim(`Pulando fixture ${fixtureId} â€” ${cacheDecision.reason} (${cacheDecision.savedCalls} chamadas economizadas)`);
+        LOG.dim(`Pulando fixture ${fixtureId} Ã¢â‚¬â€ ${cacheDecision.reason} (${cacheDecision.savedCalls} chamadas economizadas)`);
         continue;
       }
 
-      // â”€â”€ FASE 2: Coletar dados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 2: Coletar dados Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       stats.api_detail_calls_estimated += 7;
-      LOG.info(`Coletando fixture ${fixtureId} â€” ${entry.fixture?.teams?.home?.name} vs ${entry.fixture?.teams?.away?.name}`);
+      LOG.info(`Coletando fixture ${fixtureId} Ã¢â‚¬â€ ${entry.fixture?.teams?.home?.name} vs ${entry.fixture?.teams?.away?.name}`);
       const apiData = await fetchAllData(entry);
 
-      // â”€â”€ ENRIQUECIMENTO CSV PackBall â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ ENRIQUECIMENTO CSV PackBall Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       csvEnricher.enrich(apiData);
 
-      // â”€â”€ FASE 3: Mapear + validar + calcular â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 3: Mapear + validar + calcular Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       let raw        = await enrichFromWorldCup(
         PackBallMapper.mapFixtureToPackBall(apiData),
         supabase,
         LOG
       );
 
-      // â”€â”€ APLICAR DADOS CSV SOBRE O raw â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ APLICAR DADOS CSV SOBRE O raw Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       if (apiData.packballCSV) {
         raw = applyCsvToRaw(raw, apiData.packballCSV, LOG);
       }
 
-      // ODDS PIPELINE TRACE â€” remove after debugging
+      // ODDS PIPELINE TRACE Ã¢â‚¬â€ remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
         const oddFields = ['odd_o15','odd_o25','odd_btts','odd_u35','odd_u45','odd_esc75','odd_esc85','odd_c25','odd_c35'];
         const rawOdds = oddFields.map(f => `${f}=${raw[f]}`).join(' | ');
-        console.log(`[PIPELINE] raw apÃ³s mapper â€” ${rawOdds}`);
+        console.log(`[PIPELINE] raw apÃƒÂ³s mapper Ã¢â‚¬â€ ${rawOdds}`);
       }
 
       const validation = PackBallMapper.validatePackBallInput(raw);
 
       if (!validation.valid) {
-        LOG.warn(`  Fixture ${fixtureId} invÃ¡lida:`, validation.critical.join(', '));
+        LOG.warn(`  Fixture ${fixtureId} invÃƒÂ¡lida:`, validation.critical.join(', '));
         stats.fixtures_error++;
         stats.errors.push({ fixtureId, errors: validation.critical });
         continue;
       }
 
-      // â”€â”€ LINHA ALTERNATIVA (Esc / CartÃµes) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ LINHA ALTERNATIVA (Esc / CartÃƒÂµes) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       // V1_COMPAT_MODE: AltLineResolver desativado.
-      // O mercado exibido deve ser sempre o nome canÃ´nico V1 (mkt original).
-      // Linhas alternativas sÃ³ sÃ£o aplicadas quando --no-v1-compat for passado.
+      // O mercado exibido deve ser sempre o nome canÃƒÂ´nico V1 (mkt original).
+      // Linhas alternativas sÃƒÂ³ sÃƒÂ£o aplicadas quando --no-v1-compat for passado.
       let result;
       if (V1_COMPAT_MODE) {
-        // Modo compatÃ­vel: engine direto, sem override de label nem alt lines
+        // Modo compatÃƒÂ­vel: engine direto, sem override de label nem alt lines
         result = PredictionEngine.processFixture(raw);
         result.altLines = [];  // garante que altLines exista e esteja vazio
       } else {
         // Modo V3 nativo: resolve linhas alternativas antes do engine
-        // Resolve linhas alternativas ANTES do engine, mas APÃ“S o mapper.
-        // NÃ£o altera scores nem fÃ³rmulas â€” apenas preenche raw.odd_* ausentes
-        // com a odd de uma linha prÃ³xima, e registra metadados de auditoria.
+        // Resolve linhas alternativas ANTES do engine, mas APÃƒâ€œS o mapper.
+        // NÃƒÂ£o altera scores nem fÃƒÂ³rmulas Ã¢â‚¬â€ apenas preenche raw.odd_* ausentes
+        // com a odd de uma linha prÃƒÂ³xima, e registra metadados de auditoria.
         // Uma primeira passagem do engine (sem odds) gera os scores que
-        // servem de critÃ©rio de aceitaÃ§Ã£o da linha alternativa.
+        // servem de critÃƒÂ©rio de aceitaÃƒÂ§ÃƒÂ£o da linha alternativa.
         const _rawScoresForAlt = PredictionEngine.processFixture(raw).scores;
         const { raw: rawPatched, labelOverrides, altLines } = AltLineResolver.resolveAlternativeLines(
           raw,
@@ -1215,13 +1200,13 @@ async function run() {
         result = AltLineResolver.applyLabelOverrides(_resultBase, labelOverrides, altLines);
       }
 
-      // ODDS PIPELINE TRACE â€” remove after debugging
+      // ODDS PIPELINE TRACE Ã¢â‚¬â€ remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
         const mktKeys = ['over15','over25','btts','over05ht','under45','under35','esc75','esc85','cards25','cards35'];
         const resultOdds = mktKeys.map(k => `${k}=${result.odds[k]}`).join(' | ');
         const resultEvs  = mktKeys.map(k => `${k}=${result.evs[k]}`).join(' | ');
-        console.log(`[PIPELINE] result.odds  â€” ${resultOdds}`);
-        console.log(`[PIPELINE] result.evs   â€” ${resultEvs}`);
+        console.log(`[PIPELINE] result.odds  Ã¢â‚¬â€ ${resultOdds}`);
+        console.log(`[PIPELINE] result.evs   Ã¢â‚¬â€ ${resultEvs}`);
         console.log(`[PIPELINE] best_odd=${result.best_odd}  best_ev=${result.best_ev}`);
       }
 
@@ -1234,7 +1219,7 @@ async function run() {
       const scoredMarkets = Object.values(result.scores).filter(s => s !== null).length;
       stats.markets_scored += scoredMarkets;
 
-      // â”€â”€ FASE 4: Salvar no Supabase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 4: Salvar no Supabase Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       let savedSnapshot = false;
 
       if (!DRY_RUN && supabase) {
@@ -1245,15 +1230,15 @@ async function run() {
         savedSnapshot = await upsertSnapshot(result, raw);
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
-        LOG.ok(`  Salvo: fixture ${fixtureId}  ${scoredMarkets} mercados  ${savedSnapshot ? `${savedSnapshot} snapshot(s) âœ“` : ''}`);
+        LOG.ok(`  Salvo: fixture ${fixtureId}  ${scoredMarkets} mercados  ${savedSnapshot ? `${savedSnapshot} snapshot(s) Ã¢Å“â€œ` : ''}`);
       } else if (DRY_RUN) {
-        // Em dry-run: simula o snapshot se elegÃ­vel
-        savedSnapshot = Array.isArray(result.main_markets) ? result.main_markets.length : Number(Boolean(result.is_official));
+        // Em dry-run: simula o snapshot se elegÃƒÂ­vel
+        savedSnapshot = Number(Boolean(result.best_mkt));
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
         LOG.ok(`  [DRY-RUN] ${fixtureId}  ${scoredMarkets} mercados  best=${result.best_mkt} grade=${result.best_grade}`);
       }
 
-      // â”€â”€ FASE 5: Log detalhado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 5: Log detalhado Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
       printFixtureLog(raw, result, savedSnapshot, validation);
 
       stats.fixtures_ok++;
@@ -1268,7 +1253,7 @@ async function run() {
     await delay(200);
   }
 
-  // â”€â”€ FASE 6: Resumo final â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 6: Resumo final Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   printSummary(stats);
 }
 
@@ -1276,7 +1261,7 @@ async function run() {
  * printSummary(stats)
  */
 function printSummary(stats) {
-  const hr = 'â•'.repeat(64);
+  const hr = 'Ã¢â€¢Â'.repeat(64);
   console.log('\n' + hr);
   console.log(' RESUMO FINAL');
   console.log(hr);
@@ -1284,9 +1269,9 @@ function printSummary(stats) {
   console.log(` Mercados calculados:  ${stats.markets_scored}`);
   console.log(` Snapshots criados:    ${stats.snapshots}`);
   console.log(` Grades:  A+=${stats.grades_ap}  A=${stats.grades_a}  B=${stats.grades_b}`);
-  console.log(` API â€” chamadas fixtures: ${stats.api_fixture_calls || 0}`);
-  console.log(` API â€” chamadas detalhes estimadas: ${stats.api_detail_calls_estimated || 0}`);
-  console.log(` API â€” chamadas economizadas: ${stats.api_calls_saved || 0}`);
+  console.log(` API Ã¢â‚¬â€ chamadas fixtures: ${stats.api_fixture_calls || 0}`);
+  console.log(` API Ã¢â‚¬â€ chamadas detalhes estimadas: ${stats.api_detail_calls_estimated || 0}`);
+  console.log(` API Ã¢â‚¬â€ chamadas economizadas: ${stats.api_calls_saved || 0}`);
   if (stats.errors.length > 0) {
     console.log('\n Erros:');
     stats.errors.forEach(e => console.log(`   fixture ${e.fixtureId}: ${e.errors || e.error}`));
@@ -1295,26 +1280,26 @@ function printSummary(stats) {
 }
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// EXEMPLO COMPLETO â€” runExample()
-// Executa com dados mockados para demonstraÃ§Ã£o sem API real
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// EXEMPLO COMPLETO Ã¢â‚¬â€ runExample()
+// Executa com dados mockados para demonstraÃƒÂ§ÃƒÂ£o sem API real
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /**
  * runExample()
  * Demonstra o pipeline completo com dados mockados.
- * Invocado automaticamente quando nÃ£o hÃ¡ API_KEY configurada.
+ * Invocado automaticamente quando nÃƒÂ£o hÃƒÂ¡ API_KEY configurada.
  */
 async function runExample() {
-  console.log('\n' + 'â•'.repeat(64));
-  console.log(' MODO EXEMPLO â€” dados mockados (sem API real)');
-  console.log('â•'.repeat(64));
+  console.log('\n' + 'Ã¢â€¢Â'.repeat(64));
+  console.log(' MODO EXEMPLO Ã¢â‚¬â€ dados mockados (sem API real)');
+  console.log('Ã¢â€¢Â'.repeat(64));
 
-  // â”€â”€ Entrada API-Football simulada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Entrada API-Football simulada Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const mockApiData = {
     fixture: {
       fixture: { id: 1049201, date: '2026-06-10T22:00:00+00:00', status: { short: 'NS', long: 'Not Started' } },
-      league:  { id: 71, name: 'BrasileirÃ£o SÃ©rie A', season: 2026 },
+      league:  { id: 71, name: 'BrasileirÃƒÂ£o SÃƒÂ©rie A', season: 2026 },
       teams:   { home: { id: 119, name: 'Flamengo' }, away: { id: 121, name: 'Palmeiras' } },
       goals:   { home: null, away: null },
       score:   { halftime: { home: null, away: null } },
@@ -1377,7 +1362,7 @@ async function runExample() {
     ]}]}]},
   };
 
-  console.log('\nðŸ“¥  FASE 1 â€” Entrada API-Football (resumo):');
+  console.log('\nÃ°Å¸â€œÂ¥  FASE 1 Ã¢â‚¬â€ Entrada API-Football (resumo):');
   console.log(`    fixture_id: ${mockApiData.fixture.fixture.id}`);
   console.log(`    jogo:       ${mockApiData.fixture.teams.home.name} vs ${mockApiData.fixture.teams.away.name}`);
   console.log(`    liga:       ${mockApiData.fixture.league.name}`);
@@ -1385,39 +1370,39 @@ async function runExample() {
   console.log(`    h2h:        ${mockApiData.h2hGames.length} jogos`);
   console.log(`    odds:       ${mockApiData.odds.response[0].bookmakers[0].bets.reduce((a,b) => a + b.values.length, 0)} valores`);
 
-  // â”€â”€ FASE 2: Mapear â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 2: Mapear Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const raw = PackBallMapper.mapFixtureToPackBall(mockApiData);
-  console.log('\nðŸ“¦  FASE 2 â€” Objeto RAW (packball_mapper.js):');
+  console.log('\nÃ°Å¸â€œÂ¦  FASE 2 Ã¢â‚¬â€ Objeto RAW (packball_mapper.js):');
   console.log(JSON.stringify(raw, (k, v) => v !== null ? v : undefined, 2));
 
-  // â”€â”€ FASE 3: Validar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 3: Validar Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const validation = PackBallMapper.validatePackBallInput(raw);
-  console.log('\nðŸ”  FASE 3 â€” ValidaÃ§Ã£o:');
+  console.log('\nÃ°Å¸â€Â  FASE 3 Ã¢â‚¬â€ ValidaÃƒÂ§ÃƒÂ£o:');
   console.log(`    valid: ${validation.valid}  critical: ${validation.critical.length}  warnings: ${validation.warnings.length}`);
-  validation.info.forEach(i => console.log(`    â†’ ${i}`));
-  if (validation.warnings.length) validation.warnings.forEach(w => console.log(`    âš  ${w}`));
+  validation.info.forEach(i => console.log(`    Ã¢â€ â€™ ${i}`));
+  if (validation.warnings.length) validation.warnings.forEach(w => console.log(`    Ã¢Å¡Â  ${w}`));
 
-  // â”€â”€ FASE 4: Motor (com resolver de linha alternativa) â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 4: Motor (com resolver de linha alternativa) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const _scoresEx = PredictionEngine.processFixture(raw).scores;
   const { raw: rawPatchedEx, labelOverrides: loEx, altLines: altLinesEx } =
     AltLineResolver.resolveAlternativeLines(raw, mockApiData.odds, _scoresEx);
   if (altLinesEx.length > 0) {
-    console.log('\nðŸ”€  Linhas alternativas resolvidas:');
+    console.log('\nÃ°Å¸â€â‚¬  Linhas alternativas resolvidas:');
     AltLineResolver.logAltLines(altLinesEx, raw.fixture_id, { info: console.log });
   }
   const _baseEx = PredictionEngine.processFixture(rawPatchedEx);
   const result  = AltLineResolver.applyLabelOverrides(_baseEx, loEx, altLinesEx);
-  console.log('\nðŸ”¢  FASE 4 â€” PredictionEngine.processFixture():');
+  console.log('\nÃ°Å¸â€Â¢  FASE 4 Ã¢â‚¬â€ PredictionEngine.processFixture():');
   console.log(`    exg_tot=${result.derivadas.exg_tot?.toFixed(2)}  ppg_avg=${result.derivadas.ppg_avg?.toFixed(2)}`);
   if (result.poisson) {
     console.log(`    Poisson: o15=${result.poisson.o15.toFixed(1)}%  o25=${result.poisson.o25.toFixed(1)}%  u35=${result.poisson.u35.toFixed(1)}%`);
   }
 
-  // â”€â”€ FASE 5: Log completo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 5: Log completo Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   printFixtureLog(raw, result, result.is_official, validation);
 
-  // â”€â”€ FASE 6: Registro Supabase (simulado) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  console.log('\nðŸ’¾  FASE 5 â€” Registros que seriam salvos no Supabase:');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FASE 6: Registro Supabase (simulado) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  console.log('\nÃ°Å¸â€™Â¾  FASE 5 Ã¢â‚¬â€ Registros que seriam salvos no Supabase:');
 
   console.log('\n  fixtures:');
   console.log(`    fixture_id=${raw.fixture_id}  league_id=${raw.league_id}  match_date=${raw.match_date?.slice(0,10)}`);
@@ -1440,7 +1425,7 @@ async function runExample() {
     if (sc === null) return;
     const gr = result.grades[key];
     const isBest = market === result.best_mkt;
-    console.log(`    ${(isBest ? 'â˜… ' : '  ')}${market.padEnd(14)} score=${sc.toFixed(1).padStart(5)}  grade=${gr}  is_best=${isBest}`);
+    console.log(`    ${(isBest ? 'Ã¢Ëœâ€¦ ' : '  ')}${market.padEnd(14)} score=${sc.toFixed(1).padStart(5)}  grade=${gr}  is_best=${isBest}`);
   });
 
   if (result.is_official) {
@@ -1450,39 +1435,39 @@ async function runExample() {
     console.log(`    confidence="${result.best_confidence}"  odd=${result.best_odd}  ev=${result.best_ev}`);
     console.log(`    result_status=null  (aguardando confirmar.js)`);
   } else {
-    console.log(`\n  prediction_snapshots: nÃ£o gerado (grade ${result.best_grade} < A)`);
+    console.log(`\n  prediction_snapshots: nÃƒÂ£o gerado (grade ${result.best_grade} < A)`);
   }
 
-  console.log('\n' + 'â•'.repeat(64));
-  console.log(' Exemplo concluÃ­do. Configure API_FOOTBALL_KEY para execuÃ§Ã£o real.');
-  console.log('â•'.repeat(64) + '\n');
+  console.log('\n' + 'Ã¢â€¢Â'.repeat(64));
+  console.log(' Exemplo concluÃƒÂ­do. Configure API_FOOTBALL_KEY para execuÃƒÂ§ÃƒÂ£o real.');
+  console.log('Ã¢â€¢Â'.repeat(64) + '\n');
 }
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // ENTRY POINT
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 if (!MOCK_TO_SUPABASE) {
-  // â”€â”€ DiagnÃ³stico de variÃ¡veis de ambiente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ DiagnÃƒÂ³stico de variÃƒÂ¡veis de ambiente Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   console.log('--- ENV CHECK ---');
   console.log('API_FOOTBALL_KEY:    ', !!process.env.API_FOOTBALL_KEY, process.env.API_FOOTBALL_KEY ? '(set, length=' + process.env.API_FOOTBALL_KEY.length + ')' : '(EMPTY)');
   console.log('SUPABASE_URL:        ', !!process.env.SUPABASE_URL,      process.env.SUPABASE_URL      ? '(set)' : '(EMPTY)');
   console.log('SUPABASE_SERVICE_KEY:', !!process.env.SUPABASE_SERVICE_KEY, process.env.SUPABASE_SERVICE_KEY ? '(set)' : '(EMPTY)');
-  console.log('API_KEY (const):     ', !!API_KEY, 'â†’ entra em', !API_KEY ? 'runExample()' : 'run()');
+  console.log('API_KEY (const):     ', !!API_KEY, 'Ã¢â€ â€™ entra em', !API_KEY ? 'runExample()' : 'run()');
   console.log('-----------------');
 
   if (!API_KEY) {
-    // Sem chave configurada â†’ executa o exemplo de demonstraÃ§Ã£o
+    // Sem chave configurada Ã¢â€ â€™ executa o exemplo de demonstraÃƒÂ§ÃƒÂ£o
     runExample().catch(err => {
       LOG.error('Erro no exemplo:', err.message);
       process.exit(1);
     });
   } else {
-    // Com chave configurada â†’ executa o pipeline real
+    // Com chave configurada Ã¢â€ â€™ executa o pipeline real
     run().catch(err => {
       if (err.code === 'QUOTA_EXCEEDED') {
-        LOG.warn('Quota da API esgotada â€” pipeline encerrado com cÃ³digo 2.');
+        LOG.warn('Quota da API esgotada Ã¢â‚¬â€ pipeline encerrado com cÃƒÂ³digo 2.');
         process.exit(2);
       }
       LOG.error('Erro fatal:', err.message);
@@ -1499,25 +1484,25 @@ module.exports = {
 };
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // MODO --mock-to-supabase
 // Executa o pipeline completo com dados mockados (Flamengo x Palmeiras)
-// e grava no Supabase real. Para validaÃ§Ã£o antes de conectar API-Football.
+// e grava no Supabase real. Para validaÃƒÂ§ÃƒÂ£o antes de conectar API-Football.
 //
 // Uso:
 //   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \
 //   node generate_predictions.js --mock-to-supabase
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 async function runMockToSupabase() {
-  console.log('\n' + 'â•'.repeat(64));
-  console.log(' WinMetrics â€” MOCK-TO-SUPABASE');
-  console.log(' Pipeline completo com dados mockados â†’ Supabase real');
-  console.log('â•'.repeat(64));
+  console.log('\n' + 'Ã¢â€¢Â'.repeat(64));
+  console.log(' WinMetrics Ã¢â‚¬â€ MOCK-TO-SUPABASE');
+  console.log(' Pipeline completo com dados mockados Ã¢â€ â€™ Supabase real');
+  console.log('Ã¢â€¢Â'.repeat(64));
 
-  // â”€â”€ ValidaÃ§Ã£o de ambiente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ ValidaÃƒÂ§ÃƒÂ£o de ambiente Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    LOG.error('SUPABASE_URL e SUPABASE_SERVICE_KEY sÃ£o obrigatÃ³rios neste modo.');
+    LOG.error('SUPABASE_URL e SUPABASE_SERVICE_KEY sÃƒÂ£o obrigatÃƒÂ³rios neste modo.');
     LOG.error('Exemplo:');
     LOG.error('  SUPABASE_URL=https://xxx.supabase.co \\');
     LOG.error('  SUPABASE_SERVICE_KEY=eyJ... \\');
@@ -1526,13 +1511,13 @@ async function runMockToSupabase() {
   }
 
   if (!supabase) {
-    LOG.error('Supabase client nÃ£o inicializado. Verifique as variÃ¡veis de ambiente.');
+    LOG.error('Supabase client nÃƒÂ£o inicializado. Verifique as variÃƒÂ¡veis de ambiente.');
     process.exit(1);
   }
 
   LOG.info('Supabase conectado: ' + SUPABASE_URL);
 
-  // â”€â”€ Dados mockados: Flamengo x Palmeiras â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Dados mockados: Flamengo x Palmeiras Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   LOG.info('Construindo dados mockados (Flamengo x Palmeiras)...');
 
   const mockApiData = {
@@ -1542,7 +1527,7 @@ async function runMockToSupabase() {
         date: '2026-06-10T22:00:00+00:00',
         status: { short: 'NS', long: 'Not Started' },
       },
-      league: { id: 71, name: 'BrasileirÃ£o SÃ©rie A', season: 2026 },
+      league: { id: 71, name: 'BrasileirÃƒÂ£o SÃƒÂ©rie A', season: 2026 },
       teams: {
         home: { id: 119, name: 'Flamengo' },
         away: { id: 121, name: 'Palmeiras' },
@@ -1653,22 +1638,22 @@ async function runMockToSupabase() {
     ]}]}] },
   };
 
-  const liga = { id: 71, season: 2026, name: 'BrasileirÃ£o SÃ©rie A', tier: 'normal' };
+  const liga = { id: 71, season: 2026, name: 'BrasileirÃƒÂ£o SÃƒÂ©rie A', tier: 'normal' };
 
-  // â”€â”€ Fase 1: Mapear â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('Fase 1 â€” PackBallMapper.mapFixtureToPackBall()...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Fase 1: Mapear Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('Fase 1 Ã¢â‚¬â€ PackBallMapper.mapFixtureToPackBall()...');
   const raw = PackBallMapper.mapFixtureToPackBall(mockApiData);
   LOG.ok(`  fixture_id=${raw.fixture_id}  exg_tot=${((raw.exg_h||0)+(raw.exg_a||0)).toFixed(2)}  over15_g=${raw.over15_g}`);
 
   const validation = PackBallMapper.validatePackBallInput(raw);
   if (!validation.valid) {
-    LOG.error('ValidaÃ§Ã£o falhou:', validation.critical.join(', '));
+    LOG.error('ValidaÃƒÂ§ÃƒÂ£o falhou:', validation.critical.join(', '));
     process.exit(1);
   }
-  LOG.ok('  ValidaÃ§Ã£o OK â€” ' + validation.info.join(' | '));
+  LOG.ok('  ValidaÃƒÂ§ÃƒÂ£o OK Ã¢â‚¬â€ ' + validation.info.join(' | '));
 
-  // â”€â”€ Fase 2: Motor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('Fase 2 â€” PredictionEngine.processFixture() (com linha alternativa)...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Fase 2: Motor Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('Fase 2 Ã¢â‚¬â€ PredictionEngine.processFixture() (com linha alternativa)...');
   const _scoresMock = PredictionEngine.processFixture(raw).scores;
   const { raw: rawPatchedMock, labelOverrides: loMock, altLines: altLinesMock } =
     AltLineResolver.resolveAlternativeLines(raw, mockApiData.odds, _scoresMock);
@@ -1677,7 +1662,7 @@ async function runMockToSupabase() {
   const result    = AltLineResolver.applyLabelOverrides(_baseMock, loMock, altLinesMock);
   LOG.ok(`  best_mkt="${result.best_mkt}"  score=${result.best_score?.toFixed(1)}  grade=${result.best_grade}  is_official=${result.is_official}`);
 
-  // â”€â”€ Fase 3: Gravar no Supabase â€” PARA NO PRIMEIRO ERRO â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Fase 3: Gravar no Supabase Ã¢â‚¬â€ PARA NO PRIMEIRO ERRO Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const inserted = {
     fixtures: 0, match_metrics: 0, odds: 0,
     predictions: 0, prediction_snapshots: 0,
@@ -1685,8 +1670,8 @@ async function runMockToSupabase() {
     errors: [],
   };
 
-  // â”€â”€ 3a. fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('Fase 3a â€” INSERT fixtures...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ 3a. fixtures Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('Fase 3a Ã¢â‚¬â€ INSERT fixtures...');
   console.log('  Colunas:', [
     'fixture_id','league_id','league_name','season','tier',
     'match_date','home_team','away_team','home_team_id','away_team_id',
@@ -1696,7 +1681,7 @@ async function runMockToSupabase() {
   try {
     await upsertFixture(raw, liga);
     inserted.fixtures = 1;
-    LOG.ok('  fixtures OK â€” fixture_id=' + raw.fixture_id);
+    LOG.ok('  fixtures OK Ã¢â‚¬â€ fixture_id=' + raw.fixture_id);
   } catch (err) {
     inserted.errors.push({ table: 'fixtures', error: err.message });
     LOG.error('  ERRO em fixtures:', err.message);
@@ -1704,8 +1689,8 @@ async function runMockToSupabase() {
     process.exit(1);
   }
 
-  // â”€â”€ 3b. match_metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('Fase 3b â€” INSERT match_metrics...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ 3b. match_metrics Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('Fase 3b Ã¢â‚¬â€ INSERT match_metrics...');
   console.log('  Colunas:', [
     'fixture_id','over15_g','over25_g','exg_h','exg_a','ppg_h','ppg_a',
     'h2h_goals','avg_sc_h','avg_sc_a','af_avg','btts_h','btts_a','btts_cf',
@@ -1721,7 +1706,7 @@ async function runMockToSupabase() {
   try {
     await upsertMetrics(raw, result);
     inserted.match_metrics = 1;
-    LOG.ok('  match_metrics OK â€” exg_tot=' + result.derivadas.exg_tot?.toFixed(3));
+    LOG.ok('  match_metrics OK Ã¢â‚¬â€ exg_tot=' + result.derivadas.exg_tot?.toFixed(3));
   } catch (err) {
     inserted.errors.push({ table: 'match_metrics', error: err.message });
     LOG.error('  ERRO em match_metrics:', err.message);
@@ -1729,8 +1714,8 @@ async function runMockToSupabase() {
     process.exit(1);
   }
 
-  // â”€â”€ 3c. odds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('Fase 3c â€” DELETE + INSERT odds...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ 3c. odds Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('Fase 3c Ã¢â‚¬â€ DELETE + INSERT odds...');
   console.log('  Colunas: fixture_id, market, value, odd, bookmaker_id, bookmaker_name, updated_at');
 
   const oddMap = {
@@ -1746,7 +1731,7 @@ async function runMockToSupabase() {
   try {
     await upsertOdds(raw);
     inserted.odds = oddsToInsert.length;
-    LOG.ok(`  odds OK â€” ${oddsToInsert.length} linhas inseridas`);
+    LOG.ok(`  odds OK Ã¢â‚¬â€ ${oddsToInsert.length} linhas inseridas`);
   } catch (err) {
     inserted.errors.push({ table: 'odds', error: err.message });
     LOG.error('  ERRO em odds:', err.message);
@@ -1754,8 +1739,8 @@ async function runMockToSupabase() {
     process.exit(1);
   }
 
-  // â”€â”€ 3d. predictions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('Fase 3d â€” UPSERT predictions (10 mercados)...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ 3d. predictions Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('Fase 3d Ã¢â‚¬â€ UPSERT predictions (10 mercados)...');
   console.log('  Colunas: fixture_id, market, score, probability, grade, confidence,');
   console.log('           passed_filter, under35_passed, is_best_market, odd, odd_justa, ev, created_at');
   console.log('  Linhas a inserir:');
@@ -1768,13 +1753,13 @@ async function runMockToSupabase() {
     const sc = result.scores[k];
     if (sc === null) return;
     const isBest = m === result.best_mkt;
-    console.log(`    ${isBest?'â˜…':' '} market="${m}"  score=${sc.toFixed(1)}  grade=${result.grades[k]}  is_best_market=${isBest}`);
+    console.log(`    ${isBest?'Ã¢Ëœâ€¦':' '} market="${m}"  score=${sc.toFixed(1)}  grade=${result.grades[k]}  is_best_market=${isBest}`);
   });
 
   try {
     await upsertPredictions(result);
     inserted.predictions = Object.values(result.scores).filter(v => v !== null).length;
-    LOG.ok(`  predictions OK â€” ${inserted.predictions} linhas, best_mkt="${result.best_mkt}"`);
+    LOG.ok(`  predictions OK Ã¢â‚¬â€ ${inserted.predictions} linhas, best_mkt="${result.best_mkt}"`);
   } catch (err) {
     inserted.errors.push({ table: 'predictions', error: err.message });
     LOG.error('  ERRO em predictions:', err.message);
@@ -1782,9 +1767,9 @@ async function runMockToSupabase() {
     process.exit(1);
   }
 
-  // â”€â”€ 3e. prediction_snapshots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ 3e. prediction_snapshots Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   if (result.is_official) {
-    LOG.info('Fase 3e â€” UPSERT prediction_snapshots...');
+    LOG.info('Fase 3e Ã¢â‚¬â€ UPSERT prediction_snapshots...');
     console.log('  Colunas: fixture_id, match_name, home_team, away_team, league_name,');
     console.log('           match_date, market, score, grade, confidence, odd, odd_justa,');
     console.log('           ev, result_status, confirmed_at, ticket_type, created_at');
@@ -1797,7 +1782,7 @@ async function runMockToSupabase() {
       const saved = await upsertSnapshot(result, raw);
       if (saved) {
         inserted.prediction_snapshots = 1;
-        LOG.ok(`  prediction_snapshots OK â€” snapshot criado`);
+        LOG.ok(`  prediction_snapshots OK Ã¢â‚¬â€ snapshot criado`);
 
         // Busca o ID gerado para mostrar no resumo
         const { data: snap } = await supabase
@@ -1806,10 +1791,10 @@ async function runMockToSupabase() {
           .eq('fixture_id', result.fixture_id)
           .eq('market', result.best_mkt)
           .single();
-        inserted.ids.prediction_snapshots = snap?.id || '(nÃ£o recuperado)';
+        inserted.ids.prediction_snapshots = snap?.id || '(nÃƒÂ£o recuperado)';
         LOG.ok(`  ID gerado: ${inserted.ids.prediction_snapshots}`);
       } else {
-        LOG.warn('  Snapshot nÃ£o criado (jÃ¡ existia com resultado confirmado)');
+        LOG.warn('  Snapshot nÃƒÂ£o criado (jÃƒÂ¡ existia com resultado confirmado)');
       }
     } catch (err) {
       inserted.errors.push({ table: 'prediction_snapshots', error: err.message });
@@ -1818,11 +1803,11 @@ async function runMockToSupabase() {
       process.exit(1);
     }
   } else {
-    LOG.dim(`  prediction_snapshots: pulado (grade ${result.best_grade} nÃ£o Ã© A+/A)`);
+    LOG.dim(`  prediction_snapshots: pulado (grade ${result.best_grade} nÃƒÂ£o ÃƒÂ© A+/A)`);
   }
 
-  // â”€â”€ VerificaÃ§Ã£o pÃ³s-gravaÃ§Ã£o (SELECT de confirmaÃ§Ã£o) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  LOG.info('VerificaÃ§Ã£o â€” lendo registros gravados...');
+  // Ã¢â€â‚¬Ã¢â€â‚¬ VerificaÃƒÂ§ÃƒÂ£o pÃƒÂ³s-gravaÃƒÂ§ÃƒÂ£o (SELECT de confirmaÃƒÂ§ÃƒÂ£o) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  LOG.info('VerificaÃƒÂ§ÃƒÂ£o Ã¢â‚¬â€ lendo registros gravados...');
 
   const checks = await Promise.allSettled([
     supabase.from('fixtures').select('fixture_id,home_team,away_team,status').eq('fixture_id', raw.fixture_id).single(),
@@ -1834,54 +1819,54 @@ async function runMockToSupabase() {
 
   const [chkFix, chkMet, chkOdds, chkPred, chkSnap] = checks;
 
-  console.log('\n  â”Œâ”€ fixtures:');
+  console.log('\n  Ã¢â€Å’Ã¢â€â‚¬ fixtures:');
   if (chkFix.status === 'fulfilled' && chkFix.value.data) {
     const r = chkFix.value.data;
-    console.log(`  â”‚  fixture_id=${r.fixture_id}  "${r.home_team} vs ${r.away_team}"  status="${r.status}"`);
+    console.log(`  Ã¢â€â€š  fixture_id=${r.fixture_id}  "${r.home_team} vs ${r.away_team}"  status="${r.status}"`);
   } else {
-    console.log(`  â”‚  ERRO: ${chkFix.value?.error?.message || chkFix.reason}`);
+    console.log(`  Ã¢â€â€š  ERRO: ${chkFix.value?.error?.message || chkFix.reason}`);
   }
 
-  console.log('  â”œâ”€ match_metrics:');
+  console.log('  Ã¢â€Å“Ã¢â€â‚¬ match_metrics:');
   if (chkMet.status === 'fulfilled' && chkMet.value.data) {
     const r = chkMet.value.data;
-    console.log(`  â”‚  fixture_id=${r.fixture_id}  exg_h=${r.exg_h}  exg_a=${r.exg_a}  over15_g=${r.over15_g}`);
+    console.log(`  Ã¢â€â€š  fixture_id=${r.fixture_id}  exg_h=${r.exg_h}  exg_a=${r.exg_a}  over15_g=${r.over15_g}`);
   } else {
-    console.log(`  â”‚  ERRO: ${chkMet.value?.error?.message || chkMet.reason}`);
+    console.log(`  Ã¢â€â€š  ERRO: ${chkMet.value?.error?.message || chkMet.reason}`);
   }
 
-  console.log('  â”œâ”€ odds:');
+  console.log('  Ã¢â€Å“Ã¢â€â‚¬ odds:');
   if (chkOdds.status === 'fulfilled' && chkOdds.value.data) {
-    chkOdds.value.data.forEach(o => console.log(`  â”‚  market="${o.market}"  odd=${o.odd}`));
+    chkOdds.value.data.forEach(o => console.log(`  Ã¢â€â€š  market="${o.market}"  odd=${o.odd}`));
   } else {
-    console.log(`  â”‚  ERRO: ${chkOdds.value?.error?.message || chkOdds.reason}`);
+    console.log(`  Ã¢â€â€š  ERRO: ${chkOdds.value?.error?.message || chkOdds.reason}`);
   }
 
-  console.log('  â”œâ”€ predictions:');
+  console.log('  Ã¢â€Å“Ã¢â€â‚¬ predictions:');
   if (chkPred.status === 'fulfilled' && chkPred.value.data) {
     chkPred.value.data.forEach(p =>
-      console.log(`  â”‚  ${p.is_best_market?'â˜…':' '} market="${p.market}"  score=${p.score}  grade=${p.grade}`)
+      console.log(`  Ã¢â€â€š  ${p.is_best_market?'Ã¢Ëœâ€¦':' '} market="${p.market}"  score=${p.score}  grade=${p.grade}`)
     );
   } else {
-    console.log(`  â”‚  ERRO: ${chkPred.value?.error?.message || chkPred.reason}`);
+    console.log(`  Ã¢â€â€š  ERRO: ${chkPred.value?.error?.message || chkPred.reason}`);
   }
 
-  console.log('  â””â”€ prediction_snapshots:');
+  console.log('  Ã¢â€â€Ã¢â€â‚¬ prediction_snapshots:');
   if (chkSnap.status === 'fulfilled' && chkSnap.value.data && chkSnap.value.data.length > 0) {
     chkSnap.value.data.forEach(s =>
       console.log(`     id=${s.id}  market="${s.market}"  score=${s.score}  grade=${s.grade}`)
     );
   } else {
-    console.log(`     (nenhum â€” grade < A ou jÃ¡ confirmado)`);
+    console.log(`     (nenhum Ã¢â‚¬â€ grade < A ou jÃƒÂ¡ confirmado)`);
   }
 
   printMockSummary(inserted);
 }
 
 function printMockSummary(inserted) {
-  const hr = 'â•'.repeat(64);
+  const hr = 'Ã¢â€¢Â'.repeat(64);
   console.log('\n' + hr);
-  console.log(' RESUMO â€” mock-to-supabase');
+  console.log(' RESUMO Ã¢â‚¬â€ mock-to-supabase');
   console.log(hr);
   console.log(` fixtures inseridos:            ${inserted.fixtures}`);
   console.log(` match_metrics inseridos:       ${inserted.match_metrics}`);
@@ -1894,15 +1879,15 @@ function printMockSummary(inserted) {
   if (inserted.errors.length > 0) {
     console.log('\n Erros encontrados:');
     inserted.errors.forEach(e => console.log(`   [${e.table}] ${e.error}`));
-    console.log('\n PrÃ³ximo passo recomendado:');
+    console.log('\n PrÃƒÂ³ximo passo recomendado:');
     const tbl = inserted.errors[0].table;
     console.log(`   1. Verificar se a tabela "${tbl}" existe no Supabase (SQL Editor)`);
     console.log(`   2. Confirmar que o SUPABASE_SERVICE_KEY tem role service_role`);
-    console.log(`   3. Checar se RLS estÃ¡ bloqueando (policy "Service write ${tbl}" deve existir)`);
+    console.log(`   3. Checar se RLS estÃƒÂ¡ bloqueando (policy "Service write ${tbl}" deve existir)`);
     console.log(`   4. Rodar: frontend/database/winmetrics_schema.sql no SQL Editor`);
   } else {
-    console.log('\n PrÃ³ximo passo recomendado:');
-    console.log('   1. Conferir os registros no Supabase Dashboard â†’ Table Editor');
+    console.log('\n PrÃƒÂ³ximo passo recomendado:');
+    console.log('   1. Conferir os registros no Supabase Dashboard Ã¢â€ â€™ Table Editor');
     console.log('   2. Confirmar que prediction_snapshots.market = "Esc 7.5"');
     console.log('   3. Configurar API_FOOTBALL_KEY e rodar com --dry-run para validar o pipeline real');
     console.log('   4. Em seguida, rodar sem flags para gravar com dados reais da API');
@@ -1910,8 +1895,8 @@ function printMockSummary(inserted) {
   console.log(hr + '\n');
 }
 
-// â”€â”€ Adiciona --mock-to-supabase ao entry point existente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// (Este bloco substitui o if(!API_KEY) jÃ¡ existente via check adicional)
+// Ã¢â€â‚¬Ã¢â€â‚¬ Adiciona --mock-to-supabase ao entry point existente Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// (Este bloco substitui o if(!API_KEY) jÃƒÂ¡ existente via check adicional)
 if (MOCK_TO_SUPABASE) {
   runMockToSupabase().catch(err => {
     LOG.error('Erro fatal no mock-to-supabase:', err.message);
