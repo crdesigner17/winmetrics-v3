@@ -352,25 +352,26 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 104px;
+    min-width: 0;
     max-width: 100%;
-    padding: 7px 12px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, rgba(0,210,160,.18), rgba(108,99,255,.16));
-    border: 1px solid rgba(0,210,160,.42);
+    padding: 5px 9px;
+    border-radius: 6px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: 'Rajdhani', sans-serif;
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .2px;
     line-height: 1.1;
     white-space: normal;
     text-align: center;
   }
-  .pick-conf-aplus { color: var(--green); }
-  .pick-conf-a { color: var(--gold); }
-  .pick-conf-b { color: #60a5fa; }
-  .pick-conf-c { color: #a78bfa; }
-  .pick-conf-d { color: #ff5e6a; }
+  .pick-conf-aplus { background: rgba(0,200,150,.12); color: var(--green); border-color: rgba(0,200,150,.3); }
+  .pick-conf-a { background: rgba(245,158,11,.1); color: var(--gold); border-color: rgba(245,158,11,.3); }
+  .pick-conf-b { background: rgba(59,130,246,.1); color: #60a5fa; border-color: rgba(59,130,246,.24); }
+  .pick-conf-c { background: rgba(124,58,237,.1); color: #a78bfa; border-color: rgba(124,58,237,.24); }
+  .pick-conf-d { background: rgba(239,68,68,.1); color: #ff5e6a; border-color: rgba(239,68,68,.24); }
   .smart-badge {
     display: inline-block;
     margin-bottom: 8px;
@@ -572,7 +573,7 @@
   th.col-date, td.col-date { width: 64px; }
 
   /* Chips de mercado menores */
-  .best-pick { font-size: 13px; padding: 5px 8px; min-width: 80px; }
+  .best-pick { font-size: 12px; padding: 4px 7px; }
 
   /* Filtros empilhados */
   .filters-row { flex-wrap: wrap; gap: 6px; }
@@ -2376,7 +2377,7 @@ function getMainPalpites(snap, predictionsMap) {
 
 function renderMainPalpites(items) {
   if (!items.length) return `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`;
-  return `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:260px;margin:0 auto;">${items.map(item =>
+  return `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:220px;margin:0 auto;">${items.map(item =>
     `<span class="best-pick ${pickConfidenceClass(item.grade)}" title="${Math.round(item.score)}%">${item.market}</span>`
   ).join('')}</div>`;
 }
