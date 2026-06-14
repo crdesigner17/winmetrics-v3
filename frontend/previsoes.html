@@ -2339,6 +2339,44 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
     .map(p => displayMarket(p.market));
 }
 
+function getMainPalpites(snap, predictionsMap) {
+  const preds = predictionsMap[snap.fixture_id] || [];
+  const seen = new Set();
+  const items = preds
+    .filter(p => p.is_best_market)
+    .map(p => ({
+      market: displayMarket(p.market),
+      score: Number(p.score ?? 0),
+      grade: p.grade || suggestionGrade(Number(p.score ?? 0)),
+    }))
+    .filter(p => {
+      if (!p.market || seen.has(p.market)) return false;
+      seen.add(p.market);
+      return true;
+    });
+
+  if (!items.length && snap.market) {
+    items.push({
+      market: displayMarket(snap.market),
+      score: Number(snap.score ?? 0),
+      grade: snap.grade || suggestionGrade(Number(snap.score ?? 0)),
+    });
+  }
+
+  return items.sort((a, b) =>
+    (GRADE_RANK[b.grade] || 0) - (GRADE_RANK[a.grade] || 0) ||
+    marketNaturalRank(a.market) - marketNaturalRank(b.market) ||
+    b.score - a.score
+  );
+}
+
+function renderMainPalpites(items) {
+  if (!items.length) return `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`;
+  return `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:260px;margin:0 auto;">${items.map(item =>
+    `<span class="best-pick ${pickConfidenceClass(item.grade)}" title="${Math.round(item.score)}%">${item.market}</span>`
+  ).join('')}</div>`;
+}
+
 // section
 let PAGE_SIZE = 20;
 let currentPage     = 1;
@@ -2516,7 +2554,7 @@ async function fetchPredictions(fixtureIds) {
   const { data, error } = await supabaseClient
     .from('predictions')
     .select(
-      'fixture_id, market, score, passed_filter, under35_passed, is_best_market'
+      'fixture_id, market, score, grade, passed_filter, under35_passed, is_best_market'
     )
     .in('fixture_id', fixtureIds);
 
@@ -3434,9 +3472,10 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
     const label     = palpiteLabel(snap);
     const conf      = getConf(snap);
     const altBadge  = '';
+    const mainPicks = getMainPalpites(snap, predictionsMap);
     const alts      = getAlternativas(snap.fixture_id, label, predictionsMap);
     const hasOfficialPick  = Boolean(snap.market);
-    const officialLabel    = hasOfficialPick ? label : null;
+    const officialLabel    = mainPicks.length ? mainPicks[0].market : (hasOfficialPick ? label : null);
     const smartSuggestions = worldCupOnly ? pickSmartSuggestions(snap.fixture_id, predictionsMap, metricsMap, oddsMap, officialLabel) : [];
     const leagueName = snap.league_name || '';
     const matchName = cleanMatchName(snap.match_name);
@@ -3456,9 +3495,8 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
     <td class="col-pick mercado-cell">
-      ${hasOfficialPick
-        ? `${worldCupOnly ? '<div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:5px">&check; Palpite Oficial</div>' : ''}<span class="best-pick ${pickConfidenceClass(conf)}">${label}</span>${altBadge}`
-        : `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`}
+      ${worldCupOnly && hasOfficialPick ? '<div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:5px">&check; Palpite Oficial</div>' : ''}
+      ${renderMainPalpites(mainPicks)}${altBadge}
     </td>
     ${worldCupOnly
       ? `<td class="col-wc-result" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['winnerFav','winnerOther'], snap)}</td>
@@ -3575,7 +3613,13 @@ async function loadPrevisoes() {
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
     ]);
-    const rows = snapshots.map(s => {
+    const seenFixtures = new Set();
+    const dedupedSnapshots = snapshots.filter(s => {
+      if (seenFixtures.has(s.fixture_id)) return false;
+      seenFixtures.add(s.fixture_id);
+      return true;
+    });
+    const rows = dedupedSnapshots.map(s => {
       const f = fixturesMap[s.fixture_id] || {};
       const merged = { ...f, ...s };
       // Garante match_name com fallback home_team x away_team
