@@ -7,8 +7,9 @@ on:
     - cron: '55 9  * * *'   # 09:55 UTC = 06:55 BRT
     - cron: '55 15 * * *'   # 15:55 UTC = 12:55 BRT
     - cron: '55 21 * * *'   # 21:55 UTC = 18:55 BRT
-    # Confirmar resultados — roda às 09:00 UTC = 06:00 BRT (jogos europeus já finalizados)
-    - cron: '0 9  * * *'    # 09:00 UTC = 06:00 BRT
+    # Confirmar resultados — dois horários para cobrir jogos tardios
+    - cron: '0 3  * * *'    # 03:00 UTC = 00:00 BRT (jogos tardios do dia anterior)
+    - cron: '0 9  * * *'    # 09:00 UTC = 06:00 BRT (jogos europeus já finalizados)
 
   push:
     branches: [main]
@@ -169,8 +170,8 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
         run: |
-          # Confirma ontem + anteontem (para pegar jogos tardios)
-          node scripts/confirmar.js --days=2
+          # Confirma últimos 7 dias (seguro — não sobrescreve resultados já confirmados)
+          node scripts/confirmar.js --days=7
           EXIT=$?
           if [ $EXIT -eq 2 ]; then
             echo "⛔ Quota esgotada no confirmar."
