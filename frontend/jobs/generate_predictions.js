@@ -146,7 +146,7 @@ const BLOCKED_TERMS = [
 ];
 
 // Grades exibÃƒÂ­veis nas previsÃƒÂµes. A+/A seguem como destaque; Todos inclui B/C/D.
-const GRADES_OFICIAIS = new Set(['A+', 'A', 'B', 'C', 'D']);
+const GRADES_OFICIAIS = new Set(['A+', 'A']);
 
 // Bilhete do dia: grade A+ E score >= 90 (Ã‚Â§7.2)
 const TICKET_DIA_MIN_SCORE = 90;
@@ -920,6 +920,7 @@ async function upsertPredictions(result) {
  */
 async function upsertSnapshot(result, raw) {
   if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
+  if (!result.is_official || !GRADES_OFICIAIS.has(result.best_grade)) return 0;
 
   const _altForCanonical = (result.altLines || []).find(
     a => a.final_market === result.best_mkt || a.original_market === result.best_mkt

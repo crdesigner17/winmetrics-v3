@@ -30,19 +30,19 @@ const PredictionEngine = (function () {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   const GRADE_THRESHOLDS = {
-    'A+': 85,
-    'A':  75,
-    'B':  65,
-    'C':  50,
+    'A+': 88,
+    'A':  80,
+    'B':  70,
+    'C':  60,
   };
-  // D = qualquer score abaixo de 50
+  // D = qualquer score abaixo de 60
 
   const CONFIDENCE_LABELS = {
-    'A+': 'ConfianÃ§a Alta',
-    'A':  'ConfianÃ§a MÃ©dia',
-    'B':  'Moderado',
-    'C':  'Arriscado',
-    'D':  'Evitar',
+    'A+': 'Muito Baixo',
+    'A':  'Baixo',
+    'B':  'Médio',
+    'C':  'Alto',
+    'D':  'Muito Alto',
   };
 
   // Mercados que entram no snap / Melhores PrevisÃµes (grades oficiais)
@@ -721,8 +721,8 @@ const PredictionEngine = (function () {
   /**
    * getGrade(score)
    * Converte score numÃ©rico (0â€“100) em grade.
-   * Thresholds do coletar.py (modo API):
-   *   A+: >= 85  |  A: >= 75  |  B: >= 65  |  C: >= 50  |  D: < 50
+   * Thresholds v1:
+   *   A+: >= 88  |  A: >= 80  |  B: >= 70  |  C: >= 60  |  D: < 60
    *
    * @param {number|null} score
    * @returns {string}  'A+' | 'A' | 'B' | 'C' | 'D'
@@ -741,10 +741,10 @@ const PredictionEngine = (function () {
    * Converte grade em label de confianÃ§a exibido na UI.
    *
    * @param {string} grade
-   * @returns {string}  'Elite' | 'Alta' | 'Moderado' | 'Arriscado' | 'Evitar'
+   * @returns {string}  'Muito Baixo' | 'Baixo' | 'Médio' | 'Alto' | 'Muito Alto'
    */
   function getConfidence(grade) {
-    return CONFIDENCE_LABELS[grade] || 'Evitar';
+    return CONFIDENCE_LABELS[grade] || 'Muito Alto';
   }
 
 
@@ -883,6 +883,105 @@ const PredictionEngine = (function () {
     return Math.round(((probability / 100) * odd - 1) * 100 * 10) / 10;
   }
 
+  function _finite(v) {
+    return v !== null && v !== undefined && Number.isFinite(Number(v));
+  }
+
+  function _hasAll(raw, fields) {
+    return fields.every(f => _finite(raw[f]));
+  }
+
+  function _signalCount(raw, fields) {
+    return fields.reduce((n, f) => n + (_finite(raw[f]) ? 1 : 0), 0);
+  }
+
+  function _fairOdd(score) {
+    return _finite(score) && Number(score) > 0 ? 100 / Number(score) : null;
+  }
+
+  function _marketKeyFromName(market) {
+    return _mktKey(market);
+  }
+
+  function premiumMarketAudit(key, market, raw, score, odd, ev, filters) {
+    const gradeByScore = getGrade(score);
+    const reasons = [];
+    if (!GRADES_OFICIAIS.has(gradeByScore)) reasons.push('score abaixo de A');
+    if (!_finite(score)) reasons.push('probabilidade ausente');
+    if (!_finite(odd) || Number(odd) <= 1) reasons.push('odd de mercado ausente');
+    if (!_finite(ev)) reasons.push('EV ausente');
+
+    const fairOdd = _fairOdd(score);
+    if (!_finite(fairOdd)) reasons.push('odd justa ausente');
+    if (_finite(odd) && _finite(fairOdd) && Number(odd) < fairOdd) {
+      reasons.push('sem margem de seguranca');
+    }
+
+    let signals = 0;
+    let marketOk = true;
+
+    if (key === 'over15') {
+      marketOk = !!filters.over15_passed && _hasAll(raw, ['ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a']);
+      signals = _signalCount(raw, ['over15_g', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a', 'h2h_goals', 'exg_h', 'exg_a']);
+    } else if (key === 'over25') {
+      marketOk = _hasAll(raw, ['over25_g', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a']);
+      signals = _signalCount(raw, ['over25_g', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a', 'h2h_goals', 'exg_h', 'exg_a']);
+    } else if (key === 'btts') {
+      marketOk = _hasAll(raw, ['btts_h', 'btts_a', 'avg_sc_h', 'avg_sc_a']);
+      signals = _signalCount(raw, ['btts_h', 'btts_a', 'avg_sc_h', 'avg_sc_a', 'h2h_goals', 'over15_g']);
+    } else if (key === 'over05ht') {
+      marketOk = _hasAll(raw, ['over05_ht', 'over15_ht', 'ppg_h', 'ppg_a']);
+      signals = _signalCount(raw, ['over05_ht', 'over15_ht', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a', 'avg_sot']);
+    } else if (key === 'under45') {
+      marketOk = _hasAll(raw, ['ppg_h', 'ppg_a']) && (_finite(raw.under25_h) || _finite(raw.exg_h));
+      signals = _signalCount(raw, ['under25_h', 'under25_a', 'ppg_h', 'ppg_a', 'exg_h', 'exg_a', 'h2h_goals']);
+    } else if (key === 'under35') {
+      marketOk = !!filters.under35_passed && _hasAll(raw, ['ppg_h', 'ppg_a']);
+      signals = _signalCount(raw, ['under25_h', 'under25_a', 'ppg_h', 'ppg_a', 'exg_h', 'exg_a', 'h2h_goals', 'over25_g']);
+    } else if (key === 'esc75' || key === 'esc85') {
+      const overField = key === 'esc85' ? 'over85_c' : 'over75_c';
+      marketOk = _hasAll(raw, ['avg_corners', overField, 'avg_shots']);
+      signals = _signalCount(raw, ['avg_corners', overField, 'over65_c', 'avg_shots']);
+    } else if (key === 'cards25' || key === 'cards35' || key === 'cards55') {
+      const overField = key === 'cards35' ? 'over35_cards' : key === 'cards55' ? 'over45_cards' : 'over25_cards';
+      marketOk = _hasAll(raw, ['avg_cards', overField]);
+      signals = _signalCount(raw, ['avg_cards', overField, 'over25_cards', 'over35_cards']);
+    } else if (key === 'resultadoFinal') {
+      marketOk = _hasAll(raw, ['odds_h', 'odds_a']) && (_finite(raw.win_home) || _hasAll(raw, ['ppg_h', 'ppg_a']));
+      signals = _signalCount(raw, ['odds_h', 'odds_a', 'win_home', 'win_away', 'ppg_h', 'ppg_a', 'exg_h', 'exg_a', 'avg_sc_h', 'avg_sc_a']);
+    }
+
+    if (!marketOk) reasons.push('regra especifica do mercado nao cumprida');
+
+    const officialGrade = gradeByScore;
+    return {
+      market,
+      key,
+      raw_grade: gradeByScore,
+      official_grade: officialGrade,
+      is_premium: GRADES_OFICIAIS.has(officialGrade),
+      fair_odd: fairOdd !== null ? Math.round(fairOdd * 100) / 100 : null,
+      safety_margin: (_finite(odd) && _finite(fairOdd)) ? Math.round(((Number(odd) / fairOdd) - 1) * 1000) / 10 : null,
+      reasons,
+    };
+  }
+
+  function applyPremiumAudit(raw, scores, grades, odds, evs, filters, best) {
+    const audits = {};
+    for (const [key, score] of Object.entries(scores)) {
+      const market = key === 'resultadoFinal'
+        ? (filters.resultadoFinal_market || 'Resultado Final (1X2)')
+        : Object.entries(_MKT_TO_KEY).find(([, v]) => v === key)?.[0] || key;
+      const audit = premiumMarketAudit(key, market, raw, score, odds[key], evs[key], filters);
+      audits[key] = audit;
+    }
+
+    if (!best) return { audits, bestAudit: null };
+    const bestKey = _marketKeyFromName(best.market);
+    const bestAudit = bestKey ? audits[bestKey] : null;
+    return { audits, bestAudit };
+  }
+
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // 10. PIPELINE COMPLETO â€” processFixture(raw)
@@ -987,6 +1086,7 @@ const PredictionEngine = (function () {
     for (const [mkt, sc] of Object.entries(scores)) {
       grades[mkt] = getGrade(sc);
     }
+    const raw_grades = Object.assign({}, grades);
 
     // â”€â”€ Etapa 7: Odds coletadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const odds = {
@@ -1020,11 +1120,12 @@ const PredictionEngine = (function () {
     };
 
     const best = selectBestMkt(scores, filters);
+    const premiumAudit = applyPremiumAudit(raw, scores, grades, odds, evs, filters, best);
 
     const best_mkt        = best ? best.market     : null;
     const best_score      = best ? best.score      : null;
-    const best_grade      = best ? best.grade      : 'D';
-    const best_confidence = best ? best.confidence : 'Evitar';
+    const best_grade      = best ? best.grade : 'D';
+    const best_confidence = getConfidence(best_grade);
     const best_odd        = best ? (odds[_mktKey(best.market)] ?? null) : null;
     const best_ev         = best ? computeEV(best.score, best_odd) : null;
     const is_official     = GRADES_OFICIAIS.has(best_grade);
@@ -1049,6 +1150,7 @@ const PredictionEngine = (function () {
 
       // Scores, grades, odds, EVs por mercado
       scores,
+      raw_grades,
       grades,
       odds,
       evs,
@@ -1064,6 +1166,8 @@ const PredictionEngine = (function () {
       best_odd,
       best_ev,
       main_markets,
+      premium_audit: premiumAudit.audits,
+      best_premium_audit: premiumAudit.bestAudit,
       is_official,   // true se A+ ou A â€” entra em Melhores PrevisÃµes
     };
   }
