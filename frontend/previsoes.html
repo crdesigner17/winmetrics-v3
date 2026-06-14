@@ -1033,7 +1033,7 @@ async function getCurrentProfile() {
     <!-- section -->
     <div class="snapshot-notice">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">Baixo</strong> e <strong style="margin:0 3px">Muito Baixo</strong> geradas pelo Prediction Engine.
+      Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">Alta</strong> e <strong style="margin:0 3px">Elite</strong> geradas pelo Prediction Engine.
     </div>
 
     <!-- Modal de filtro por intervalo de datas -->
@@ -1179,11 +1179,11 @@ const PredictionEngine = (function () {
   // D = qualquer score abaixo de 60
 
   const CONFIDENCE_LABELS = {
-    'A+': 'Muito Baixo',
-    'A':  'Baixo',
-    'B':  'Médio',
-    'C':  'Alto',
-    'D':  'Muito Alto',
+    'A+': 'Elite',
+    'A':  'Alta',
+    'B':  'Moderado',
+    'C':  'Arriscado',
+    'D':  'Evitar',
   };
 
   // Mercados que entram no snap / Melhores Previsões (grades oficiais)
@@ -1882,10 +1882,10 @@ const PredictionEngine = (function () {
    * Converte grade em label de confiança exibido na UI.
    *
    * @param {string} grade
-   * @returns {string}  'Muito Baixo' | 'Baixo' | 'Médio' | 'Alto' | 'Muito Alto'
+   * @returns {string}  'Elite' | 'Alta' | 'Moderado' | 'Arriscado' | 'Evitar'
    */
   function getConfidence(grade) {
-    return CONFIDENCE_LABELS[grade] || 'Muito Alto';
+    return CONFIDENCE_LABELS[grade] || 'Evitar';
   }
 
 
@@ -2945,7 +2945,7 @@ function confBadge(conf) {
   // section
   if (!conf) return `<span class="conf-badge conf-media">-</span>`;
   const c = conf.toLowerCase();
-  if (c === 'elite' || c === 'a+' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Muito Baixo</span>`;
+  if (c === 'elite' || c === 'a+' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
   if (c === 'alta' || c === 'a' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Baixo</span>`;
   if (c === 'confiança média' || c === 'moderado' || c === 'médio') return `<span class="conf-badge conf-media">Médio</span>`;
   return `<span class="conf-badge conf-media">-</span>`;
@@ -2962,11 +2962,11 @@ function confBadge(conf) {
   else if (c === 'd' || c.includes('evitar') || c.includes('pouca')) grade = 'D';
 
   const meta = {
-    'A+': { cls: 'conf-aplus', label: 'Muito Baixo', tip: 'Máxima confiança, cenário extremamente favorável' },
-    'A':  { cls: 'conf-a',     label: 'Baixo',       tip: 'Excelente oportunidade, forte convergência dos indicadores' },
-    'B':  { cls: 'conf-b',     label: 'Médio',       tip: 'Boa oportunidade, maioria dos critérios atendidos' },
-    'C':  { cls: 'conf-c',     label: 'Alto',        tip: 'Mercado aceitável, mas com alguns sinais de alerta' },
-    'D':  { cls: 'conf-d',     label: 'Muito Alto',  tip: 'Pouca confiança, não recomendado para entrada principal' },
+    'A+': { cls: 'conf-aplus', label: 'Elite',     tip: 'Máxima confiança, cenário extremamente favorável' },
+    'A':  { cls: 'conf-a',     label: 'Alta',      tip: 'Excelente oportunidade, forte convergência dos indicadores' },
+    'B':  { cls: 'conf-b',     label: 'Moderado',  tip: 'Boa oportunidade, maioria dos critérios atendidos' },
+    'C':  { cls: 'conf-c',     label: 'Arriscado', tip: 'Mercado aceitável, mas com alguns sinais de alerta' },
+    'D':  { cls: 'conf-d',     label: 'Evitar',    tip: 'Pouca confiança, não recomendado para entrada principal' },
   };
   const item = meta[grade] || meta.D;
   return `<span class="conf-badge ${item.cls}" title="${item.tip}">${item.label}</span>`;
@@ -3627,7 +3627,7 @@ function renderEmpty() {
       <div style="font-size:32px;margin-bottom:10px">&#128237;</div>
       <div style="font-size:14px;margin-bottom:8px">Nenhuma previsão encontrada ${filterLabel}.</div>
       <div style="font-size:12px;color:var(--text-muted);max-width:360px;margin:0 auto;line-height:1.6">
-        Esta página exibe apenas previsões classificadas como <strong style="color:var(--purple)">Baixo</strong> ou <strong style="color:var(--purple)">Muito Baixo</strong>
+        Esta página exibe apenas previsões classificadas como <strong style="color:var(--purple)">Alta</strong> ou <strong style="color:var(--purple)">Elite</strong>
         geradas pelo Prediction Engine. Se não há resultados, é possível que não existam previsões
         de baixo risco para esse período.
       </div>
