@@ -46,6 +46,7 @@ const PackBallMapper         = require('../lib/packball_mapper.js');
 const AltLineResolver        = require('../lib/alternative_line_resolver.js');
 const { enrichFromWorldCup } = require('../lib/enrichFromWorldCup.js');
 const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enricher.js');
+const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.js'); // [NOVO]
 
 
 // ─────────────────────────────────────────────────────────────────
@@ -1154,6 +1155,11 @@ async function run() {
         raw = applyCsvToRaw(raw, apiData.packballCSV, LOG);
       }
 
+
+      // ── [NOVO] ENRIQUECER COM ODDS EXTERNAS (The Odds API) ──────
+      // Só preenche campos null — nunca sobrescreve API-Football ou CSV
+      // Fallback silencioso se ODDS_API_KEY não configurada ou jogo não encontrado
+      raw = await enrichOddsExternas(raw, LOG);
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
         const oddFields = ['odd_o15','odd_o25','odd_btts','odd_u35','odd_u45','odd_esc75','odd_esc85','odd_c25','odd_c35'];
@@ -1201,6 +1207,10 @@ async function run() {
         result = AltLineResolver.applyLabelOverrides(_resultBase, labelOverrides, altLines);
       }
 
+      // u2500u2500 [NOVO] ENRIQUECER SCORES COM FUSu00c3O PACKBALL + MERCADO u2500u2500
+      // Adiciona result.scores_enriquecidos e result.graus_enriquecidos
+      // Nu00e3o altera result.scores nem result.grades originais
+      enrichResultScores(result, raw);
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
         const mktKeys = ['over15','over25','btts','over05ht','under45','under35','esc75','esc85','cards25','cards35'];
