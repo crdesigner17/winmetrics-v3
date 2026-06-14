@@ -2654,7 +2654,7 @@ async function fetchFixtureResults(fixtureIds) {
 
   if (error || !data) return {};
   return data.reduce((acc, row) => {
-    acc[row.fixture_id] = { ...row, fixture_match_date: row.match_date };
+    acc[String(row.fixture_id)] = { ...row, fixture_match_date: row.match_date };
     return acc;
   }, {});
 }
@@ -2704,14 +2704,15 @@ async function fetchAllSnapshotsByFixtureIds(fixtureIds) {
     .in('fixture_id', fixtureIds);
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
-    if (!acc[snap.fixture_id]) acc[snap.fixture_id] = {};
+    const fid = String(snap.fixture_id);
+    if (!acc[fid]) acc[fid] = {};
     const raw = snap.market ? snap.market.trim() : '';
     if (!raw) return acc;
     const status = snap.result_status || null;
     // Index by raw name AND canonical key for flexible lookup
-    acc[snap.fixture_id][raw] = status;
+    acc[fid][raw] = status;
     const canonical = canonicalMarketKey(raw);
-    if (canonical) acc[snap.fixture_id][canonical] = status;
+    if (canonical) acc[fid][canonical] = status;
     return acc;
   }, {});
 }
@@ -3090,10 +3091,7 @@ function calcAltResult(rawMarket, snap) {
 
 function renderAlts(alts, snapshotsMap, fixtureId, snap) {
   if (!alts.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
-  const snapsByMarket = (snapshotsMap && fixtureId) ? (snapshotsMap[fixtureId] || {}) : {};
-  if (snap && (snap.goals_home !== null && snap.goals_home !== undefined)) {
-    console.log('[ALT DEBUG] fixture', fixtureId, 'goals:', snap.goals_home, '-', snap.goals_away, 'corners:', snap.corners_total, 'cards:', snap.cards_total, 'snapsByMarket:', Object.keys(snapsByMarket));
-  }
+  const snapsByMarket = (snapshotsMap && fixtureId) ? (snapshotsMap[String(fixtureId)] || {}) : {};
   return alts.map(item => {
     const marketName  = typeof item === 'string' ? item : item.market;
     const rawMarket   = typeof item === 'string' ? item : (item.rawMarket || item.market);
@@ -3881,7 +3879,7 @@ async function loadPrevisoes() {
       return true;
     });
     const rows = dedupedSnapshots.map(s => {
-      const f = fixturesMap[s.fixture_id] || {};
+      const f = fixturesMap[String(s.fixture_id)] || {};
       const merged = { ...f, ...s };
       // Fixture fields that must NOT be overwritten by snapshot
       if (f.goals_home   !== undefined) merged.goals_home    = f.goals_home;
