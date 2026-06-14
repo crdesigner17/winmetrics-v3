@@ -2649,7 +2649,7 @@ async function fetchFixtureResults(fixtureIds) {
   if (!fixtureIds.length) return {};
   const { data, error } = await supabaseClient
     .from('fixtures')
-    .select('fixture_id, goals_home, goals_away, status, match_date')
+    .select('fixture_id, goals_home, goals_away, status, match_date, corners_total, cards_total')
     .in('fixture_id', fixtureIds);
 
   if (error || !data) return {};
@@ -3052,14 +3052,51 @@ function formatPlacar(snap) {
   return `${gh} - ${ga}`;
 }
 
-function renderAlts(alts, snapshotsMap, fixtureId) {
+function calcAltResult(rawMarket, snap) {
+  const gh = snap.goals_home ?? snap.home_goals ?? null;
+  const ga = snap.goals_away ?? snap.away_goals ?? null;
+  const corners = snap.corners_total ?? null;
+  const cards   = snap.cards_total   ?? null;
+  const gols    = (gh !== null && ga !== null) ? gh + ga : null;
+
+  const mk = canonicalMarketKey(rawMarket);
+
+  if (mk === 'over15')   return gols !== null ? (gols >= 2  ? 'green' : 'red') : null;
+  if (mk === 'over25')   return gols !== null ? (gols >= 3  ? 'green' : 'red') : null;
+  if (mk === 'under35')  return gols !== null ? (gols <= 3  ? 'green' : 'red') : null;
+  if (mk === 'under45')  return gols !== null ? (gols <= 4  ? 'green' : 'red') : null;
+  if (mk === 'btts')     return (gh !== null && ga !== null) ? (gh > 0 && ga > 0 ? 'green' : 'red') : null;
+  if (mk === 'esc75')    return corners !== null ? (corners > 7.5  ? 'green' : 'red') : null;
+  if (mk === 'esc85')    return corners !== null ? (corners > 8.5  ? 'green' : 'red') : null;
+  if (mk === 'cards25')  return cards   !== null ? (cards   > 2.5  ? 'green' : 'red') : null;
+  if (mk === 'cards35')  return cards   !== null ? (cards   > 3.5  ? 'green' : 'red') : null;
+  if (mk === 'cards55')  return cards   !== null ? (cards   > 5.5  ? 'green' : 'red') : null;
+  if (mk === 'home_win') return (gh !== null && ga !== null) ? (gh > ga  ? 'green' : 'red') : null;
+  if (mk === 'away_win') return (gh !== null && ga !== null) ? (ga > gh  ? 'green' : 'red') : null;
+  if (mk === 'dc1x')     return (gh !== null && ga !== null) ? (gh >= ga ? 'green' : 'red') : null;
+  if (mk === 'dcx2')     return (gh !== null && ga !== null) ? (ga >= gh ? 'green' : 'red') : null;
+  if (mk === 'home_dnb') {
+    if (gh === null || ga === null) return null;
+    if (gh === ga) return null; // void
+    return gh > ga ? 'green' : 'red';
+  }
+  if (mk === 'away_dnb') {
+    if (gh === null || ga === null) return null;
+    if (gh === ga) return null; // void
+    return ga > gh ? 'green' : 'red';
+  }
+  return null;
+}
+
+function renderAlts(alts, snapshotsMap, fixtureId, snap) {
   if (!alts.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
   const snapsByMarket = (snapshotsMap && fixtureId) ? (snapshotsMap[fixtureId] || {}) : {};
   return alts.map(item => {
     const marketName  = typeof item === 'string' ? item : item.market;
     const rawMarket   = typeof item === 'string' ? item : (item.rawMarket || item.market);
     const canonicalKey = canonicalMarketKey(rawMarket || marketName);
-    const status      = snapsByMarket[rawMarket] ?? snapsByMarket[marketName] ?? snapsByMarket[canonicalKey] ?? null;
+    const statusFromDB = snapsByMarket[rawMarket] ?? snapsByMarket[marketName] ?? snapsByMarket[canonicalKey] ?? null;
+    const status       = statusFromDB ?? (snap ? calcAltResult(rawMarket || marketName, snap) : null);
     let dotColor, chipBg, chipBorder, chipColor;
     if (status === 'green') {
       dotColor = '#00d2a0'; chipBg = 'rgba(0,210,160,.12)'; chipBorder = 'rgba(0,210,160,.3)'; chipColor = '#00d2a0';
@@ -3723,7 +3760,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     <td class="col-wc-goals" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['goalsft','goalsht','btts'], snap)}</td>
     <td class="col-wc-corners" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['corners'], snap)}</td>
     <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
-      : `<td class="col-alts" style="padding:10px 12px;">${renderAlts(alts, snapshotsMap, snap.fixture_id)}</td>`
+      : `<td class="col-alts" style="padding:10px 12px;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>`
     }
     <td class="col-score">${ringHtml(score, ringColor(score))}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
