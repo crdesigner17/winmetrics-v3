@@ -2705,8 +2705,13 @@ async function fetchAllSnapshotsByFixtureIds(fixtureIds) {
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
     if (!acc[snap.fixture_id]) acc[snap.fixture_id] = {};
-    const key = snap.market ? snap.market.trim() : '';
-    if (key) acc[snap.fixture_id][key] = snap.result_status || null;
+    const raw = snap.market ? snap.market.trim() : '';
+    if (!raw) return acc;
+    const status = snap.result_status || null;
+    // Index by raw name AND canonical key for flexible lookup
+    acc[snap.fixture_id][raw] = status;
+    const canonical = canonicalMarketKey(raw);
+    if (canonical) acc[snap.fixture_id][canonical] = status;
     return acc;
   }, {});
 }
@@ -3053,7 +3058,8 @@ function renderAlts(alts, snapshotsMap, fixtureId) {
   return alts.map(item => {
     const marketName  = typeof item === 'string' ? item : item.market;
     const rawMarket   = typeof item === 'string' ? item : (item.rawMarket || item.market);
-    const status      = snapsByMarket[rawMarket] ?? snapsByMarket[marketName] ?? null;
+    const canonicalKey = canonicalMarketKey(rawMarket || marketName);
+    const status      = snapsByMarket[rawMarket] ?? snapsByMarket[marketName] ?? snapsByMarket[canonicalKey] ?? null;
     let dotColor, chipBg, chipBorder, chipColor;
     if (status === 'green') {
       dotColor = '#00d2a0'; chipBg = 'rgba(0,210,160,.12)'; chipBorder = 'rgba(0,210,160,.3)'; chipColor = '#00d2a0';
