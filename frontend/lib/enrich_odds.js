@@ -38,22 +38,27 @@ const PESO_MERCADO  = 0.4;
 // ── Mapeamento: league_id da API-Football → sport key da Odds API ─
 // Adicionar novas competições aqui conforme necessário
 const LEAGUE_TO_SPORT_KEY = {
-  1:   'soccer_fifa_world_cup',            // FIFA World Cup
-  2:   'soccer_uefa_champions_league',     // Champions League
-  3:   'soccer_uefa_europa_league',        // Europa League
-  39:  'soccer_epl',                       // Premier League
-  78:  'soccer_germany_bundesliga',        // Bundesliga
-  79:  'soccer_germany_bundesliga2',       // 2. Bundesliga
-  135: 'soccer_italy_serie_a',             // Serie A
-  140: 'soccer_spain_la_liga',             // La Liga
-  61:  'soccer_france_ligue_one',          // Ligue 1
-  94:  'soccer_portugal_primeira_liga',    // Liga Portugal
-  71:  'soccer_brazil_campeonato',         // Brasileirão
-  13:  'soccer_conmebol_copa_libertadores',// Copa Libertadores
-  848: 'soccer_uefa_europa_conference_league',
-  203: 'soccer_turkey_super_league',       // Super Lig
-  88:  'soccer_netherlands_eredivisie',    // Eredivisie
-  960: 'soccer_uefa_nations_league_a',     // UEFA Nations League
+  // ── Confirmados disponíveis no free tier ─────────────────────
+  1:   'soccer_fifa_world_cup',                 // FIFA World Cup ✅
+  13:  'soccer_conmebol_copa_libertadores',      // Copa Libertadores ✅
+  11:  'soccer_conmebol_copa_sudamericana',      // Copa Sudamericana ✅
+  72:  'soccer_brazil_serie_b',                 // Brasileirão Série B ✅
+  79:  'soccer_germany_dfb_pokal',              // DFB-Pokal (Copa da Alemanha) ✅
+  141: 'soccer_spain_segunda_division',         // La Liga 2 ✅
+  103: 'soccer_norway_eliteserien',             // Eliteserien ✅
+  // ── Outros mapeamentos (podem não estar no free tier) ────────
+  2:   'soccer_uefa_champions_league',          // Champions League
+  3:   'soccer_uefa_europa_league',             // Europa League
+  848: 'soccer_uefa_europa_conference_league',  // Conference League
+  39:  'soccer_epl',                            // Premier League
+  78:  'soccer_germany_bundesliga',             // Bundesliga
+  135: 'soccer_italy_serie_a',                  // Serie A
+  140: 'soccer_spain_la_liga',                  // La Liga
+  61:  'soccer_france_ligue_one',               // Ligue 1
+  94:  'soccer_portugal_primeira_liga',         // Liga Portugal
+  88:  'soccer_netherlands_eredivisie',         // Eredivisie
+  203: 'soccer_turkey_super_league',            // Super Lig
+  960: 'soccer_uefa_nations_league_a',          // UEFA Nations League
 };
 
 // Cache em memória por execução (evita chamadas duplicadas por liga)
