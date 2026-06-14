@@ -81,7 +81,6 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
           FROM="${{ github.event.inputs.from_date || '2026-05-24' }}"
           FUTURE="${{ github.event.inputs.future_days || '10' }}"
@@ -112,7 +111,6 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
           TODAY=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
           FORCE_FLAG=""
@@ -135,7 +133,6 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
           DATE="${{ github.event.inputs.date }}"
           if [ -z "$DATE" ]; then
@@ -174,7 +171,6 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
           # Confirma últimos 7 dias (seguro — não sobrescreve resultados já confirmados)
           node scripts/confirmar.js --days=7
