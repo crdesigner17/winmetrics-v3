@@ -2520,7 +2520,7 @@ function getMainPalpites(snap, predictionsMap) {
 
 function renderMainPalpites(items) {
   if (!items.length) return `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`;
-  return `<div style="display:flex;flex-wrap:wrap;justify-content:flex-start;gap:5px;">${items.map(item =>
+  return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;">${items.map(item =>
     `<span class="best-pick ${pickConfidenceClass(item.grade)}" title="${Math.round(item.score)}%">${item.market}</span>`
   ).join('')}</div>`;
 }
@@ -3106,9 +3106,10 @@ function renderAlts(alts, snapshotsMap, fixtureId, snap) {
     } else {
       dotColor = '#525870'; chipBg = 'rgba(108,99,255,.12)'; chipBorder = 'rgba(108,99,255,.25)'; chipColor = 'var(--purple)';
     }
-    return `<div style="margin-bottom:4px;"><span style="
+    const tooltip = status === null ? 'title="Dados de estatísticas não disponíveis"' : status === 'green' ? 'title="Green ✓"' : 'title="Red ✗"';
+    return `<div style="margin-bottom:4px;"><span ${tooltip} style="
       display:inline-flex;align-items:center;gap:4px;
-      font-size:11px;padding:2px 7px 2px 5px;border-radius:4px;white-space:nowrap;
+      font-size:11px;padding:2px 7px 2px 5px;border-radius:4px;white-space:nowrap;cursor:default;
       background:${chipBg};border:1px solid ${chipBorder};color:${chipColor};
     "><span style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0;display:inline-block;"></span>${marketName}</span></div>`;
   }).join('');
