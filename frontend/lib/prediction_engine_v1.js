@@ -1,22 +1,22 @@
-﻿/**
- * WinMetrics Analytics â€” Prediction Engine v1
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Motor matemÃ¡tico puro do PackBall v3.0.
- * ImplementaÃ§Ã£o fiel Ã  DocumentaÃ§Ã£o TÃ©cnica Completa â€” Junho 2026.
+/**
+ * WinMetrics Analytics — Prediction Engine v1
+ * ─────────────────────────────────────────────
+ * Motor matemático puro do PackBall v3.0.
+ * Implementação fiel à Documentação Técnica Completa — Junho 2026.
  *
- * SeÃ§Ãµes de referÃªncia:
- *   3.1  VariÃ¡veis brutas
- *   3.2  VariÃ¡veis derivadas + Poisson
- *   3.3  NormalizaÃ§Ãµes (escala 0â€“100)
- *   4.1â€“4.10  Score Engine por mercado
+ * Seções de referência:
+ *   3.1  Variáveis brutas
+ *   3.2  Variáveis derivadas + Poisson
+ *   3.3  Normalizações (escala 0–100)
+ *   4.1–4.10  Score Engine por mercado
  *   5.1  Sistema de grades (thresholds coletar.py / modo API)
- *   5.2  SeleÃ§Ã£o de best_mkt
- *   6    Filtro 3 Vias â€” Over 1.5 (modo API â€” inclui Via 4)
- *   4.6  Filtro especÃ­fico Under 3.5
+ *   5.2  Seleção de best_mkt
+ *   6    Filtro 3 Vias — Over 1.5 (modo API — inclui Via 4)
+ *   4.6  Filtro específico Under 3.5
  *
- * Sem dependÃªncias externas. Sem acesso Ã  rede.
- * Entrada: objeto raw com variÃ¡veis brutas por fixture.
- * SaÃ­da:   objeto processado com scores, grades, filtros, best_mkt e EV.
+ * Sem dependências externas. Sem acesso à rede.
+ * Entrada: objeto raw com variáveis brutas por fixture.
+ * Saída:   objeto processado com scores, grades, filtros, best_mkt e EV.
  *
  * Uso:
  *   const result = PredictionEngine.processFixture(rawData);
@@ -25,9 +25,9 @@
 const PredictionEngine = (function () {
   'use strict';
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // CONSTANTES â€” Thresholds modo API (coletar.py)  Â§5.1
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // CONSTANTES — Thresholds modo API (coletar.py)  §5.1
+  // ═══════════════════════════════════════════════════════════════
 
   const GRADE_THRESHOLDS = {
     'A+': 88,
@@ -45,10 +45,10 @@ const PredictionEngine = (function () {
     'D':  'Muito Alto',
   };
 
-  // Mercados que entram no snap / Melhores PrevisÃµes (grades oficiais)
+  // Mercados que entram no snap / Melhores Previsões (grades oficiais)
   const GRADES_OFICIAIS = new Set(['A+', 'A']);
 
-  // Limites de normalizaÃ§Ã£o Â§3.3
+  // Limites de normalização §3.3
   const NORM_LIMITS = {
     ppg_n:   { min: 0, max: 3  },
     af_n:    { min: 0, max: 4  },
@@ -60,19 +60,19 @@ const PredictionEngine = (function () {
     sot_n:   { min: 0, max: 20 },
   };
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 1. n(v, min, max) â€” NormalizaÃ§Ã£o 0â€“100  Â§3.3
+  // ═══════════════════════════════════════════════════════════════
+  // 1. n(v, min, max) — Normalização 0–100  §3.3
   //    n(v, min, max) = max(0, min(100, (v - min) / (max - min) * 100))
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * n(v, min, max)
-   * Normaliza um valor para a escala 0â€“100.
+   * Normaliza um valor para a escala 0–100.
    * Retorna null se v for null/undefined (preserva nulos para ws()).
    *
    * @param {number|null} v
-   * @param {number}      lo  â€” valor mÃ­nimo da escala
-   * @param {number}      hi  â€” valor mÃ¡ximo da escala
+   * @param {number}      lo  — valor mínimo da escala
+   * @param {number}      hi  — valor máximo da escala
    * @returns {number|null}
    */
   function n(v, lo, hi) {
@@ -82,17 +82,17 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 2. ws(pairs) â€” MÃ©dia ponderada ignorando nulos  Â§4.0
+  // ═══════════════════════════════════════════════════════════════
+  // 2. ws(pairs) — Média ponderada ignorando nulos  §4.0
   //    ws([(v1,p1), (v2,p2), ...]) ignora pares com valor null/undefined.
   //    Se TODOS forem nulos, retorna null.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * ws(pairs)
-   * MÃ©dia ponderada que ignora valores nulos.
-   * Cada pair Ã© [valor, peso]. Se valor for null/undefined, o par Ã© ignorado.
-   * Os pesos dos pares vÃ¡lidos sÃ£o re-normalizados automaticamente.
+   * Média ponderada que ignora valores nulos.
+   * Cada pair é [valor, peso]. Se valor for null/undefined, o par é ignorado.
+   * Os pesos dos pares válidos são re-normalizados automaticamente.
    *
    * @param {Array<[number|null, number]>} pairs
    * @returns {number|null}
@@ -112,18 +112,18 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 3. Poisson  Â§3.2
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 3. Poisson  §3.2
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * _poissonP(lambda, k)
-   * Probabilidade P(X = k) para distribuiÃ§Ã£o de Poisson.
-   * P(X=k) = e^(-Î») Ã— Î»^k / k!
+   * Probabilidade P(X = k) para distribuição de Poisson.
+   * P(X=k) = e^(-λ) × λ^k / k!
    *
-   * @param {number} lambda  â€” gols esperados (exg_tot)
-   * @param {number} k       â€” nÃºmero exato de gols
-   * @returns {number}       0â€“1
+   * @param {number} lambda  — gols esperados (exg_tot)
+   * @param {number} k       — número exato de gols
+   * @returns {number}       0–1
    */
   function _poissonP(lambda, k) {
     if (lambda <= 0) return k === 0 ? 1 : 0;
@@ -138,15 +138,15 @@ const PredictionEngine = (function () {
    * poissonProbs(exg_tot)
    * Calcula as quatro probabilidades Poisson usadas pelo motor.
    *
-   * DocumentaÃ§Ã£o Â§3.2:
+   * Documentação §3.2:
    *   prob_o15_poisson = P(gols >= 2) = 1 - P(0) - P(1)
    *   prob_o25_poisson = P(gols >= 3) = 1 - P(0) - P(1) - P(2)
    *   prob_u35_poisson = P(gols <= 3) = P(0)+P(1)+P(2)+P(3)   [= 100 - P(gols>=4)]
    *   prob_u45_poisson = P(gols <= 4) = P(0)+P(1)+P(2)+P(3)+P(4) [= 100 - P(gols>=5)]
    *
-   * @param {number|null} exg_tot  â€” xG total (exg_h + exg_a)
+   * @param {number|null} exg_tot  — xG total (exg_h + exg_a)
    * @returns {{ o15:number, o25:number, u35:number, u45:number }|null}
-   *          Valores em % (0â€“100). null se exg_tot indisponÃ­vel.
+   *          Valores em % (0–100). null se exg_tot indisponível.
    */
   function poissonProbs(exg_tot) {
     if (exg_tot === null || exg_tot === undefined || exg_tot <= 0) return null;
@@ -166,14 +166,14 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // DERIVADAS Â§3.2 e NORMALIZADAS Â§3.3
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // DERIVADAS §3.2 e NORMALIZADAS §3.3
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * computeDerivadas(raw)
-   * Calcula variÃ¡veis derivadas a partir das brutas.
-   * Â§3.2: exg_tot, ppg_avg, ppg_min, af_avg, btts_cf, u25cf
+   * Calcula variáveis derivadas a partir das brutas.
+   * §3.2: exg_tot, ppg_avg, ppg_min, af_avg, btts_cf, u25cf
    *
    * @param {object} raw
    * @returns {object}  derivadas calculadas (null quando inputs ausentes)
@@ -187,14 +187,14 @@ const PredictionEngine = (function () {
       under25_h, under25_a,
     } = raw;
 
-    // exg_tot: apenas se AMBOS disponÃ­veis
+    // exg_tot: apenas se AMBOS disponíveis
     const exg_tot = (exg_h != null && exg_a != null) ? exg_h + exg_a : null;
 
     // ppg_avg e ppg_min
     const ppg_avg = (ppg_h != null && ppg_a != null) ? (ppg_h + ppg_a) / 2 : null;
     const ppg_min = (ppg_h != null && ppg_a != null) ? Math.min(ppg_h, ppg_a) : null;
 
-    // af_avg (mÃ©dia de ataque combinada)
+    // af_avg (média de ataque combinada)
     const af_avg = (avg_sc_h != null && avg_sc_a != null) ? (avg_sc_h + avg_sc_a) / 2 : null;
 
     // btts_cf
@@ -208,10 +208,10 @@ const PredictionEngine = (function () {
 
   /**
    * computeNormalizadas(d)
-   * Normaliza as variÃ¡veis conforme tabela Â§3.3.
+   * Normaliza as variáveis conforme tabela §3.3.
    *
-   * @param {object} raw       â€” variÃ¡veis brutas
-   * @param {object} derivadas â€” exg_tot, ppg_avg, af_avg, h2h_goals â€¦
+   * @param {object} raw       — variáveis brutas
+   * @param {object} derivadas — exg_tot, ppg_avg, af_avg, h2h_goals …
    * @returns {object}
    */
   function computeNormalizadas(raw, derivadas) {
@@ -231,14 +231,14 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
   // HELPERS INTERNOS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * _v(v, fallback)
-   * Retorna v se nÃ£o nulo, senÃ£o fallback.
-   * Usado na documentaÃ§Ã£o com notaÃ§Ã£o "|50" (ex: exg_n|50).
+   * Retorna v se não nulo, senão fallback.
+   * Usado na documentação com notação "|50" (ex: exg_n|50).
    *
    * @param {number|null} v
    * @param {number}      fallback
@@ -250,9 +250,9 @@ const PredictionEngine = (function () {
 
   /**
    * _o15cf(raw, derivadas)
-   * Calcula o15cf â€” confidence fator Over 1.5.
-   * Aparece nas fÃ³rmulas Â§4.1 e Â§4.2 mas nÃ£o Ã© documentado separadamente.
-   * Interpretado como: mÃ©dia(over15_g, btts_cf) â€” proxy de confianÃ§a geral de gols.
+   * Calcula o15cf — confidence fator Over 1.5.
+   * Aparece nas fórmulas §4.1 e §4.2 mas não é documentado separadamente.
+   * Interpretado como: média(over15_g, btts_cf) — proxy de confiança geral de gols.
    *
    * @returns {number|null}
    */
@@ -262,8 +262,8 @@ const PredictionEngine = (function () {
 
   /**
    * _o25cf(raw, derivadas)
-   * o25cf â€” confidence fator Over 2.5.
-   * Interpretado como: mÃ©dia(over25_g, af_avg_nÃ—100).
+   * o25cf — confidence fator Over 2.5.
+   * Interpretado como: média(over25_g, af_avg_n×100).
    *
    * @returns {number|null}
    */
@@ -272,13 +272,13 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 4. SCORE ENGINE por mercado  Â§4.1â€“4.10
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 4. SCORE ENGINE por mercado  §4.1–4.10
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * scoreOver15(raw, d, norm, poisson)
-   * Â§4.1 â€” Over 1.5 Gols
+   * §4.1 — Over 1.5 Gols
    *
    * Com xG (exg_n != null):
    *   ws([(over15_g,30),(o15cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,15),(poisson_o15,5)])
@@ -312,7 +312,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreOver25(raw, d, norm, poisson)
-   * Â§4.2 â€” Over 2.5 Gols
+   * §4.2 — Over 2.5 Gols
    *
    * Com xG:
    *   ws([(over25_g,28),(o25cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,17),(poisson_o25,5)])
@@ -346,7 +346,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreBTTS(raw, d, norm, poisson)
-   * Â§4.3 â€” BTTS (Ambas Marcam)
+   * §4.3 — BTTS (Ambas Marcam)
    *
    * ws([(btts_cf,40),(h2h_nv,15),(ppg_n,15),(af_n,15),(over15_g,10),(exg_n|50,5)])
    */
@@ -363,7 +363,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreOver05HT(raw, d, norm)
-   * Â§4.4 â€” Over 0.5 HT
+   * §4.4 — Over 0.5 HT
    *
    * Com over05_ht:
    *   ws([(over05_ht,45),(over15_ht|50,15),(ppg_n,15),(af_n,15),(sot_n|50,10)])
@@ -392,9 +392,9 @@ const PredictionEngine = (function () {
 
   /**
    * scoreUnder45(raw, d, norm, poisson)
-   * Â§4.5 â€” Under 4.5 Gols
+   * §4.5 — Under 4.5 Gols
    *
-   * avg_gl = mÃ©dia gols totais por jogo â€” proxy via af_avg*2 (ambos os times)
+   * avg_gl = média gols totais por jogo — proxy via af_avg*2 (ambos os times)
    *
    * Com Poisson:
    *   ws([(poisson_u45,35),(u25cf|50,25),(100-exg_n|50,20),(avg_gl|50,10),(50,10)])
@@ -403,7 +403,7 @@ const PredictionEngine = (function () {
    *   ws([(u25cf|50,40),(100-ppg_n|50,30),(50,30)])
    */
   function scoreUnder45(raw, d, norm, poiss) {
-    // avg_gl: estimativa de gols totais â€” usamos af_avg*2 (mÃ©dia das mÃ©dias de gols de cada time)
+    // avg_gl: estimativa de gols totais — usamos af_avg*2 (média das médias de gols de cada time)
     const avg_gl = d.af_avg != null ? Math.min(100, d.af_avg * 2 * (100 / 4)) : null;
 
     if (poiss !== null) {
@@ -425,7 +425,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreUnder35(raw, d, norm, poisson)
-   * Â§4.6 â€” Under 3.5 Gols
+   * §4.6 — Under 3.5 Gols
    *
    * Com Poisson:
    *   ws([(poisson_u35,45),(u25cf|50,20),(100-exg_n|50,25),(50,10)])
@@ -452,7 +452,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreEsc75(raw, d, norm)
-   * Â§4.7 â€” Escanteios Over 7.5
+   * §4.7 — Escanteios Over 7.5
    *
    * ws([(cant_n,40),(over75_c,30),(shots_n,15),(over65_c|50,10),(ppg_n,5)])
    */
@@ -468,7 +468,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreEsc85(raw, d, norm)
-   * Â§4.8 â€” Escanteios Over 8.5
+   * §4.8 — Escanteios Over 8.5
    *
    * ws([(cant_n,38),(over85_c,32),(shots_n,15),(over75_c,10),(ppg_n,5)])
    */
@@ -484,7 +484,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreCards25(raw, d, norm)
-   * Â§4.9 â€” CartÃµes Over 2.5
+   * §4.9 — Cartões Over 2.5
    *
    * ws([(over25_cards,45),(cards_n,35),(ppg_n,10),(50,10)])
    */
@@ -499,7 +499,7 @@ const PredictionEngine = (function () {
 
   /**
    * scoreCards35(raw, d, norm)
-   * Â§4.10 â€” CartÃµes Over 3.5
+   * §4.10 — Cartões Over 3.5
    *
    * ws([(over35_cards,50),(cards_n,30),(ppg_n,10),(50,10)])
    */
@@ -523,15 +523,15 @@ const PredictionEngine = (function () {
 
   /**
    * scoreResultadoFinal(raw, d, norm)
-   * ImplementaÃ§Ã£o fiel ao rfPick() do V1 (gerar_site.py).
+   * Implementação fiel ao rfPick() do V1 (gerar_site.py).
    *
-   * LÃ³gica idÃªntica ao V1:
+   * Lógica idêntica ao V1:
    *   1. rfFavSide: detecta favorito via odds 1X2 ou prob. API (win_home/win_away)
-   *   2. rfEdge: 6 mÃ©tricas com pesos e mÃ­nimos V1
-   *   3. isFriendly: amistosos sem favorito claro sÃ£o filtrados
+   *   2. rfEdge: 6 métricas com pesos e mínimos V1
+   *   3. isFriendly: amistosos sem favorito claro são filtrados
    *   4. mercado: win / dnb / dc com thresholds V1
-   *      win c/ 4 mÃ©tricas exige Prob.API entre os alinhados (como V1)
-   *   5. label: mesmo formato V1 â€” 'VitÃ³ria Casa/Visitante',
+   *      win c/ 4 métricas exige Prob.API entre os alinhados (como V1)
+   *   5. label: mesmo formato V1 — 'Vitória Casa/Visitante',
    *             'Casa DNB'/'Visitante DNB', 'Dupla Chance 1X'/'Dupla Chance X2'
    *
    * @returns {{ score:number|null, market:string|null, side:string|null }}
@@ -542,7 +542,7 @@ const PredictionEngine = (function () {
     const wh = raw.win_home === null || raw.win_home === undefined ? null : Number(raw.win_home);
     const wa = raw.win_away === null || raw.win_away === undefined ? null : Number(raw.win_away);
 
-    // â”€â”€ rfFavSide â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── rfFavSide ────────────────────────────────────────────────
     let side = null;
     let favOdd = null;
     let impliedGap = 0;
@@ -558,16 +558,16 @@ const PredictionEngine = (function () {
 
     if (!side) return { score: null, market: null, side: null };
 
-    // â”€â”€ isFriendly (V1: filtra amistosos sem favorito claro) â”€â”€â”€â”€â”€
+    // ── isFriendly (V1: filtra amistosos sem favorito claro) ─────
     const isFriendly = String(raw.league_name || '').toLowerCase().includes('friendly');
 
-    // â”€â”€ rfEdge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── rfEdge ────────────────────────────────────────────────────
     const sign = side === 'home' ? 1 : -1;
     const metrics = [
       { name: 'PPG',          diff: ((Number(raw.ppg_h)       || 0) - (Number(raw.ppg_a)       || 0)) * sign, min: .35,  weight: 18 },
       { name: 'xG',           diff: ((Number(raw.exg_h)       || 0) - (Number(raw.exg_a)       || 0)) * sign, min: .25,  weight: 18 },
       { name: 'Ataque',       diff: ((Number(raw.avg_sc_h)    || 0) - (Number(raw.avg_sc_a)    || 0)) * sign, min: .25,  weight: 14 },
-      { name: 'FinalizaÃ§Ãµes', diff: ((Number(raw.avg_shots_h) || 0) - (Number(raw.avg_shots_a) || 0)) * sign, min: 2.5,  weight: 10 },
+      { name: 'Finalizações', diff: ((Number(raw.avg_shots_h) || 0) - (Number(raw.avg_shots_a) || 0)) * sign, min: 2.5,  weight: 10 },
       { name: 'SOT',          diff: ((Number(raw.avg_sot_h)   || 0) - (Number(raw.avg_sot_a)   || 0)) * sign, min: .8,   weight: 10 },
       { name: 'Prob. API',    diff: ((Number(raw.win_home)    || 0) - (Number(raw.win_away)    || 0)) * sign, min: 15,   weight: 20 },
     ];
@@ -575,18 +575,18 @@ const PredictionEngine = (function () {
     const aligned = ok.length;
     const strength = ok.reduce((acc, m) => acc + m.weight + Math.min(12, Math.abs(m.diff) * 2), 0);
 
-    // â”€â”€ isFriendly: bloqueia se sem favorito claro e sem PPG/Prob.API â”€â”€
+    // ── isFriendly: bloqueia se sem favorito claro e sem PPG/Prob.API ──
     if (isFriendly && (!favOdd || favOdd > 1.30)) {
       const hasPPGorProb = ok.some(m => m.name === 'PPG' || m.name === 'Prob. API');
       if (!hasPPGorProb) return { score: null, market: null, side: null };
     }
 
-    // â”€â”€ Score base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Score base ────────────────────────────────────────────────
     const oddsScore = favOdd ? Math.max(0, 100 - (favOdd * 22)) : (55 + Math.min(30, impliedGap));
     let score = Math.min(100, Math.round((oddsScore + strength + Math.min(20, impliedGap)) * 10) / 10);
 
-    // â”€â”€ Tipo de mercado (thresholds V1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // win c/ 4 mÃ©tricas: exige Prob.API entre os alinhados (igual ao V1)
+    // ── Tipo de mercado (thresholds V1) ──────────────────────────
+    // win c/ 4 métricas: exige Prob.API entre os alinhados (igual ao V1)
     const hasProbAPI = ok.some(m => m.name === 'Prob. API');
     let pickType = null;
     if ((favOdd && favOdd <= 1.45 && aligned >= 3) || (favOdd && favOdd <= 1.65 && aligned >= 4 && hasProbAPI)) {
@@ -602,14 +602,14 @@ const PredictionEngine = (function () {
 
     if (!pickType) return { score: null, market: null, side: null };
 
-    // â”€â”€ Label idÃªntico ao V1 (rfMarketLabel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // V1: win â†’ 'VitÃ³ria Casa'/'VitÃ³ria Visitante'
-    //     dnb â†’ 'Casa DNB'/'Visitante DNB'
-    //     dc  â†’ 'Dupla Chance 1X' (home) / 'Dupla Chance X2' (away)
+    // ── Label idêntico ao V1 (rfMarketLabel) ─────────────────────
+    // V1: win → 'Vitória Casa'/'Vitória Visitante'
+    //     dnb → 'Casa DNB'/'Visitante DNB'
+    //     dc  → 'Dupla Chance 1X' (home) / 'Dupla Chance X2' (away)
     const sideName = side === 'home' ? 'Casa' : 'Visitante';
     let marketLabel;
     if (pickType === 'win') {
-      marketLabel = `VitÃ³ria ${sideName}`;
+      marketLabel = `Vitória ${sideName}`;
     } else if (pickType === 'dnb') {
       marketLabel = `${sideName} DNB`;
     } else {
@@ -625,9 +625,9 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 5. FILTRO 3 VIAS â€” Over 1.5 (modo API / coletar.py)  Â§6
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 5. FILTRO 3 VIAS — Over 1.5 (modo API / coletar.py)  §6
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * filtroOver15(raw, d)
@@ -640,29 +640,29 @@ const PredictionEngine = (function () {
    * Via 4: over15_g >= 85  (exclusiva do coletar.py)
    *
    * @param {object} raw
-   * @param {object} d   â€” derivadas
+   * @param {object} d   — derivadas
    * @returns {{ passed: boolean, via: number|null }}
    */
   function filtroOver15(raw, d) {
     const { over15_g }     = raw;
     const { exg_tot, ppg_min, ppg_avg } = d;
 
-    // Via 1 â€” xG alto
+    // Via 1 — xG alto
     if (exg_tot !== null && exg_tot >= 4.5) {
       return { passed: true, via: 1 };
     }
 
-    // Via 2 â€” EquilÃ­brio
+    // Via 2 — Equilíbrio
     if (exg_tot !== null && exg_tot >= 2.0 && ppg_min !== null && ppg_min >= 0.7) {
       return { passed: true, via: 2 };
     }
 
-    // Via 3 â€” Sem xG
+    // Via 3 — Sem xG
     if (exg_tot === null && over15_g != null && over15_g >= 90 && ppg_avg !== null && ppg_avg >= 1.5) {
       return { passed: true, via: 3 };
     }
 
-    // Via 4 â€” Predictions (exclusiva modo API)
+    // Via 4 — Predictions (exclusiva modo API)
     if (over15_g != null && over15_g >= 85) {
       return { passed: true, via: 4 };
     }
@@ -671,28 +671,28 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 6. FILTRO UNDER 3.5  Â§4.6
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 6. FILTRO UNDER 3.5  §4.6
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * filtroUnder35(raw, d, s_u35, poiss)
-   * O jogo passa se TODAS as condiÃ§Ãµes forem verdadeiras:
+   * O jogo passa se TODAS as condições forem verdadeiras:
    *   1. s_u35 >= 75
    *   2. over25_g <= 55 AND h2h_goals <= 3.0 AND btts_cf <= 75
    *   3a. (com xG) poisson_u35 >= 78 AND exg_tot <= 2.5
    *   3b. (sem xG) exg_tot = null AND u25cf >= 65 AND ppg_avg <= 1.6
    *
    * @param {object}      raw
-   * @param {object}      d      â€” derivadas
-   * @param {number|null} s_u35  â€” score Under 3.5
-   * @param {object|null} poiss  â€” probabilidades Poisson
+   * @param {object}      d      — derivadas
+   * @param {number|null} s_u35  — score Under 3.5
+   * @param {object|null} poiss  — probabilidades Poisson
    * @returns {boolean}
    */
   function filtroUnder35(raw, d, s_u35, poiss) {
     if (s_u35 === null || s_u35 < 75) return false;
 
-    // CondiÃ§Ã£o 2 â€” blockers
+    // Condição 2 — blockers
     const { over25_g, h2h_goals } = raw;
     const { btts_cf }             = d;
 
@@ -700,27 +700,27 @@ const PredictionEngine = (function () {
     if (h2h_goals != null && h2h_goals > 3.0) return false;
     if (btts_cf != null && btts_cf > 75)    return false;
 
-    // CondiÃ§Ã£o 3a â€” com xG
+    // Condição 3a — com xG
     if (d.exg_tot !== null) {
       if (!poiss || poiss.u35 < 78) return false;
       if (d.exg_tot > 2.5)         return false;
       return true;
     }
 
-    // CondiÃ§Ã£o 3b â€” sem xG
+    // Condição 3b — sem xG
     if (d.u25cf === null || d.u25cf < 65)    return false;
     if (d.ppg_avg === null || d.ppg_avg > 1.6) return false;
     return true;
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 7. GRADE e CONFIANÃ‡A  Â§5.1
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 7. GRADE e CONFIANÇA  §5.1
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * getGrade(score)
-   * Converte score numÃ©rico (0â€“100) em grade.
+   * Converte score numérico (0–100) em grade.
    * Thresholds v1:
    *   A+: >= 88  |  A: >= 80  |  B: >= 70  |  C: >= 60  |  D: < 60
    *
@@ -738,7 +738,7 @@ const PredictionEngine = (function () {
 
   /**
    * getConfidence(grade)
-   * Converte grade em label de confianÃ§a exibido na UI.
+   * Converte grade em label de confiança exibido na UI.
    *
    * @param {string} grade
    * @returns {string}  'Muito Baixo' | 'Baixo' | 'Médio' | 'Alto' | 'Muito Alto'
@@ -748,15 +748,15 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 8. SELEÃ‡ÃƒO DE BEST_MKT  Â§5.2
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 8. SELEÇÃO DE BEST_MKT  §5.2
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * selectBestMkt(scores, filters)
-   * Escolhe o mercado com maior score entre os elegÃ­veis.
+   * Escolhe o mercado com maior score entre os elegíveis.
    *
-   * DocumentaÃ§Ã£o Â§5.2:
+   * Documentação §5.2:
    *   candidatos = [
    *     ('Over 1.5',   s15,      passou_over15),
    *     ('Over 2.5',   s25,      True),
@@ -770,18 +770,18 @@ const PredictionEngine = (function () {
    *   best = max(candidatos, key=lambda x: x[1] if x[2] else 0)
    *
    * V1 COMPAT: passed_filtro (over15_passed) afeta APENAS a elegibilidade
-   * do Over 1.5. Todos os outros mercados tÃªm eligible=true.
-   * O resultado do selectBestMkt (best_mkt) Ã© vÃ¡lido para snapshot
-   * independentemente do over15_passed â€” se outro mercado venceu, Ã© esse
+   * do Over 1.5. Todos os outros mercados têm eligible=true.
+   * O resultado do selectBestMkt (best_mkt) é válido para snapshot
+   * independentemente do over15_passed — se outro mercado venceu, é esse
    * que vai para o banco, sem nenhuma barreira adicional.
    *
-   * Nota: a documentaÃ§Ã£o lista 8 candidatos (inclui Over 1.5 e Under 3.5
-   * com filtros, mas nÃ£o inclui Esc 8.5 e Cart 3.5 explicitamente).
-   * Esc 8.5 e Cart 3.5 sÃ£o scores calculados mas nÃ£o estÃ£o nos candidatos
-   * do best_mkt segundo Â§5.2 â€” mantemos a lista exata da documentaÃ§Ã£o.
+   * Nota: a documentação lista 8 candidatos (inclui Over 1.5 e Under 3.5
+   * com filtros, mas não inclui Esc 8.5 e Cart 3.5 explicitamente).
+   * Esc 8.5 e Cart 3.5 são scores calculados mas não estão nos candidatos
+   * do best_mkt segundo §5.2 — mantemos a lista exata da documentação.
    *
-   * @param {object}  scores   â€” { over15, over25, btts, over05ht, under45, under35, esc75, cards25 â€¦ }
-   * @param {object}  filters  â€” { over15_passed, under35_passed }
+   * @param {object}  scores   — { over15, over25, btts, over05ht, under45, under35, esc75, cards25 … }
+   * @param {object}  filters  — { over15_passed, under35_passed }
    * @returns {{ market:string, score:number, grade:string, confidence:string }|null}
    */
   function selectBestMkt(scores, filters) {
@@ -795,9 +795,9 @@ const PredictionEngine = (function () {
       { market: 'Under 3.5 gols', score: scores.under35, eligible: filters.under35_passed },
       { market: 'Over 7.5 cantos', score: scores.esc75, eligible: true                   },
       { market: 'Over 8.5 cantos', score: scores.esc85, eligible: true                   },
-      { market: 'Over 2.5 cartÃ£o', score: scores.cards25, eligible: true                 },
-      { market: 'Over 3.5 cartÃ£o', score: scores.cards35, eligible: true                 },
-      { market: 'Over 5.5 cartÃ£o', score: scores.cards55, eligible: true                 },
+      { market: 'Over 2.5 cartão', score: scores.cards25, eligible: true                 },
+      { market: 'Over 3.5 cartão', score: scores.cards35, eligible: true                 },
+      { market: 'Over 5.5 cartão', score: scores.cards55, eligible: true                 },
     ];
 
     let best = null;
@@ -840,9 +840,9 @@ const PredictionEngine = (function () {
       { key: 'under35', market: 'Under 3.5 gols' },
       { key: 'esc75', market: 'Over 7.5 cantos' },
       { key: 'esc85', market: 'Over 8.5 cantos' },
-      { key: 'cards25', market: 'Over 2.5 cartÃ£o' },
-      { key: 'cards35', market: 'Over 3.5 cartÃ£o' },
-      { key: 'cards55', market: 'Over 5.5 cartÃ£o' },
+      { key: 'cards25', market: 'Over 2.5 cartão' },
+      { key: 'cards35', market: 'Over 3.5 cartão' },
+      { key: 'cards55', market: 'Over 5.5 cartão' },
     ];
 
     return candidatos
@@ -864,16 +864,16 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
   // 9. EXPECTED VALUE
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * computeEV(probability, odd)
-   * EV = (prob/100 Ã— odd âˆ’ 1) Ã— 100
+   * EV = (prob/100 × odd − 1) × 100
    * Retorna null se probability ou odd forem nulos.
    *
-   * @param {number|null} probability  â€” 0â€“100
+   * @param {number|null} probability  — 0–100
    * @param {number|null} odd
    * @returns {number|null}            EV em % (pode ser negativo)
    */
@@ -983,35 +983,35 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 10. PIPELINE COMPLETO â€” processFixture(raw)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // 10. PIPELINE COMPLETO — processFixture(raw)
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * processFixture(raw)
-   * Executa o pipeline completo do PackBall v3.0 para um Ãºnico jogo.
+   * Executa o pipeline completo do PackBall v3.0 para um único jogo.
    *
    * Entrada (raw):
-   * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-   * IdentificaÃ§Ã£o:
+   * ─────────────
+   * Identificação:
    *   fixture_id, home_team, away_team, league_name, match_date, hour
    *
-   * VariÃ¡veis brutas (seÃ§Ã£o 3.1):
-   *   over15_g, over25_g         â€” % predictions API
-   *   exg_h, exg_a               â€” xG por time
-   *   ppg_h, ppg_a               â€” PPG por time
-   *   h2h_goals                  â€” mÃ©dia gols H2H
-   *   avg_sc_h, avg_sc_a         â€” mÃ©dia gols marcados
-   *   btts_h, btts_a             â€” % BTTS por time
-   *   over05_ht, over15_ht       â€” % gol HT
-   *   avg_corners                â€” mÃ©dia cantos
-   *   over65_c, over75_c, over85_c â€” % cantos
-   *   avg_cards                  â€” mÃ©dia cartÃµes
-   *   over25_cards, over35_cards â€” % cartÃµes
-   *   avg_shots, avg_sot         â€” finalizaÃ§Ãµes
-   *   under25_h, under25_a       â€” % Under 2.5 por time
+   * Variáveis brutas (seção 3.1):
+   *   over15_g, over25_g         — % predictions API
+   *   exg_h, exg_a               — xG por time
+   *   ppg_h, ppg_a               — PPG por time
+   *   h2h_goals                  — média gols H2H
+   *   avg_sc_h, avg_sc_a         — média gols marcados
+   *   btts_h, btts_a             — % BTTS por time
+   *   over05_ht, over15_ht       — % gol HT
+   *   avg_corners                — média cantos
+   *   over65_c, over75_c, over85_c — % cantos
+   *   avg_cards                  — média cartões
+   *   over25_cards, over35_cards — % cartões
+   *   avg_shots, avg_sot         — finalizações
+   *   under25_h, under25_a       — % Under 2.5 por time
    *
-   * Odds (uma por mercado, null se indisponÃ­vel):
+   * Odds (uma por mercado, null se indisponível):
    *   odd_o15, odd_o25, odd_btts, odd_05ht
    *   odd_u35, odd_u45, odd_esc75, odd_esc85
    *   odd_c25, odd_c35
@@ -1020,8 +1020,8 @@ const PredictionEngine = (function () {
    *   odd_justa_15, odd_justa_25, odd_justa_btts
    *   odd_justa_05ht, odd_justa_esc85, odd_justa_cart25
    *
-   * SaÃ­da:
-   * â”€â”€â”€â”€â”€â”€
+   * Saída:
+   * ──────
    *   fixture_id, home_team, away_team, league_name, match_date, hour
    *   derivadas: { exg_tot, ppg_avg, ppg_min, af_avg, btts_cf, u25cf }
    *   normalizadas: { ppg_n, af_n, exg_n, h2h_nv, cant_n, shots_n, cards_n, sot_n }
@@ -1032,23 +1032,23 @@ const PredictionEngine = (function () {
    *   evs:     { over15, over25, btts, over05ht, under45, under35, esc75, esc85, cards25, cards35 }
    *   filters: { over15_passed, over15_via, under35_passed }
    *   best_mkt, best_score, best_grade, best_confidence, best_odd, best_ev
-   *   is_official: boolean  â€” true se best_grade em ['A+', 'A']
+   *   is_official: boolean  — true se best_grade em ['A+', 'A']
    *
    * @param {object} raw
    * @returns {object}
    */
   function processFixture(raw) {
 
-    // â”€â”€ Etapa 1: Derivadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 1: Derivadas ─────────────────────────────────────
     const d     = computeDerivadas(raw);
 
-    // â”€â”€ Etapa 2: Normalizadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 2: Normalizadas ──────────────────────────────────
     const norm  = computeNormalizadas(raw, d);
 
-    // â”€â”€ Etapa 3: Poisson â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 3: Poisson ───────────────────────────────────────
     const poiss = poissonProbs(d.exg_tot);
 
-    // â”€â”€ Etapa 4: Scores por mercado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 4: Scores por mercado ────────────────────────────
     const s15      = scoreOver15(raw, d, norm, poiss);
     const s25      = scoreOver25(raw, d, norm, poiss);
     const s_btts   = scoreBTTS(raw, d, norm);
@@ -1062,11 +1062,11 @@ const PredictionEngine = (function () {
     const s_c55    = scoreCards55(raw, d, norm);
     const rf       = scoreResultadoFinal(raw, d, norm);
 
-    // â”€â”€ Etapa 5: Filtros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 5: Filtros ───────────────────────────────────────
     const filtro15   = filtroOver15(raw, d);
     const under35_ok = filtroUnder35(raw, d, s_u35, poiss);
 
-    // â”€â”€ Etapa 6: Grades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 6: Grades ────────────────────────────────────────
     const scores = {
       resultadoFinal: rf.score,
       over15:  s15,
@@ -1088,7 +1088,7 @@ const PredictionEngine = (function () {
     }
     const raw_grades = Object.assign({}, grades);
 
-    // â”€â”€ Etapa 7: Odds coletadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 7: Odds coletadas ────────────────────────────────
     const odds = {
       resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null) : rf.side === 'away' ? (raw.odds_a ?? null) : null,
       over15:   raw.odd_o15   ?? null,
@@ -1104,14 +1104,14 @@ const PredictionEngine = (function () {
       cards55:  raw.odd_c55   ?? null,
     };
 
-    // â”€â”€ Etapa 8: EV por mercado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Usa probability = score (escala 0â€“100) e odd coletada
+    // ── Etapa 8: EV por mercado ────────────────────────────────
+    // Usa probability = score (escala 0–100) e odd coletada
     const evs = {};
     for (const [mkt, sc] of Object.entries(scores)) {
       evs[mkt] = computeEV(sc, odds[mkt]);
     }
 
-    // â”€â”€ Etapa 9: Best_mkt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Etapa 9: Best_mkt ──────────────────────────────────────
     const filters = {
       over15_passed: filtro15.passed,
       over15_via:    filtro15.via,
@@ -1132,7 +1132,7 @@ const PredictionEngine = (function () {
     const main_markets    = buildMainMarkets(scores, grades, odds, evs, filters);
 
     return {
-      // IdentificaÃ§Ã£o
+      // Identificação
       fixture_id:   raw.fixture_id   ?? null,
       home_team:    raw.home_team    ?? '',
       away_team:    raw.away_team    ?? '',
@@ -1143,7 +1143,7 @@ const PredictionEngine = (function () {
       match_date:   raw.match_date   ?? null,
       hour:         raw.hour         ?? null,
 
-      // Dados de cÃ¡lculo intermediÃ¡rio
+      // Dados de cálculo intermediário
       derivadas:   d,
       normalizadas: norm,
       poisson:     poiss,
@@ -1168,14 +1168,14 @@ const PredictionEngine = (function () {
       main_markets,
       premium_audit: premiumAudit.audits,
       best_premium_audit: premiumAudit.bestAudit,
-      is_official,   // true se A+ ou A â€” entra em Melhores PrevisÃµes
+      is_official,   // true se A+ ou A — entra em Melhores Previsões
     };
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // HELPER: mapeamento market â†’ chave interna de odds/evs
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // HELPER: mapeamento market → chave interna de odds/evs
+  // ═══════════════════════════════════════════════════════════════
 
   const _MKT_TO_KEY = {
     'Resultado Final (1X2)': 'resultadoFinal',
@@ -1193,9 +1193,9 @@ const PredictionEngine = (function () {
     'Over 8.5 cantos': 'esc85',
     'Esc 7.5':     'esc75',
     'Esc 8.5':     'esc85',
-    'Over 2.5 cartÃ£o': 'cards25',
-    'Over 3.5 cartÃ£o': 'cards35',
-    'Over 5.5 cartÃ£o': 'cards55',
+    'Over 2.5 cartão': 'cards25',
+    'Over 3.5 cartão': 'cards35',
+    'Over 5.5 cartão': 'cards55',
     'Cart 2.5':    'cards25',
     'Cart 3.5':    'cards35',
     'Cart 5.5':    'cards55',
@@ -1207,17 +1207,17 @@ const PredictionEngine = (function () {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // API PÃšBLICA
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════
+  // API PÚBLICA
+  // ═══════════════════════════════════════════════════════════════
 
   return {
-    // FunÃ§Ãµes matemÃ¡ticas base
+    // Funções matemáticas base
     n,
     ws,
     poissonProbs,
 
-    // Pipeline de cÃ¡lculo
+    // Pipeline de cálculo
     computeDerivadas,
     computeNormalizadas,
 
@@ -1238,11 +1238,11 @@ const PredictionEngine = (function () {
     filtroOver15,
     filtroUnder35,
 
-    // Grade e confianÃ§a
+    // Grade e confiança
     getGrade,
     getConfidence,
 
-    // SeleÃ§Ã£o de melhor mercado
+    // Seleção de melhor mercado
     selectBestMkt,
     buildMainMarkets,
 
@@ -1252,7 +1252,7 @@ const PredictionEngine = (function () {
     // Pipeline completo (entry point principal)
     processFixture,
 
-    // UtilitÃ¡rios
+    // Utilitários
     GRADE_THRESHOLDS,
     CONFIDENCE_LABELS,
     GRADES_OFICIAIS,
@@ -1263,10 +1263,10 @@ const PredictionEngine = (function () {
 })();
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Compatibilidade: expÃµe como mÃ³dulo ES6 E como global
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────
+// Compatibilidade: expõe como módulo ES6 E como global
+// ─────────────────────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = PredictionEngine;  // Node.js / Jest
 }
-// Browsers e Deno jÃ¡ tÃªm acesso via window.PredictionEngine (IIFE)
+// Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
