@@ -365,7 +365,7 @@
     letter-spacing: .2px;
     line-height: 1.1;
     white-space: normal;
-    text-align: center;
+    text-align: left;
   }
   .pick-conf-aplus { background: rgba(0,200,150,.12); color: var(--green); border-color: rgba(0,200,150,.3); }
   .pick-conf-a { background: rgba(245,158,11,.1); color: var(--gold); border-color: rgba(245,158,11,.3); }
@@ -2520,7 +2520,7 @@ function getMainPalpites(snap, predictionsMap) {
 
 function renderMainPalpites(items) {
   if (!items.length) return `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`;
-  return `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:220px;margin:0 auto;">${items.map(item =>
+  return `<div style="display:flex;flex-wrap:wrap;justify-content:flex-start;gap:5px;">${items.map(item =>
     `<span class="best-pick ${pickConfidenceClass(item.grade)}" title="${Math.round(item.score)}%">${item.market}</span>`
   ).join('')}</div>`;
 }
@@ -3053,10 +3053,10 @@ function formatPlacar(snap) {
 }
 
 function calcAltResult(rawMarket, snap) {
-  const gh = snap.goals_home ?? snap.home_goals ?? null;
-  const ga = snap.goals_away ?? snap.away_goals ?? null;
-  const corners = snap.corners_total ?? null;
-  const cards   = snap.cards_total   ?? null;
+  const gh = snap.goals_home ?? snap.home_goals ?? snap.fixture_goals_home ?? null;
+  const ga = snap.goals_away ?? snap.away_goals ?? snap.fixture_goals_away ?? null;
+  const corners = snap.corners_total ?? snap.fixture_corners_total ?? null;
+  const cards   = snap.cards_total   ?? snap.fixture_cards_total   ?? null;
   const gols    = (gh !== null && ga !== null) ? gh + ga : null;
 
   const mk = canonicalMarketKey(rawMarket);
@@ -3091,6 +3091,9 @@ function calcAltResult(rawMarket, snap) {
 function renderAlts(alts, snapshotsMap, fixtureId, snap) {
   if (!alts.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
   const snapsByMarket = (snapshotsMap && fixtureId) ? (snapshotsMap[fixtureId] || {}) : {};
+  if (snap && (snap.goals_home !== null && snap.goals_home !== undefined)) {
+    console.log('[ALT DEBUG] fixture', fixtureId, 'goals:', snap.goals_home, '-', snap.goals_away, 'corners:', snap.corners_total, 'cards:', snap.cards_total, 'snapsByMarket:', Object.keys(snapsByMarket));
+  }
   return alts.map(item => {
     const marketName  = typeof item === 'string' ? item : item.market;
     const rawMarket   = typeof item === 'string' ? item : (item.rawMarket || item.market);
