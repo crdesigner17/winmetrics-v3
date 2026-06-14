@@ -315,13 +315,21 @@ async function atualizarSnapshot(id, resultStatus, resultado) {
 }
 
 async function atualizarFixture(fixtureId, resultado) {
+  const update = {
+    goals_home:    resultado.goals_home,
+    goals_away:    resultado.goals_away,
+    status:        resultado.status,
+  };
+  if (resultado.corners_total !== null && resultado.corners_total !== undefined) {
+    update.corners_total = resultado.corners_total;
+  }
+  if (resultado.cards_total !== null && resultado.cards_total !== undefined) {
+    update.cards_total = resultado.cards_total;
+  }
+
   const { error } = await supabase
     .from('fixtures')
-    .update({
-      goals_home: resultado.goals_home,
-      goals_away: resultado.goals_away,
-      status:     resultado.status,
-    })
+    .update(update)
     .eq('fixture_id', fixtureId);
 
   if (error) {
