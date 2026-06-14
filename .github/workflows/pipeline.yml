@@ -30,6 +30,7 @@ on:
           - backfill        # Histórico + futuro (uso normal)
           - hoje            # Só hoje + amanhã
           - data_especifica # Uma data específica
+          - so_confirmar    # Só confirmar resultados (não roda backfill)
       date:
         description: '[data_especifica] Data YYYY-MM-DD'
         required: false
@@ -75,6 +76,7 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'push'     ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'backfill')
+        # so_confirmar não entra aqui — backfill é ignorado
         env:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -149,8 +151,8 @@ jobs:
     # Roda todo dia às 06:00 UTC = 03:00 BRT (após jogos terminarem)
     # e pode ser disparado manualmente
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule'
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar')
 
     steps:
       - name: Checkout
