@@ -524,11 +524,11 @@ async function fetchAllData({ fixture, liga }) {
     console.log('\n╔══════════════════════════════════════════════════════');
     console.log(`║ ODDS AUDIT — fixture ${fixtureId}`);
     console.log('╠══════════════════════════════════════════════════════');
-    console.log(`â•' URL chamada: GET /odds?fixture=${fixtureId}&bookmaker=6`);
-    console.log(`â•' oddsRaw keys: ${oddsRaw ? Object.keys(oddsRaw).join(', ') : 'null'}`);
+    console.log(`╠' URL chamada: GET /odds?fixture=${fixtureId}&bookmaker=6`);
+    console.log(`╠' oddsRaw keys: ${oddsRaw ? Object.keys(oddsRaw).join(', ') : 'null'}`);
 
     if (!resp) {
-      console.log('â•' response: AUSENTE (oddsRaw.response = undefined)');
+      console.log('╠ response: AUSENTE (oddsRaw.response = undefined)');
       console.log('╚══════════════════════════════════════════════════════\n');
       return;
     }
@@ -540,26 +540,26 @@ async function fetchAllData({ fixture, liga }) {
       return;
     }
 
-    console.log(`â•' response.length: ${resp.length}`);
+    console.log(`╠' response.length: ${resp.length}`);
 
     resp.forEach((item, idx) => {
       const bms = item?.bookmakers || [];
-      console.log(`â•' response[${idx}].bookmakers.length: ${bms.length}`);
+      console.log(`╠' response[${idx}].bookmakers.length: ${bms.length}`);
 
       if (bms.length === 0) {
-        console.log(`â•'   âš   Nenhum bookmaker em response[${idx}]`);
+        console.log(`╠'   âš   Nenhum bookmaker em response[${idx}]`);
         return;
       }
 
       bms.forEach(bm => {
         const bets = bm?.bets || [];
-        console.log(`â•'   Bookmaker: ${bm.name} (id=${bm.id})  bets.length=${bets.length}`);
+        console.log(`╠'   Bookmaker: ${bm.name} (id=${bm.id})  bets.length=${bets.length}`);
 
         bets.forEach(bet => {
           const vals = bet?.values || [];
-          console.log(`â•'     Market: "${bet.name}"  values.length=${vals.length}`);
+          console.log(`╠'     Market: "${bet.name}"  values.length=${vals.length}`);
           vals.forEach(v => {
-            console.log(`â•'       value="${v.value}"  odd=${v.odd}`);
+            console.log(`╠'       value="${v.value}"  odd=${v.odd}`);
           });
         });
       });
@@ -594,7 +594,7 @@ async function fetchAllData({ fixture, liga }) {
 
       console.log('╠══════════════════════════════════════════════════════');
       console.log('║ CROSS-REFERENCE: esperado → encontrado');
-      console.log('â•'');
+      console.log('╠');
       for (const exp of EXPECTED) {
         // Find matching bet
         const matchedBet = bets.find(b =>
@@ -602,7 +602,7 @@ async function fetchAllData({ fixture, liga }) {
         );
         if (!matchedBet) {
           console.log(`║  ❌ Esperado market "${exp.label}"  → nenhum market encontrado`);
-          console.log(`â•'     (buscou por: ${exp.marketHints.slice(0,2).join(', ')})`);
+          console.log(`╠'     (buscou por: ${exp.marketHints.slice(0,2).join(', ')})`);
           continue;
         }
 
@@ -617,7 +617,7 @@ async function fetchAllData({ fixture, liga }) {
 
         if (matchedVal) {
           console.log(`║  ✅ Esperado: "${exp.label}" (value="${exp.value}")`);
-          console.log(`â•'     Recebido: market="${matchedBet.name}"  value="${matchedVal.value}"  odd=${matchedVal.odd}`);
+          console.log(`╠'     Recebido: market="${matchedBet.name}"  value="${matchedVal.value}"  odd=${matchedVal.odd}`);
         } else {
           const availableVals = (matchedBet.values||[]).map(v=>v.value).join(', ');
           console.log(`║  ❌ Esperado: "${exp.label}" (value="${exp.value}")`);
