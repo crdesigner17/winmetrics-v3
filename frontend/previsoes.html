@@ -2481,7 +2481,7 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
       return true;
     })
     .slice(0, 3)
-    .map(p => displayMarket(p.market));
+    .map(p => ({ market: displayMarket(p.market), rawMarket: p.market }));
 }
 
 function getMainPalpites(snap, predictionsMap) {
@@ -2692,6 +2692,21 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
     if (!acc[snap.fixture_id] || Number(snap.score || 0) > Number(acc[snap.fixture_id].score || 0)) {
       acc[snap.fixture_id] = snap;
     }
+    return acc;
+  }, {});
+}
+
+async function fetchAllSnapshotsByFixtureIds(fixtureIds) {
+  if (!fixtureIds.length) return {};
+  const { data, error } = await supabaseClient
+    .from('prediction_snapshots')
+    .select('fixture_id, market, result_status')
+    .in('fixture_id', fixtureIds);
+  if (error || !data) return {};
+  return data.reduce((acc, snap) => {
+    if (!acc[snap.fixture_id]) acc[snap.fixture_id] = {};
+    const key = snap.market ? snap.market.trim() : '';
+    if (key) acc[snap.fixture_id][key] = snap.result_status || null;
     return acc;
   }, {});
 }
@@ -3032,15 +3047,27 @@ function formatPlacar(snap) {
   return `${gh} - ${ga}`;
 }
 
-function renderAlts(alts) {
+function renderAlts(alts, snapshotsMap, fixtureId) {
   if (!alts.length) return '<span style="color:var(--text-muted);font-size:11px">-</span>';
-  return alts.map(m =>
-    `<div style="margin-bottom:4px;"><span style="
-      font-size:11px;
-      background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.25);
-      color:var(--purple);padding:2px 7px;border-radius:4px;white-space:nowrap;display:inline-block;
-    ">${m}</span></div>`
-  ).join('');
+  const snapsByMarket = (snapshotsMap && fixtureId) ? (snapshotsMap[fixtureId] || {}) : {};
+  return alts.map(item => {
+    const marketName  = typeof item === 'string' ? item : item.market;
+    const rawMarket   = typeof item === 'string' ? item : (item.rawMarket || item.market);
+    const status      = snapsByMarket[rawMarket] ?? snapsByMarket[marketName] ?? null;
+    let dotColor, chipBg, chipBorder, chipColor;
+    if (status === 'green') {
+      dotColor = '#00d2a0'; chipBg = 'rgba(0,210,160,.12)'; chipBorder = 'rgba(0,210,160,.3)'; chipColor = '#00d2a0';
+    } else if (status === 'red') {
+      dotColor = '#ff5e6a'; chipBg = 'rgba(255,94,106,.10)'; chipBorder = 'rgba(255,94,106,.3)'; chipColor = '#ff5e6a';
+    } else {
+      dotColor = '#525870'; chipBg = 'rgba(108,99,255,.12)'; chipBorder = 'rgba(108,99,255,.25)'; chipColor = 'var(--purple)';
+    }
+    return `<div style="margin-bottom:4px;"><span style="
+      display:inline-flex;align-items:center;gap:4px;
+      font-size:11px;padding:2px 7px 2px 5px;border-radius:4px;white-space:nowrap;
+      background:${chipBg};border:1px solid ${chipBorder};color:${chipColor};
+    "><span style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0;display:inline-block;"></span>${marketName}</span></div>`;
+  }).join('');
 }
 
 const GRADE_RANK = { 'A+': 5, A: 4, B: 3, C: 2, D: 1 };
@@ -3643,7 +3670,7 @@ function renderError(msg) {
 }
 
 // section
-function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
+function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, snapshotsMap = {}) {
   const tbody = document.getElementById('tableBody');
   if (!snapshots.length) { renderEmpty(); return; }
 
@@ -3660,7 +3687,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
     const conf      = getConf(snap);
     const altBadge  = '';
     const mainPicks = getMainPalpites(snap, predictionsMap);
-    const alts      = getAlternativas(snap.fixture_id, label, predictionsMap);
+    const alts      = getAlternativas(snap.fixture_id, label, predictionsMap, snapshotsMap);
     const hasOfficialPick  = Boolean(snap.market);
     const officialLabel    = mainPicks.length ? mainPicks[0].market : (hasOfficialPick ? label : null);
     const smartSuggestions = worldCupOnly ? pickSmartSuggestions(snap.fixture_id, predictionsMap, metricsMap, oddsMap, officialLabel) : [];
@@ -3690,7 +3717,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}) {
     <td class="col-wc-goals" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['goalsft','goalsht','btts'], snap)}</td>
     <td class="col-wc-corners" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['corners'], snap)}</td>
     <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
-      : `<td class="col-alts" style="padding:10px 12px;">${renderAlts(alts)}</td>`
+      : `<td class="col-alts" style="padding:10px 12px;">${renderAlts(alts, snapshotsMap, snap.fixture_id)}</td>`
     }
     <td class="col-score">${ringHtml(score, ringColor(score))}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
@@ -3796,9 +3823,10 @@ async function loadPrevisoes() {
     if (!snapshots || snapshots.length === 0) { renderEmpty(); renderPagination(0, 1); return; }
 
     const fixtureIds     = [...new Set(snapshots.map(s => s.fixture_id))];
-    const [predictionsMap, fixturesMap] = await Promise.all([
+    const [predictionsMap, fixturesMap, snapshotsMap] = await Promise.all([
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
+      fetchAllSnapshotsByFixtureIds(fixtureIds),
     ]);
     const seenFixtures = new Set();
     const dedupedSnapshots = snapshots.filter(s => {
@@ -3818,7 +3846,7 @@ async function loadPrevisoes() {
       return merged;
     });
 
-    renderRows(rows, predictionsMap);
+    renderRows(rows, predictionsMap, null, null, snapshotsMap);
     renderPagination(totalCount, currentPage);
 
   } catch (err) {
