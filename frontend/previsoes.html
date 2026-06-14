@@ -2310,9 +2310,10 @@ const MKT_MIN = {
 function getAlternativas(fixtureId, mainMarket, predictionsMap) {
   const preds = predictionsMap[fixtureId] || [];
   const seen = new Set();
+  const mainGrade = preds.find(p => canonicalMarketKey(p.market) === canonicalMarketKey(mainMarket))?.grade || null;
   const mainMarkets = new Set(
     preds
-      .filter(p => p.is_best_market)
+      .filter(p => p.is_best_market && (!mainGrade || p.grade === mainGrade))
       .map(p => canonicalMarketKey(p.market))
   );
   if (mainMarket) mainMarkets.add(canonicalMarketKey(mainMarket));
@@ -2342,8 +2343,9 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
 function getMainPalpites(snap, predictionsMap) {
   const preds = predictionsMap[snap.fixture_id] || [];
   const seen = new Set();
+  const snapGrade = snap.grade || suggestionGrade(Number(snap.score ?? 0));
   const items = preds
-    .filter(p => p.is_best_market)
+    .filter(p => p.is_best_market && (p.grade || suggestionGrade(Number(p.score ?? 0))) === snapGrade)
     .map(p => ({
       key: canonicalMarketKey(p.market),
       market: displayMarket(p.market),
@@ -2361,7 +2363,7 @@ function getMainPalpites(snap, predictionsMap) {
       key: canonicalMarketKey(snap.market),
       market: displayMarket(snap.market),
       score: Number(snap.score ?? 0),
-      grade: snap.grade || suggestionGrade(Number(snap.score ?? 0)),
+      grade: snapGrade,
     });
   }
 
