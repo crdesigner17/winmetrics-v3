@@ -750,6 +750,129 @@ const PredictionEngine = (function () {
   }
 
 
+  /**
+   * scoreDuplaChance(raw, d, norm)
+   * Lógica PackBall v3.0 — Dupla Chance 1X e X2.
+   *
+   * ── Conceito ─────────────────────────────────────────────────────
+   * Não prevê vitória — prevê quem provavelmente NÃO PERDE.
+   * Filtros menos rígidos que Vitória Seca, mas protegem contra zebra.
+   *
+   * ── Score 1X (Casa ou Empate) ────────────────────────────────────
+   *   score_1x = home_form*0.25 + home_home_perf*0.25
+   *            + (100-away_away_perf)*0.15 + (100-away_prob)*0.15
+   *            + avg_sc_h*5 - avg_sc_a*4 - home_conc*4
+   *
+   * ── Score X2 (Fora ou Empate) ────────────────────────────────────
+   *   score_x2 = away_form*0.25 + away_away_perf*0.25
+   *            + (100-home_home_perf)*0.15 + (100-home_prob)*0.15
+   *            + avg_sc_a*5 - avg_sc_h*4 - away_conc*4
+   *
+   * ── Elegibilidade ────────────────────────────────────────────────
+   *   score >= 70 E diferença >= 5 em relação ao lado oposto
+   *
+   * ── Classificação ────────────────────────────────────────────────
+   *   >= 85 → Elite       (A+, finalScore = max(raw, 88))
+   *   >= 78 → Alta        (A,  finalScore = max(raw, 82))
+   *   >= 70 → Boa Entrada (A,  finalScore = max(raw, 76))
+   *   <  70 → descartado
+   *
+   * ── Independência da API ─────────────────────────────────────────
+   *   Usa _rfProbValida() para detectar placeholder.
+   *   Se placeholder: away_prob/home_prob contribuem com 0 no score.
+   *
+   * @returns {{ score, market, side, pickType, dcLabel }}
+   */
+  function scoreDuplaChance(raw, d, norm) {
+    const _n = v => (v !== null && v !== undefined && Number.isFinite(Number(v))) ? Number(v) : null;
+
+    const home_prob     = _n(raw.win_home);
+    const away_prob     = _n(raw.win_away);
+    const draw_prob_api = _n(raw.win_draw);
+    const pv            = _rfProbValida(home_prob, draw_prob_api, away_prob);
+
+    const home_form     = _rfFormScore(raw.home_form_score);
+    const away_form     = _rfFormScore(raw.away_form_score);
+
+    const home_home_p   = _n(raw.home_home_perf);
+    const away_away_p   = _n(raw.away_away_perf);
+
+    const avg_sc_h      = _n(raw.avg_sc_h);
+    const avg_sc_a      = _n(raw.avg_sc_a);
+    const home_conc     = _n(raw.home_avg_conc_home);
+    const away_conc     = _n(raw.away_avg_conc_away);
+
+    // Prob só entra no score se for válida — senão contribui com 50 (neutro)
+    const away_p_score  = (pv && away_prob !== null) ? away_prob : 50;
+    const home_p_score  = (pv && home_prob !== null) ? home_prob : 50;
+
+    // ── Score 1X ──────────────────────────────────────────────────
+    let score_1x = 0;
+    score_1x += (home_form     ?? 50) * 0.25;
+    score_1x += (home_home_p   ?? 50) * 0.25;
+    score_1x += (100 - (away_away_p  ?? 50)) * 0.15;
+    score_1x += (100 - away_p_score) * 0.15;
+    score_1x += (avg_sc_h  ?? 1.2) * 5;
+    score_1x -= (avg_sc_a  ?? 1.0) * 4;
+    score_1x -= (home_conc ?? 1.0) * 4;
+    score_1x  = Math.min(100, Math.round(score_1x * 10) / 10);
+
+    // ── Score X2 ──────────────────────────────────────────────────
+    let score_x2 = 0;
+    score_x2 += (away_form     ?? 50) * 0.25;
+    score_x2 += (away_away_p   ?? 50) * 0.25;
+    score_x2 += (100 - (home_home_p  ?? 50)) * 0.15;
+    score_x2 += (100 - home_p_score) * 0.15;
+    score_x2 += (avg_sc_a  ?? 1.2) * 5;
+    score_x2 -= (avg_sc_h  ?? 1.0) * 4;
+    score_x2 -= (away_conc ?? 1.0) * 4;
+    score_x2  = Math.min(100, Math.round(score_x2 * 10) / 10);
+
+    // ── Classificação ─────────────────────────────────────────────
+    function _classify(s) {
+      if (s >= 85) return { label: 'Elite',       grade: 'A+', finalScore: Math.max(s, 88) };
+      if (s >= 78) return { label: 'Alta',        grade: 'A',  finalScore: Math.max(s, 82) };
+      if (s >= 70) return { label: 'Boa Entrada', grade: 'A',  finalScore: Math.max(s, 76) };
+      return null;
+    }
+
+    // ── Elegibilidade: score >= 70 e diferença >= 5 ───────────────
+    const eligible_1x = score_1x >= 70 && (score_1x - score_x2) >= 5;
+    const eligible_x2 = score_x2 >= 70 && (score_x2 - score_1x) >= 5;
+
+    // Prioriza o de maior score
+    if (eligible_1x && (!eligible_x2 || score_1x >= score_x2)) {
+      const cls = _classify(score_1x);
+      if (cls) {
+        return {
+          score:    Math.min(100, cls.finalScore),
+          market:   'Resultado Final (1X2) - Dupla Chance 1X',
+          side:     'home',
+          pickType: 'dc',
+          dcLabel:  cls.label,
+          prob_valida: pv,
+        };
+      }
+    }
+
+    if (eligible_x2) {
+      const cls = _classify(score_x2);
+      if (cls) {
+        return {
+          score:    Math.min(100, cls.finalScore),
+          market:   'Resultado Final (1X2) - Dupla Chance X2',
+          side:     'away',
+          pickType: 'dc',
+          dcLabel:  cls.label,
+          prob_valida: pv,
+        };
+      }
+    }
+
+    return { score: null, market: null, side: null, pickType: null };
+  }
+
+
 
   // ═══════════════════════════════════════════════════════════════
   // 5. FILTRO 3 VIAS — Over 1.5 (modo API / coletar.py)  §6
@@ -931,6 +1054,7 @@ const PredictionEngine = (function () {
   function selectBestMkt(scores, filters) {
     const candidatos = [
       { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true },
+      { market: filters.duplaChance_market || 'Resultado Final (1X2) - Dupla Chance', score: scores.duplaChance, eligible: scores.duplaChance !== null },
       { market: 'Over 1.5 gols', score: scores.over15, eligible: filters.over15_passed  },
       { market: 'Over 2.5 gols', score: scores.over25, eligible: true                   },
       { market: 'BTTS',        score: scores.btts,    eligible: true                   },
@@ -976,6 +1100,7 @@ const PredictionEngine = (function () {
   function buildMainMarkets(scores, grades, odds, evs, filters) {
     const candidatos = [
       { key: 'resultadoFinal', market: filters.resultadoFinal_market || 'Resultado Final (1X2)' },
+      { key: 'duplaChance',    market: filters.duplaChance_market    || 'Resultado Final (1X2) - Dupla Chance' },
       { key: 'over15', market: 'Over 1.5 gols' },
       { key: 'over25', market: 'Over 2.5 gols' },
       { key: 'btts', market: 'BTTS' },
@@ -1205,14 +1330,19 @@ const PredictionEngine = (function () {
     const s_c35    = scoreCards35(raw, d, norm);
     const s_c55    = scoreCards55(raw, d, norm);
     const rf       = scoreResultadoFinal(raw, d, norm);
+    const dc       = scoreDuplaChance(raw, d, norm);
 
     // ── Etapa 5: Filtros ───────────────────────────────────────
     const filtro15   = filtroOver15(raw, d);
     const under35_ok = filtroUnder35(raw, d, s_u35, poiss);
 
     // ── Etapa 6: Grades ────────────────────────────────────────
+    // RF e DC são campos separados — nunca competem.
+    // RF (Vitória) é sempre o principal quando existe.
+    // DC (Dupla Chance) é sempre alternativa de segurança.
     const scores = {
-      resultadoFinal: rf.score,
+      resultadoFinal: rf.score ?? null,
+      duplaChance:    dc.score ?? null,
       over15:  s15,
       over25:  s25,
       btts:    s_btts,
@@ -1234,7 +1364,12 @@ const PredictionEngine = (function () {
 
     // ── Etapa 7: Odds coletadas ────────────────────────────────
     const odds = {
-      resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null) : rf.side === 'away' ? (raw.odds_a ?? null) : null,
+      resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null)
+                    : rf.side === 'away' ? (raw.odds_a ?? null)
+                    : null,
+      duplaChance:   dc.side === 'home' ? (raw.odds_h ?? null)
+                    : dc.side === 'away' ? (raw.odds_a ?? null)
+                    : null,
       over15:   raw.odd_o15   ?? null,
       over25:   raw.odd_o25   ?? null,
       btts:     raw.odd_btts  ?? null,
@@ -1260,7 +1395,9 @@ const PredictionEngine = (function () {
       over15_passed: filtro15.passed,
       over15_via:    filtro15.via,
       under35_passed: under35_ok,
-      resultadoFinal_market: rf.market,
+      resultadoFinal_market: rf.market ?? null,
+      duplaChance_market:    dc.market ?? null,
+      duplaChance_side:      dc.side   ?? null,
     };
 
     const best = selectBestMkt(scores, filters);
@@ -1302,6 +1439,15 @@ const PredictionEngine = (function () {
       // Filtros
       filters,
 
+      // Dupla Chance — alternativa de segurança (independente do RF)
+      dc_market:    dc.market  ?? null,
+      dc_score:     dc.score   ?? null,
+      dc_side:      dc.side    ?? null,
+      dc_label:     dc.dcLabel ?? null,
+      dc_odd:       dc.side === 'home' ? (raw.odds_h ?? null)
+                  : dc.side === 'away' ? (raw.odds_a ?? null)
+                  : null,
+
       // Melhor mercado (best_mkt)
       best_mkt,
       best_score,
@@ -1323,6 +1469,10 @@ const PredictionEngine = (function () {
 
   const _MKT_TO_KEY = {
     'Resultado Final (1X2)': 'resultadoFinal',
+    'Resultado Final (1X2) - Dupla Chance 1X': 'duplaChance',
+    'Resultado Final (1X2) - Dupla Chance X2': 'duplaChance',
+    'Dupla Chance 1X': 'duplaChance',
+    'Dupla Chance X2': 'duplaChance',
     'Over 1.5 gols': 'over15',
     'Over 2.5 gols': 'over25',
     'Over 1.5':    'over15',
@@ -1346,7 +1496,10 @@ const PredictionEngine = (function () {
   };
 
   function _mktKey(market) {
-    if (String(market || '').startsWith('Resultado Final (1X2)')) return 'resultadoFinal';
+    if (String(market || '').startsWith('Resultado Final (1X2)')) {
+      if (market.includes('Dupla Chance')) return 'duplaChance';
+      return 'resultadoFinal';
+    }
     return _MKT_TO_KEY[market] ?? null;
   }
 
