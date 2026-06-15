@@ -67,26 +67,29 @@ const supabase = SUPABASE_URL && SUPABASE_KEY
 // ─────────────────────────────────────────────────────────────────
 
 const MKT_RESULTADO = {
-  'Over 1.5':      'over15_ok',
-  'Over 1.5 gols': 'over15_ok',
-  'Over 2.5':      'over25_ok',
-  'Over 2.5 gols': 'over25_ok',
-  'BTTS':        'btts',
-  'Over 0.5 HT': 'over05_ht_ok',
-  'Under 4.5':      'under45_ok',
-  'Under 4.5 gols': 'under45_ok',
-  'Under 3.5':      'under35_ok',
-  'Under 3.5 gols': 'under35_ok',
-  'Esc 7.5':          'esc75_ok',
-  'Over 7.5 cantos':  'esc75_ok',
-  'Esc 8.5':          'esc85_ok',
-  'Over 8.5 cantos':  'esc85_ok',
+  // Gols
+  'Over 1.5':          'over15_ok',
+  'Over 1.5 gols':     'over15_ok',
+  'Over 2.5':          'over25_ok',
+  'Over 2.5 gols':     'over25_ok',
+  'BTTS':              'btts',
+  'Over 0.5 HT':       'over05_ht_ok',
+  'Under 4.5':         'under45_ok',
+  'Under 4.5 gols':    'under45_ok',
+  'Under 3.5':         'under35_ok',
+  'Under 3.5 gols':    'under35_ok',
+  // Escanteios
+  'Esc 7.5':           'esc75_ok',
+  'Over 7.5 cantos':   'esc75_ok',
+  'Esc 8.5':           'esc85_ok',
+  'Over 8.5 cantos':   'esc85_ok',
+  // Cartões — FIX BUG 2 e 3: Over 3.5 e Over 5.5 estavam ausentes
   'Cart 2.5':          'cart25_ok',
   'Over 2.5 cartão':   'cart25_ok',
   'Cart 3.5':          'cart35_ok',
-  'Over 3.5 cartão':   'cart35_ok',
+  'Over 3.5 cartão':   'cart35_ok',   // estava ausente → result_status nunca preenchido
   'Cart 5.5':          'cart55_ok',
-  'Over 5.5 cartão':   'cart55_ok',
+  'Over 5.5 cartão':   'cart55_ok',   // estava ausente → result_status nunca preenchido
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -252,8 +255,24 @@ function calcResultStatus(market, resultado) {
       return ((isHome && homeWin) || (isAway && awayWin)) ? 'green' : 'red';
     }
     if (market.includes('Dupla Chance')) {
-      const lost = (isHome && awayWin) || (isAway && homeWin);
-      return lost ? 'red' : 'green';
+      // FIX BUG 1: isHome/isAway eram sempre false porque o label
+      // 'Dupla Chance 1X' não contém 'Casa' nem 'Visitante'.
+      // ATENÇÃO: market.includes('1X') detecta '1X' dentro de '(1X2)'
+      // então usamos o sufixo após o hífen para identificar a variante.
+      const suffix = market.split('-').pop().trim(); // ex: 'Dupla Chance 1X'
+      // 1X = Casa OU Empate → perde APENAS se visitante vencer
+      if (suffix.endsWith('1X')) {
+        return awayWin ? 'red' : 'green';
+      }
+      // X2 = Empate OU Visitante → perde APENAS se casa vencer
+      if (suffix.endsWith('X2')) {
+        return homeWin ? 'red' : 'green';
+      }
+      // 12 = Casa OU Visitante → perde APENAS se empate
+      if (suffix.endsWith('12')) {
+        return draw ? 'red' : 'green';
+      }
+      return null; // variante não reconhecida
     }
   }
 
