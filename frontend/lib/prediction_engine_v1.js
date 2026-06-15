@@ -350,15 +350,81 @@ const PredictionEngine = (function () {
    *
    * ws([(btts_cf,40),(h2h_nv,15),(ppg_n,15),(af_n,15),(over15_g,10),(exg_n|50,5)])
    */
+  /**
+   * scoreBTTS(raw, d, norm)
+   * Lógica PackBall v3.0 — BTTS Sim (Ambos Marcam).
+   *
+   * ── Bloqueios ────────────────────────────────────────────────────
+   *   ataque muito fraco: avg_sc_h < 0.9 OU avg_sc_a < 0.9
+   *   jogo unilateral:    avg_sc_h >= 1.8 e avg_sc_a < 1.0 (ou inverso)
+   *   defesa muito sólida: home_avg_conc_home < 0.6 OU away_avg_conc_away < 0.6
+   *
+   * ── Score ────────────────────────────────────────────────────────
+   *   min(avg_sc_h,2.5)*18 + min(avg_sc_a,2.5)*18
+   *   + min(home_conc,2.0)*14 + min(away_conc,2.0)*14
+   *   + min(home_form,away_form)*0.15
+   *   Penalidades: ataque fraco (-8), defesa pouco vazada (-6)
+   *   Penalidade prob válida: se home_prob>=70 ou away_prob>=70 → -10
+   *
+   * ── Classificação ────────────────────────────────────────────────
+   *   >= 85 → Elite (A+)
+   *   >= 78 → Alta  (A)
+   *   >= 70 → Boa Entrada (A)
+   *   <  70 → descartado (null)
+   */
   function scoreBTTS(raw, d, norm) {
-    return ws([
-      [d.btts_cf,         40],
-      [norm.h2h_nv,       15],
-      [norm.ppg_n,        15],
-      [norm.af_n,         15],
-      [raw.over15_g,      10],
-      [_v(norm.exg_n, 50), 5],
-    ]);
+    const _n = v => (v !== null && v !== undefined && Number.isFinite(Number(v))) ? Number(v) : null;
+
+    const avg_sc_h  = _n(raw.avg_sc_h);
+    const avg_sc_a  = _n(raw.avg_sc_a);
+    const home_conc = _n(raw.home_avg_conc_home);
+    const away_conc = _n(raw.away_avg_conc_away);
+    const home_form = _rfFormScore(raw.home_form_score);
+    const away_form = _rfFormScore(raw.away_form_score);
+    const home_prob = _n(raw.win_home);
+    const draw_prob = _n(raw.win_draw);
+    const away_prob = _n(raw.win_away);
+    const pv        = _rfProbValida(home_prob, draw_prob, away_prob);
+
+    // ── Bloqueios ────────────────────────────────────────────────
+    if (avg_sc_h !== null && avg_sc_h < 0.9) return null;
+    if (avg_sc_a !== null && avg_sc_a < 0.9) return null;
+    if (avg_sc_h !== null && avg_sc_a !== null) {
+      if (avg_sc_h >= 1.8 && avg_sc_a < 1.0) return null; // domínio mandante
+      if (avg_sc_a >= 1.8 && avg_sc_h < 1.0) return null; // domínio visitante
+      // Desequilíbrio grande → risco jogo unilateral sem gol do mais fraco
+      const atk_ratio = Math.max(avg_sc_h, avg_sc_a) / Math.min(avg_sc_h, avg_sc_a);
+      if (atk_ratio >= 2.2) return null;
+    }
+    if (home_conc !== null && home_conc < 0.6) return null;
+    if (away_conc !== null && away_conc < 0.6) return null;
+    // Dupla defesa sólida → jogo travado, BTTS improvável
+    if (home_conc !== null && away_conc !== null && home_conc < 0.8 && away_conc < 0.8) return null;
+
+    // ── Score ────────────────────────────────────────────────────
+    let score = 0;
+    score += Math.min(avg_sc_h  ?? 1.2, 2.5) * 18;
+    score += Math.min(avg_sc_a  ?? 1.0, 2.5) * 18;
+    score += Math.min(home_conc ?? 1.0, 2.0) * 14;
+    score += Math.min(away_conc ?? 1.0, 2.0) * 14;
+    score += Math.min(home_form ?? 50, away_form ?? 50) * 0.15;
+
+    // Penalidades — ataque razoável
+    if (avg_sc_h !== null && avg_sc_h < 1.1) score -= 8;
+    if (avg_sc_a !== null && avg_sc_a < 1.1) score -= 8;
+    // Penalidades — defesa pouco vazada
+    if (home_conc !== null && home_conc < 0.8) score -= 6;
+    if (away_conc !== null && away_conc < 0.8) score -= 6;
+    // Penalidade — domínio unilateral (só se prob válida)
+    if (pv && ((home_prob !== null && home_prob >= 70) || (away_prob !== null && away_prob >= 70))) {
+      score -= 10;
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score * 10) / 10));
+
+    // Limiar mínimo para gerar palpite
+    if (score < 70) return null;
+    return score;
   }
 
   /**
