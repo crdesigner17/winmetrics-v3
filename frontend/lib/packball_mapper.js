@@ -164,6 +164,86 @@ const PackBallMapper = (function () {
   }
 
   /**
+   * _calcFormScore(teamStats)
+   * Converte a string de forma recente (ex: "WWDLW") em score numérico 0–100.
+   * Fonte: /teams/statistics → form (string com últimos resultados)
+   * W=3pts, D=1pt, L=0pt → score = pontos / (jogos × 3) × 100
+   *
+   * @param {object} teamStats — response de /teams/statistics
+   * @returns {number|null}    — 0 a 100
+   */
+  function _calcFormScore(teamStats) {
+    const form = teamStats?.form;
+    if (!form || typeof form !== 'string' || form.length === 0) return null;
+    const chars = form.toUpperCase().split('').filter(c => ['W','D','L'].includes(c));
+    if (chars.length === 0) return null;
+    const pts = chars.reduce((acc, c) => acc + (c === 'W' ? 3 : c === 'D' ? 1 : 0), 0);
+    return Math.round((pts / (chars.length * 3)) * 100 * 10) / 10;
+  }
+
+  /**
+   * _calcHomePerformance(teamStats)
+   * % de vitórias do time mandante jogando em casa.
+   * Fonte: /teams/statistics → fixtures.wins.home / fixtures.played.home
+   *
+   * @param {object} teamStats
+   * @returns {number|null} — 0 a 100
+   */
+  function _calcHomePerformance(teamStats) {
+    if (!teamStats || !teamStats.fixtures) return null;
+    const fx      = teamStats.fixtures;
+    const played  = _num(fx.played?.home);
+    if (!played || played === 0) return null;
+    const wins    = _num(fx.wins?.home) || 0;
+    const draws   = _num(fx.draws?.home) || 0;
+    return Math.round(((wins * 3 + draws) / (played * 3)) * 100 * 10) / 10;
+  }
+
+  /**
+   * _calcAwayPerformance(teamStats)
+   * % de vitórias do time visitante jogando fora.
+   * Fonte: /teams/statistics → fixtures.wins.away / fixtures.played.away
+   *
+   * @param {object} teamStats
+   * @returns {number|null} — 0 a 100
+   */
+  function _calcAwayPerformance(teamStats) {
+    if (!teamStats || !teamStats.fixtures) return null;
+    const fx      = teamStats.fixtures;
+    const played  = _num(fx.played?.away);
+    if (!played || played === 0) return null;
+    const wins    = _num(fx.wins?.away) || 0;
+    const draws   = _num(fx.draws?.away) || 0;
+    return Math.round(((wins * 3 + draws) / (played * 3)) * 100 * 10) / 10;
+  }
+
+  /**
+   * _calcAvgGoalsConcededHome(teamStats)
+   * Média de gols sofridos pelo time mandante em jogos em casa.
+   * Fonte: /teams/statistics → goals.against.average.home
+   *
+   * @param {object} teamStats
+   * @returns {number|null}
+   */
+  function _calcAvgGoalsConcededHome(teamStats) {
+    if (!teamStats || !teamStats.goals) return null;
+    return _pos(teamStats.goals.against?.average?.home);
+  }
+
+  /**
+   * _calcAvgGoalsConcededAway(teamStats)
+   * Média de gols sofridos pelo time visitante em jogos fora.
+   * Fonte: /teams/statistics → goals.against.average.away
+   *
+   * @param {object} teamStats
+   * @returns {number|null}
+   */
+  function _calcAvgGoalsConcededAway(teamStats) {
+    if (!teamStats || !teamStats.goals) return null;
+    return _pos(teamStats.goals.against?.average?.away);
+  }
+
+  /**
    * _calcAvgGoals(teamStats)
    * Média de gols marcados por jogo (ataque) — goals.for.average.total
    * Também usada como proxy de xG.
@@ -732,6 +812,14 @@ const PackBallMapper = (function () {
     const under25_h   = _calcUnder25Rate(homeStats?.response);
     const under25_a   = _calcUnder25Rate(awayStats?.response);
 
+    // ── /teams/statistics → Form, Performance casa/fora, Gols sofridos ──
+    const home_form_score    = _calcFormScore(homeStats?.response);
+    const away_form_score    = _calcFormScore(awayStats?.response);
+    const home_home_perf     = _calcHomePerformance(homeStats?.response);
+    const away_away_perf     = _calcAwayPerformance(awayStats?.response);
+    const home_avg_conc_home = _calcAvgGoalsConcededHome(homeStats?.response);
+    const away_avg_conc_away = _calcAvgGoalsConcededAway(awayStats?.response);
+
     // ── /fixtures?last=10 → cantos, cartões, chutes, HT ─────────
     const homeMetrics = _processHistoricGames(homeGames, home_id);
     const awayMetrics = _processHistoricGames(awayGames, away_id);
@@ -842,6 +930,14 @@ const PackBallMapper = (function () {
       win_home:    predictionSignals.win_home,
       win_draw:    predictionSignals.win_draw,
       win_away:    predictionSignals.win_away,
+
+      // Variáveis §RF — Resultado Final (Vitória Casa/Fora)
+      home_form_score,
+      away_form_score,
+      home_home_perf,
+      away_away_perf,
+      home_avg_conc_home,
+      away_avg_conc_away,
 
       // Odds de mercado
       ...allOdds,
