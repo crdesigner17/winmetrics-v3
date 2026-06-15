@@ -981,10 +981,15 @@ async function upsertSnapshot(result, raw) {
     odd:               result.best_odd  ?? null,
     result_status:     null,
     source:            'generate_predictions',
-    // [NOVO] auditoria: score original PackBall + fonte das odds
+    // auditoria: score original PackBall + fonte das odds
     score_enriquecido: result.best_score_enriquecido !== null ? Math.round(Number(result.best_score_enriquecido) * 100) / 100 : null,
     grade_enriquecido: result.best_grade_enriquecido ?? null,
     odds_fonte:        raw.odds_fonte || 'packball',
+    // Dupla Chance — alternativa de segurança (independente do RF)
+    dc_market:         result.dc_market  ?? null,
+    dc_score:          result.dc_score   !== null && result.dc_score !== undefined ? Math.round(Number(result.dc_score) * 100) / 100 : null,
+    dc_label:          result.dc_label   ?? null,
+    dc_odd:            result.dc_odd     ?? null,
     created_at:        new Date().toISOString(),
   };
 
