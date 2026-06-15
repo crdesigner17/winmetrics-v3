@@ -2575,7 +2575,7 @@ const MKT_MIN = {
   'Over 3.5 Cartão': { min: 75, needFilter: null            },
 };
 
-function getAlternativas(fixtureId, mainMarket, predictionsMap) {
+function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, snap) {
   const preds = predictionsMap[fixtureId] || [];
   const seen = new Set();
   const mainGrade = preds.find(p => canonicalMarketKey(p.market) === canonicalMarketKey(mainMarket))?.grade || null;
@@ -2585,7 +2585,8 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
       .map(p => canonicalMarketKey(p.market))
   );
   if (mainMarket) mainMarkets.add(canonicalMarketKey(mainMarket));
-  return preds
+
+  const otherAlts = preds
     .filter(p => !mainMarkets.has(canonicalMarketKey(p.market)))
     .filter(p => {
       const rule = MKT_MIN[p.market] || MKT_MIN[displayMarket(p.market)];
@@ -2606,6 +2607,23 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap) {
     })
     .slice(0, 3)
     .map(p => ({ market: displayMarket(p.market), rawMarket: p.market }));
+
+  // Injetar DC no topo das alternativas quando existir e for diferente do palpite principal
+  const dcMarket = snap?.dc_market ?? null;
+  const dcLabel  = snap?.dc_label  ?? null;
+  if (dcMarket && canonicalMarketKey(dcMarket) !== canonicalMarketKey(mainMarket)) {
+    const dcDisplay = displayMarket(dcMarket);
+    const dcItem = {
+      market:    dcLabel ? `${dcDisplay} (${dcLabel})` : dcDisplay,
+      rawMarket: dcMarket,
+      isDC:      true,
+    };
+    // Remove DC da lista se já estiver (evita duplicata)
+    const filtered = otherAlts.filter(a => canonicalMarketKey(a.rawMarket) !== canonicalMarketKey(dcMarket));
+    return [dcItem, ...filtered].slice(0, 4);
+  }
+
+  return otherAlts;
 }
 
 function getMainPalpites(snap, predictionsMap) {
@@ -3856,7 +3874,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     const conf      = getConf(snap);
     const altBadge  = '';
     const mainPicks = getMainPalpites(snap, predictionsMap);
-    const alts      = getAlternativas(snap.fixture_id, label, predictionsMap, snapshotsMap);
+    const alts      = getAlternativas(snap.fixture_id, label, predictionsMap, snapshotsMap, snap);
     const hasOfficialPick  = Boolean(snap.market);
     const officialLabel    = mainPicks.length ? mainPicks[0].market : (hasOfficialPick ? label : null);
     const smartSuggestions = worldCupOnly ? pickSmartSuggestions(snap.fixture_id, predictionsMap, metricsMap, oddsMap, officialLabel) : [];
