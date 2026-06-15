@@ -278,36 +278,112 @@ const PredictionEngine = (function () {
 
   /**
    * scoreOver15(raw, d, norm, poisson)
-   * §4.1 — Over 1.5 Gols
+   * Over 1.5 Gols — modelo híbrido com foco em assertividade.
    *
-   * Com xG (exg_n != null):
-   *   ws([(over15_g,30),(o15cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,15),(poisson_o15,5)])
+   * Objetivo:
+   *   Manter os bons sinais do PackBall (over15_g, o15cf, H2H, PPG, xG e Poisson),
+   *   mas adicionar uma camada real de ataque/defesa/forma para evitar score inflado.
    *
-   * Sem xG:
-   *   ws([(over15_g,35),(o15cf,22),(h2h_nv,15),(ppg_n,15),(af_n,13)])
+   * Regras de segurança:
+   *   - Score só é retornado se finalScore >= 85.
+   *   - Abaixo de 85 retorna null, para não exibir como palpite principal.
+   *   - PPG é complementar: dá bônus/penalização, mas não bloqueia sozinho.
+   *   - Odds não são obrigatórias.
+   *
+   * Campos principais usados:
+   *   raw.over15_g
+   *   raw.avg_sc_h / raw.avg_sc_a
+   *   raw.home_avg_conc_home / raw.away_avg_conc_away
+   *   raw.home_form_score / raw.away_form_score
+   *   raw.home_ppg/raw.away_ppg ou raw.ppg_h/raw.ppg_a
    */
   function scoreOver15(raw, d, norm, poiss) {
+    const _n = v => (v !== null && v !== undefined && Number.isFinite(Number(v))) ? Number(v) : null;
+    const _cap = v => Math.max(0, Math.min(100, v));
+
     const o15cf_val = _o15cf(raw, d);
 
+    const avg_sc_h  = _n(raw.avg_sc_h);
+    const avg_sc_a  = _n(raw.avg_sc_a);
+    const home_conc = _n(raw.home_avg_conc_home);
+    const away_conc = _n(raw.away_avg_conc_away);
+    const home_form = _rfFormScore(raw.home_form_score);
+    const away_form = _rfFormScore(raw.away_form_score);
+
+    const home_ppg = _n(raw.home_ppg) ?? _n(raw.ppg_h);
+    const away_ppg = _n(raw.away_ppg) ?? _n(raw.ppg_a);
+    const combined_ppg = (home_ppg !== null && away_ppg !== null) ? home_ppg + away_ppg : null;
+
+    const total_attack = (avg_sc_h !== null && avg_sc_a !== null) ? avg_sc_h + avg_sc_a : null;
+    const total_defense_leak = (home_conc !== null && away_conc !== null) ? home_conc + away_conc : null;
+
+    // ── Bloqueios fortes de baixa probabilidade de 2+ gols ─────────
+    if (avg_sc_h !== null && avg_sc_a !== null && avg_sc_h < 0.7 && avg_sc_a < 0.7) return null;
+    if (home_conc !== null && away_conc !== null && home_conc < 0.6 && away_conc < 0.6) return null;
+    if (total_attack !== null && total_attack < 1.6) return null;
+
+    // Ataque muito assimétrico + lado fraco quase não marca: evita 1x0/0x1 travado.
+    if (avg_sc_h !== null && avg_sc_a !== null) {
+      if (avg_sc_h >= 1.8 && avg_sc_a < 0.75) return null;
+      if (avg_sc_a >= 1.8 && avg_sc_h < 0.75) return null;
+    }
+
+    // ── Camada PackBall reponderada ────────────────────────────────
+    // Reduz peso de over15_g para evitar que prediction agregada domine o modelo.
+    let packScore;
     if (norm.exg_n !== null) {
-      return ws([
-        [raw.over15_g,        30],
-        [o15cf_val,           18],
-        [norm.h2h_nv,         12],
-        [norm.ppg_n,          12],
-        [norm.af_n,            8],
-        [norm.exg_n,          15],
-        [poiss ? poiss.o15 : null, 5],
+      packScore = ws([
+        [raw.over15_g,             22],
+        [o15cf_val,                15],
+        [norm.h2h_nv,              10],
+        [norm.ppg_n,               10],
+        [norm.af_n,                10],
+        [norm.exg_n,               18],
+        [poiss ? poiss.o15 : null, 15],
       ]);
     } else {
-      return ws([
-        [raw.over15_g,   35],
-        [o15cf_val,      22],
-        [norm.h2h_nv,    15],
-        [norm.ppg_n,     15],
-        [norm.af_n,      13],
+      packScore = ws([
+        [raw.over15_g, 25],
+        [o15cf_val,    15],
+        [norm.h2h_nv,  12],
+        [norm.ppg_n,   12],
+        [norm.af_n,    16],
       ]);
     }
+
+    // ── Camada de assertividade real ───────────────────────────────
+    const attackScore  = total_attack !== null ? n(total_attack, 1.6, 3.2) : null;
+    const defenseScore = total_defense_leak !== null ? n(total_defense_leak, 1.2, 3.0) : null;
+    const formScore    = (home_form !== null && away_form !== null) ? Math.min(home_form, away_form) : null;
+
+    let score = ws([
+      [packScore,     50],
+      [attackScore,   24],
+      [defenseScore,  16],
+      [formScore,     10],
+    ]);
+
+    if (score === null) return null;
+
+    // ── Bônus de confirmação ───────────────────────────────────────
+    if (total_attack !== null && total_attack >= 2.5) score += 5;
+    if (total_defense_leak !== null && total_defense_leak >= 2.0) score += 4;
+    if (combined_ppg !== null && combined_ppg >= 3.5) score += 8;
+    else if (combined_ppg !== null && combined_ppg >= 3.0) score += 5;
+
+    // ── Penalizações de risco ──────────────────────────────────────
+    if (avg_sc_h !== null && avg_sc_h < 0.8) score -= 8;
+    if (avg_sc_a !== null && avg_sc_a < 0.8) score -= 8;
+    if (total_attack !== null && total_attack < 2.0) score -= 10;
+    if (home_conc !== null && home_conc < 0.7) score -= 5;
+    if (away_conc !== null && away_conc < 0.7) score -= 5;
+    if (combined_ppg !== null && home_ppg < 0.8 && away_ppg < 0.8) score -= 12;
+
+    score = Math.round(_cap(score) * 10) / 10;
+
+    // Corte conservador para recuperar assertividade: somente 85+ aparece.
+    if (score < 85) return null;
+    return score;
   }
 
   /**
