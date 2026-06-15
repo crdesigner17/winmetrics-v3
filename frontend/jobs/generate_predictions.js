@@ -990,6 +990,11 @@ async function upsertSnapshot(result, raw) {
     score_enriquecido: result.best_score_enriquecido !== null ? Math.round(Number(result.best_score_enriquecido) * 100) / 100 : null,
     grade_enriquecido: result.best_grade_enriquecido ?? null,
     odds_fonte:        raw.odds_fonte || 'packball',
+    // DNB — alternativa conservadora (independente do RF)
+    dnb_market:        result.dnb_market  ?? null,
+    dnb_score:         result.dnb_score   !== null && result.dnb_score !== undefined ? Math.round(Number(result.dnb_score) * 100) / 100 : null,
+    dnb_label:         result.dnb_label   ?? null,
+    dnb_odd:           result.dnb_odd     ?? null,
     // Dupla Chance — alternativa de segurança (independente do RF)
     dc_market:         result.dc_market  ?? null,
     dc_score:          result.dc_score   !== null && result.dc_score !== undefined ? Math.round(Number(result.dc_score) * 100) / 100 : null,
