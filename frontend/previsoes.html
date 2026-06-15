@@ -1161,6 +1161,30 @@ async function getCurrentProfile() {
  *   const result = PredictionEngine.processFixture(rawData);
  */
 
+/**
+ * WinMetrics Analytics — Prediction Engine v1
+ * ─────────────────────────────────────────────
+ * Motor matemático puro do PackBall v3.0.
+ * Implementação fiel à Documentação Técnica Completa — Junho 2026.
+ *
+ * Seções de referência:
+ *   3.1  Variáveis brutas
+ *   3.2  Variáveis derivadas + Poisson
+ *   3.3  Normalizações (escala 0–100)
+ *   4.1–4.10  Score Engine por mercado
+ *   5.1  Sistema de grades (thresholds coletar.py / modo API)
+ *   5.2  Seleção de best_mkt
+ *   6    Filtro 3 Vias — Over 1.5 (modo API — inclui Via 4)
+ *   4.6  Filtro específico Under 3.5
+ *
+ * Sem dependências externas. Sem acesso à rede.
+ * Entrada: objeto raw com variáveis brutas por fixture.
+ * Saída:   objeto processado com scores, grades, filtros, best_mkt e EV.
+ *
+ * Uso:
+ *   const result = PredictionEngine.processFixture(rawData);
+ */
+
 const PredictionEngine = (function () {
   'use strict';
 
@@ -1177,11 +1201,11 @@ const PredictionEngine = (function () {
   // D = qualquer score abaixo de 60
 
   const CONFIDENCE_LABELS = {
-    'A+': 'Elite',
-    'A':  'Alta',
-    'B':  'Moderado',
-    'C':  'Arriscado',
-    'D':  'Evitar',
+    'A+': 'Muito Baixo',
+    'A':  'Baixo',
+    'B':  'Médio',
+    'C':  'Alto',
+    'D':  'Muito Alto',
   };
 
   // Mercados que entram no snap / Melhores Previsões (grades oficiais)
@@ -1196,7 +1220,7 @@ const PredictionEngine = (function () {
     cant_n:  { min: 0, max: 15 },
     shots_n: { min: 0, max: 40 },
     cards_n: { min: 0, max: 8  },
-    sot_n:   { min: 0, max: 20 },
+    sot_n:   { min: 0, max: 10 },
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -1416,10 +1440,10 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * scoreOver15(raw, d, norm, poisson)
+   * scoreOver15(raw, d, norm, poiss)
    * §4.1 — Over 1.5 Gols
    *
-   * Com xG (exg_n != null):
+   * Com xG:
    *   ws([(over15_g,30),(o15cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,15),(poisson_o15,5)])
    *
    * Sem xG:
@@ -1430,21 +1454,21 @@ const PredictionEngine = (function () {
 
     if (norm.exg_n !== null) {
       return ws([
-        [raw.over15_g,        30],
-        [o15cf_val,           18],
-        [norm.h2h_nv,         12],
-        [norm.ppg_n,          12],
-        [norm.af_n,            8],
-        [norm.exg_n,          15],
-        [poiss ? poiss.o15 : null, 5],
+        [raw.over15_g,             30],
+        [o15cf_val,                18],
+        [norm.h2h_nv,              12],
+        [norm.ppg_n,               12],
+        [norm.af_n,                 8],
+        [norm.exg_n,               15],
+        [poiss ? poiss.o15 : null,  5],
       ]);
     } else {
       return ws([
-        [raw.over15_g,   35],
-        [o15cf_val,      22],
-        [norm.h2h_nv,    15],
-        [norm.ppg_n,     15],
-        [norm.af_n,      13],
+        [raw.over15_g, 35],
+        [o15cf_val,    22],
+        [norm.h2h_nv,  15],
+        [norm.ppg_n,   15],
+        [norm.af_n,    13],
       ]);
     }
   }
@@ -1484,19 +1508,19 @@ const PredictionEngine = (function () {
   }
 
   /**
-   * scoreBTTS(raw, d, norm, poisson)
+   * scoreBTTS(raw, d, norm)
    * §4.3 — BTTS (Ambas Marcam)
    *
    * ws([(btts_cf,40),(h2h_nv,15),(ppg_n,15),(af_n,15),(over15_g,10),(exg_n|50,5)])
    */
   function scoreBTTS(raw, d, norm) {
     return ws([
-      [d.btts_cf,         40],
-      [norm.h2h_nv,       15],
-      [norm.ppg_n,        15],
-      [norm.af_n,         15],
-      [raw.over15_g,      10],
-      [_v(norm.exg_n, 50), 5],
+      [d.btts_cf,                40],
+      [norm.h2h_nv,              15],
+      [norm.ppg_n,               15],
+      [norm.af_n,                15],
+      [raw.over15_g,             10],
+      [_v(norm.exg_n, 50),        5],
     ]);
   }
 
@@ -1651,258 +1675,17 @@ const PredictionEngine = (function () {
     ]);
   }
 
-  function scoreCards55(raw, d, norm) {
-    return ws([
-      [raw.over45_cards,  48],
-      [norm.cards_n,      32],
-      [raw.over35_cards,  10],
-      [norm.ppg_n,        10],
-    ]);
-  }
-
-  /**
-   * _rfProbValida(home_prob, draw_prob, away_prob)
-   * Detecta se as probabilidades da API são reais ou placeholders.
-   *
-   * Placeholders conhecidos da API-Football quando dados são indisponíveis:
-   *   { 0, 10, 33, 35, 45, 50 }
-   *
-   * Regras de invalidação:
-   *   1. Todos os três valores pertencem ao conjunto de placeholders
-   *   2. Soma < 90 (dados incompletos)
-   *   3. Soma > 110 (erro de normalização)
-   *
-   * @returns {boolean}
-   */
-  function _rfProbValida(home_prob, draw_prob, away_prob) {
-    if (home_prob === null || home_prob === undefined) return false;
-    if (draw_prob === null || draw_prob === undefined) return false;
-    if (away_prob === null || away_prob === undefined) return false;
-
-    const PLACEHOLDERS = new Set([0, 10, 33, 35, 45, 50]);
-    const todos_placeholder = [home_prob, draw_prob, away_prob].every(v => PLACEHOLDERS.has(Number(v)));
-    if (todos_placeholder) return false;
-
-    const soma = Number(home_prob) + Number(draw_prob) + Number(away_prob);
-    if (soma < 90 || soma > 110) return false;
-
-    return true;
-  }
-
-  /**
-   * _rfFormScore(v)
-   * Retorna v se for número finito, senão null.
-   */
-  function _rfFormScore(v) {
-    if (v !== null && v !== undefined && Number.isFinite(Number(v))) return Number(v);
-    return null;
-  }
-
-  /**
-   * scoreResultadoFinal(raw, d, norm)
-   * Lógica PackBall v3.0 — Vitória Casa / Vitória Fora (Vitória Seca).
-   *
-   * ── Independência da API ─────────────────────────────────────────
-   * A lógica NÃO depende obrigatoriamente de win_home/win_away.
-   * Quando a API retorna placeholder, esses campos são ignorados como
-   * bloqueio e contribuem com 0 no score.
-   * Quando a API retorna probabilidade real e válida, eles entram no
-   * score com peso alto (30%).
-   *
-   * ── Critérios primários (obrigatórios, independentes da API) ─────
-   * Vitória Casa:
-   *   form_gap_h >= 8        (mandante com forma melhor)
-   *   home_home_perf >= 55   (mandante razoável em casa)
-   *   away_away_perf <= 55   (visitante fraco fora)
-   *   avg_sc_h >= 1.2        (ataque mínimo do mandante)
-   *   draw_risk <= 40        (empate não dominante)
-   *
-   * Vitória Fora:
-   *   form_gap_a >= 8
-   *   away_away_perf >= 55
-   *   home_home_perf <= 55
-   *   avg_sc_a >= 1.2
-   *   draw_risk <= 40
-   *
-   * ── Score ────────────────────────────────────────────────────────
-   * Com prob. API válida (peso 30%):
-   *   score = prob*0.30 + form_gap*0.22 + local_perf*0.20
-   *         + (100-draw_risk)*0.15 + (100-opp_perf)*0.08 + atk_bonus*0.05
-   *
-   * Sem prob. API (peso redistribuído):
-   *   score = form_gap*0.32 + local_perf*0.28 + (100-draw_risk)*0.20
-   *         + (100-opp_perf)*0.12 + atk_bonus*0.08
-   *
-   * ── Classificação (apenas Elite/Alta/Boa Entrada) ─────────────────
-   *   raw >= 75 → Elite       (A+, finalScore = max(raw, 88))
-   *   raw >= 65 → Alta        (A,  finalScore = max(raw, 82))
-   *   raw >= 56 → Boa Entrada (A,  finalScore = max(raw, 76))
-   *   raw < 56  → descartado
-   *
-   * @returns {{ score, market, side, pickType, rfLabel }}
-   */
-  function scoreResultadoFinal(raw, d, norm) {
-
-    // ── Leitura de variáveis ──────────────────────────────────────
-    const _n = v => (v !== null && v !== undefined && Number.isFinite(Number(v))) ? Number(v) : null;
-
-    const home_prob   = _n(raw.win_home);
-    const away_prob   = _n(raw.win_away);
-    const draw_prob_api = _n(raw.win_draw);
-
-    // draw_risk: usa win_draw da API se válido, senão estima via form
-    const prob_valida = _rfProbValida(home_prob, draw_prob_api, away_prob);
-
-    const home_form   = _rfFormScore(raw.home_form_score);
-    const away_form   = _rfFormScore(raw.away_form_score);
-
-    const home_home_p = _n(raw.home_home_perf);
-    const away_away_p = _n(raw.away_away_perf);
-
-    const avg_sc_h    = _n(raw.avg_sc_h);
-    const avg_sc_a    = _n(raw.avg_sc_a);
-
-    const home_conc   = _n(raw.home_avg_conc_home);
-    const away_conc   = _n(raw.away_avg_conc_away);
-
-    const odds_h      = _n(raw.odds_h);
-    const odds_a      = _n(raw.odds_a);
-
-    // ── draw_risk ─────────────────────────────────────────────────
-    // Com prob válida: usa diretamente
-    // Sem prob válida: estima via form (times equilibrados → maior risco)
-    let draw_risk = null;
-    if (prob_valida && draw_prob_api !== null) {
-      draw_risk = draw_prob_api;
-    } else if (home_form !== null && away_form !== null) {
-      // Times muito equilibrados em forma → draw_risk alto
-      const gap = Math.abs(home_form - away_form);
-      draw_risk = Math.max(20, 50 - gap * 0.4);
-    }
-
-    // ── atk_bonus ─────────────────────────────────────────────────
-    // Bônus de força ofensiva vs fragilidade defensiva adversária
-    function _atkBonus(atk, def_adv) {
-      if (atk === null && def_adv === null) return null;
-      let b = 0;
-      if (atk !== null)     b += Math.min(100, atk * 40);      // 2.5 gols → 100
-      if (def_adv !== null) b += Math.min(100, def_adv * 35);  // >1.4 gols sofridos → bom
-      return b / ((atk !== null ? 1 : 0) + (def_adv !== null ? 1 : 0));
-    }
-
-    // ── Score function ────────────────────────────────────────────
-    function _score(prob, fg, lp, dr, op, atk_b) {
-      const dr_val = dr !== null ? dr : 33;   // fallback conservador
-      const op_val = op !== null ? op : 50;
-      const fg_val = fg !== null ? fg : 0;
-      const lp_val = lp !== null ? lp : 50;
-      const ab_val = atk_b !== null ? atk_b : 50;
-
-      let s;
-      if (prob !== null && prob_valida) {
-        s = prob   * 0.30
-          + fg_val * 0.22
-          + lp_val * 0.20
-          + (100 - dr_val) * 0.15
-          + (100 - op_val) * 0.08
-          + ab_val * 0.05;
-      } else {
-        s = fg_val * 0.32
-          + lp_val * 0.28
-          + (100 - dr_val) * 0.20
-          + (100 - op_val) * 0.12
-          + ab_val * 0.08;
-      }
-      return Math.round(s * 10) / 10;
-    }
-
-    // ── Classificação ─────────────────────────────────────────────
-    function _classify(raw_score) {
-      if (raw_score >= 75) return { label: 'Elite',       grade: 'A+', finalScore: Math.max(raw_score, 88) };
-      if (raw_score >= 65) return { label: 'Alta',        grade: 'A',  finalScore: Math.max(raw_score, 82) };
-      if (raw_score >= 56) return { label: 'Boa Entrada', grade: 'A',  finalScore: Math.max(raw_score, 76) };
-      return null;
-    }
-
-    // ── Bloqueio global: draw_risk >= 40 ─────────────────────────
-    if (draw_risk !== null && draw_risk >= 40) {
-      return { score: null, market: null, side: null, pickType: null };
-    }
-
-    // ── Vitória Casa ──────────────────────────────────────────────
-    const form_gap_h = (home_form !== null && away_form !== null) ? home_form - away_form : null;
-
-    const casa_criterios = [
-      form_gap_h === null  || form_gap_h  >= 8,
-      home_home_p === null || home_home_p >= 55,
-      away_away_p === null || away_away_p <= 55,
-      avg_sc_h === null    || avg_sc_h    >= 1.2,
-    ];
-    const casa_has_data = form_gap_h !== null || home_home_p !== null;
-    const casa_ok = casa_criterios.every(Boolean) && casa_has_data;
-
-    if (casa_ok) {
-      const atk_b = _atkBonus(avg_sc_h, away_conc);
-      const raw_score = _score(home_prob, form_gap_h, home_home_p, draw_risk, away_away_p, atk_b);
-      const cls = _classify(raw_score);
-      if (cls) {
-        return {
-          score:    Math.min(100, cls.finalScore),
-          market:   'Resultado Final (1X2) - Vitória Casa',
-          side:     'home',
-          pickType: 'win',
-          rfLabel:  cls.label,
-          prob_valida,
-        };
-      }
-    }
-
-    // ── Vitória Fora ──────────────────────────────────────────────
-    const form_gap_a = (home_form !== null && away_form !== null) ? away_form - home_form : null;
-
-    const fora_criterios = [
-      form_gap_a === null  || form_gap_a  >= 8,
-      away_away_p === null || away_away_p >= 55,
-      home_home_p === null || home_home_p <= 55,
-      avg_sc_a === null    || avg_sc_a    >= 1.2,
-    ];
-    const fora_has_data = form_gap_a !== null || away_away_p !== null;
-    const fora_ok = fora_criterios.every(Boolean) && fora_has_data;
-
-    if (fora_ok) {
-      const atk_b = _atkBonus(avg_sc_a, home_conc);
-      const raw_score = _score(away_prob, form_gap_a, away_away_p, draw_risk, home_home_p, atk_b);
-      const cls = _classify(raw_score);
-      if (cls) {
-        return {
-          score:    Math.min(100, cls.finalScore),
-          market:   'Resultado Final (1X2) - Vitória Visitante',
-          side:     'away',
-          pickType: 'win',
-          rfLabel:  cls.label,
-          prob_valida,
-        };
-      }
-    }
-
-    return { score: null, market: null, side: null, pickType: null };
-  }
-
-
-
   // ═══════════════════════════════════════════════════════════════
   // 5. FILTRO 3 VIAS — Over 1.5 (modo API / coletar.py)  §6
   // ═══════════════════════════════════════════════════════════════
 
   /**
    * filtroOver15(raw, d)
-   * Retorna true se o jogo passar em ao menos UMA das 4 vias.
-   * Thresholds do coletar.py (modo API).
+   * Retorna true se o jogo passar em ao menos UMA das 3 vias.
    *
    * Via 1: exg_tot != null AND exg_tot >= 4.5
-   * Via 2: exg_tot >= 2.0 AND ppg_min >= 0.7
-   * Via 3: exg_tot = null AND over15_g >= 90 AND ppg_avg >= 1.5
-   * Via 4: over15_g >= 85  (exclusiva do coletar.py)
+   * Via 2: exg_tot >= 2.0 AND ppg_min >= 1.0
+   * Via 3: exg_tot = null AND over15_g >= 90 AND ppg_avg >= 2.0
    *
    * @param {object} raw
    * @param {object} d   — derivadas
@@ -1918,18 +1701,13 @@ const PredictionEngine = (function () {
     }
 
     // Via 2 — Equilíbrio
-    if (exg_tot !== null && exg_tot >= 2.0 && ppg_min !== null && ppg_min >= 0.7) {
+    if (exg_tot !== null && exg_tot >= 2.0 && ppg_min !== null && ppg_min >= 1.0) {
       return { passed: true, via: 2 };
     }
 
     // Via 3 — Sem xG
-    if (exg_tot === null && over15_g != null && over15_g >= 90 && ppg_avg !== null && ppg_avg >= 1.5) {
+    if (exg_tot === null && over15_g != null && over15_g >= 90 && ppg_avg !== null && ppg_avg >= 2.0) {
       return { passed: true, via: 3 };
-    }
-
-    // Via 4 — Predictions (exclusiva modo API)
-    if (over15_g != null && over15_g >= 85) {
-      return { passed: true, via: 4 };
     }
 
     return { passed: false, via: null };
@@ -2006,10 +1784,10 @@ const PredictionEngine = (function () {
    * Converte grade em label de confiança exibido na UI.
    *
    * @param {string} grade
-   * @returns {string}  'Elite' | 'Alta' | 'Moderado' | 'Arriscado' | 'Evitar'
+   * @returns {string}  'Muito Baixo' | 'Baixo' | 'Médio' | 'Alto' | 'Muito Alto'
    */
   function getConfidence(grade) {
-    return CONFIDENCE_LABELS[grade] || 'Evitar';
+    return CONFIDENCE_LABELS[grade] || 'Muito Alto';
   }
 
 
@@ -2051,18 +1829,14 @@ const PredictionEngine = (function () {
    */
   function selectBestMkt(scores, filters) {
     const candidatos = [
-      { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true },
-      { market: 'Over 1.5 gols', score: scores.over15, eligible: filters.over15_passed  },
-      { market: 'Over 2.5 gols', score: scores.over25, eligible: true                   },
-      { market: 'BTTS',        score: scores.btts,    eligible: true                   },
-      { market: 'Over 0.5 HT', score: scores.over05ht,eligible: true                   },
-      { market: 'Under 4.5 gols', score: scores.under45, eligible: true                   },
-      { market: 'Under 3.5 gols', score: scores.under35, eligible: filters.under35_passed },
-      { market: 'Over 7.5 cantos', score: scores.esc75, eligible: true                   },
-      { market: 'Over 8.5 cantos', score: scores.esc85, eligible: true                   },
-      { market: 'Over 2.5 cartão', score: scores.cards25, eligible: true                 },
-      { market: 'Over 3.5 cartão', score: scores.cards35, eligible: true                 },
-      { market: 'Over 5.5 cartão', score: scores.cards55, eligible: true                 },
+      { market: 'Over 1.5',   score: scores.over15,   eligible: filters.over15_passed  },
+      { market: 'Over 2.5',   score: scores.over25,   eligible: true                   },
+      { market: 'BTTS',       score: scores.btts,     eligible: true                   },
+      { market: 'Over 0.5 HT',score: scores.over05ht, eligible: true                   },
+      { market: 'Under 4.5',  score: scores.under45,  eligible: true                   },
+      { market: 'Under 3.5',  score: scores.under35,  eligible: filters.under35_passed },
+      { market: 'Esc 7.5',    score: scores.esc75,    eligible: true                   },
+      { market: 'Cart 2.5',   score: scores.cards25,  eligible: true                   },
     ];
 
     let best = null;
@@ -2096,18 +1870,16 @@ const PredictionEngine = (function () {
 
   function buildMainMarkets(scores, grades, odds, evs, filters) {
     const candidatos = [
-      { key: 'resultadoFinal', market: filters.resultadoFinal_market || 'Resultado Final (1X2)' },
-      { key: 'over15', market: 'Over 1.5 gols' },
-      { key: 'over25', market: 'Over 2.5 gols' },
-      { key: 'btts', market: 'BTTS' },
+      { key: 'over15',   market: 'Over 1.5'    },
+      { key: 'over25',   market: 'Over 2.5'    },
+      { key: 'btts',     market: 'BTTS'        },
       { key: 'over05ht', market: 'Over 0.5 HT' },
-      { key: 'under45', market: 'Under 4.5 gols' },
-      { key: 'under35', market: 'Under 3.5 gols' },
-      { key: 'esc75', market: 'Over 7.5 cantos' },
-      { key: 'esc85', market: 'Over 8.5 cantos' },
-      { key: 'cards25', market: 'Over 2.5 cartão' },
-      { key: 'cards35', market: 'Over 3.5 cartão' },
-      { key: 'cards55', market: 'Over 5.5 cartão' },
+      { key: 'under45',  market: 'Under 4.5'   },
+      { key: 'under35',  market: 'Under 3.5'   },
+      { key: 'esc75',    market: 'Esc 7.5'     },
+      { key: 'esc85',    market: 'Esc 8.5'     },
+      { key: 'cards25',  market: 'Cart 2.5'    },
+      { key: 'cards35',  market: 'Cart 3.5'    },
     ];
 
     return candidatos
@@ -2148,104 +1920,6 @@ const PredictionEngine = (function () {
     return Math.round(((probability / 100) * odd - 1) * 100 * 10) / 10;
   }
 
-  function _finite(v) {
-    return v !== null && v !== undefined && Number.isFinite(Number(v));
-  }
-
-  function _hasAll(raw, fields) {
-    return fields.every(f => _finite(raw[f]));
-  }
-
-  function _signalCount(raw, fields) {
-    return fields.reduce((n, f) => n + (_finite(raw[f]) ? 1 : 0), 0);
-  }
-
-  function _fairOdd(score) {
-    return _finite(score) && Number(score) > 0 ? 100 / Number(score) : null;
-  }
-
-  function _marketKeyFromName(market) {
-    return _mktKey(market);
-  }
-
-  function premiumMarketAudit(key, market, raw, score, odd, ev, filters) {
-    const gradeByScore = getGrade(score);
-    const reasons = [];
-    if (!GRADES_OFICIAIS.has(gradeByScore)) reasons.push('score abaixo de A');
-    if (!_finite(score)) reasons.push('probabilidade ausente');
-    if (!_finite(odd) || Number(odd) <= 1) reasons.push('odd de mercado ausente');
-    if (!_finite(ev)) reasons.push('EV ausente');
-
-    const fairOdd = _fairOdd(score);
-    if (!_finite(fairOdd)) reasons.push('odd justa ausente');
-    if (_finite(odd) && _finite(fairOdd) && Number(odd) < fairOdd) {
-      reasons.push('sem margem de seguranca');
-    }
-
-    let signals = 0;
-    let marketOk = true;
-
-    if (key === 'over15') {
-      marketOk = !!filters.over15_passed && _hasAll(raw, ['ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a']);
-      signals = _signalCount(raw, ['over15_g', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a', 'h2h_goals', 'exg_h', 'exg_a']);
-    } else if (key === 'over25') {
-      marketOk = _hasAll(raw, ['over25_g', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a']);
-      signals = _signalCount(raw, ['over25_g', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a', 'h2h_goals', 'exg_h', 'exg_a']);
-    } else if (key === 'btts') {
-      marketOk = _hasAll(raw, ['btts_h', 'btts_a', 'avg_sc_h', 'avg_sc_a']);
-      signals = _signalCount(raw, ['btts_h', 'btts_a', 'avg_sc_h', 'avg_sc_a', 'h2h_goals', 'over15_g']);
-    } else if (key === 'over05ht') {
-      marketOk = _hasAll(raw, ['over05_ht', 'over15_ht', 'ppg_h', 'ppg_a']);
-      signals = _signalCount(raw, ['over05_ht', 'over15_ht', 'ppg_h', 'ppg_a', 'avg_sc_h', 'avg_sc_a', 'avg_sot']);
-    } else if (key === 'under45') {
-      marketOk = _hasAll(raw, ['ppg_h', 'ppg_a']) && (_finite(raw.under25_h) || _finite(raw.exg_h));
-      signals = _signalCount(raw, ['under25_h', 'under25_a', 'ppg_h', 'ppg_a', 'exg_h', 'exg_a', 'h2h_goals']);
-    } else if (key === 'under35') {
-      marketOk = !!filters.under35_passed && _hasAll(raw, ['ppg_h', 'ppg_a']);
-      signals = _signalCount(raw, ['under25_h', 'under25_a', 'ppg_h', 'ppg_a', 'exg_h', 'exg_a', 'h2h_goals', 'over25_g']);
-    } else if (key === 'esc75' || key === 'esc85') {
-      const overField = key === 'esc85' ? 'over85_c' : 'over75_c';
-      marketOk = _hasAll(raw, ['avg_corners', overField, 'avg_shots']);
-      signals = _signalCount(raw, ['avg_corners', overField, 'over65_c', 'avg_shots']);
-    } else if (key === 'cards25' || key === 'cards35' || key === 'cards55') {
-      const overField = key === 'cards35' ? 'over35_cards' : key === 'cards55' ? 'over45_cards' : 'over25_cards';
-      marketOk = _hasAll(raw, ['avg_cards', overField]);
-      signals = _signalCount(raw, ['avg_cards', overField, 'over25_cards', 'over35_cards']);
-    } else if (key === 'resultadoFinal') {
-      marketOk = _hasAll(raw, ['odds_h', 'odds_a']) && (_finite(raw.win_home) || _hasAll(raw, ['ppg_h', 'ppg_a']));
-      signals = _signalCount(raw, ['odds_h', 'odds_a', 'win_home', 'win_away', 'ppg_h', 'ppg_a', 'exg_h', 'exg_a', 'avg_sc_h', 'avg_sc_a']);
-    }
-
-    if (!marketOk) reasons.push('regra especifica do mercado nao cumprida');
-
-    const officialGrade = gradeByScore;
-    return {
-      market,
-      key,
-      raw_grade: gradeByScore,
-      official_grade: officialGrade,
-      is_premium: GRADES_OFICIAIS.has(officialGrade),
-      fair_odd: fairOdd !== null ? Math.round(fairOdd * 100) / 100 : null,
-      safety_margin: (_finite(odd) && _finite(fairOdd)) ? Math.round(((Number(odd) / fairOdd) - 1) * 1000) / 10 : null,
-      reasons,
-    };
-  }
-
-  function applyPremiumAudit(raw, scores, grades, odds, evs, filters, best) {
-    const audits = {};
-    for (const [key, score] of Object.entries(scores)) {
-      const market = key === 'resultadoFinal'
-        ? (filters.resultadoFinal_market || 'Resultado Final (1X2)')
-        : Object.entries(_MKT_TO_KEY).find(([, v]) => v === key)?.[0] || key;
-      const audit = premiumMarketAudit(key, market, raw, score, odds[key], evs[key], filters);
-      audits[key] = audit;
-    }
-
-    if (!best) return { audits, bestAudit: null };
-    const bestKey = _marketKeyFromName(best.market);
-    const bestAudit = bestKey ? audits[bestKey] : null;
-    return { audits, bestAudit };
-  }
 
 
   // ═══════════════════════════════════════════════════════════════
@@ -2324,38 +1998,37 @@ const PredictionEngine = (function () {
     const s_esc85  = scoreEsc85(raw, d, norm);
     const s_c25    = scoreCards25(raw, d, norm);
     const s_c35    = scoreCards35(raw, d, norm);
-    const s_c55    = scoreCards55(raw, d, norm);
-    const rf       = scoreResultadoFinal(raw, d, norm);
 
     // ── Etapa 5: Filtros ───────────────────────────────────────
     const filtro15   = filtroOver15(raw, d);
     const under35_ok = filtroUnder35(raw, d, s_u35, poiss);
 
-    // ── Etapa 6: Grades ────────────────────────────────────────
+    // ── Etapa 6: Scores agrupados ──────────────────────────────
     const scores = {
-      resultadoFinal: rf.score,
-      over15:  s15,
-      over25:  s25,
-      btts:    s_btts,
+      over15:   s15,
+      over25:   s25,
+      btts:     s_btts,
       over05ht: s_05ht,
-      under45: s_u45,
-      under35: s_u35,
-      esc75:   s_esc75,
-      esc85:   s_esc85,
-      cards25: s_c25,
-      cards35: s_c35,
-      cards55: s_c55,
+      under45:  s_u45,
+      under35:  s_u35,
+      esc75:    s_esc75,
+      esc85:    s_esc85,
+      cards25:  s_c25,
+      cards35:  s_c35,
     };
 
+    // ── Etapa 7: Grades ────────────────────────────────────────
     const grades = {};
     for (const [mkt, sc] of Object.entries(scores)) {
       grades[mkt] = getGrade(sc);
     }
-    const raw_grades = Object.assign({}, grades);
+    // Over 1.5: grade D se não passou o filtro
+    if (!filtro15.passed) grades.over15 = 'D';
+    // Under 3.5: grade D se não passou o filtro
+    if (!under35_ok) grades.under35 = 'D';
 
-    // ── Etapa 7: Odds coletadas ────────────────────────────────
+    // ── Etapa 8: Odds por mercado ──────────────────────────────
     const odds = {
-      resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null) : rf.side === 'away' ? (raw.odds_a ?? null) : null,
       over15:   raw.odd_o15   ?? null,
       over25:   raw.odd_o25   ?? null,
       btts:     raw.odd_btts  ?? null,
@@ -2366,35 +2039,31 @@ const PredictionEngine = (function () {
       esc85:    raw.odd_esc85 ?? null,
       cards25:  raw.odd_c25   ?? null,
       cards35:  raw.odd_c35   ?? null,
-      cards55:  raw.odd_c55   ?? null,
     };
 
-    // ── Etapa 8: EV por mercado ────────────────────────────────
-    // Usa probability = score (escala 0–100) e odd coletada
+    // ── Etapa 9: EV por mercado ────────────────────────────────
     const evs = {};
     for (const [mkt, sc] of Object.entries(scores)) {
       evs[mkt] = computeEV(sc, odds[mkt]);
     }
 
-    // ── Etapa 9: Best_mkt ──────────────────────────────────────
+    // ── Etapa 10: Filtros e best_mkt ──────────────────────────
     const filters = {
       over15_passed: filtro15.passed,
       over15_via:    filtro15.via,
       under35_passed: under35_ok,
-      resultadoFinal_market: rf.market,
     };
 
     const best = selectBestMkt(scores, filters);
-    const premiumAudit = applyPremiumAudit(raw, scores, grades, odds, evs, filters, best);
+    const main_markets = buildMainMarkets(scores, grades, odds, evs, filters);
 
     const best_mkt        = best ? best.market     : null;
     const best_score      = best ? best.score      : null;
-    const best_grade      = best ? best.grade : 'D';
+    const best_grade      = best ? best.grade      : 'D';
     const best_confidence = getConfidence(best_grade);
     const best_odd        = best ? (odds[_mktKey(best.market)] ?? null) : null;
     const best_ev         = best ? computeEV(best.score, best_odd) : null;
     const is_official     = GRADES_OFICIAIS.has(best_grade);
-    const main_markets    = buildMainMarkets(scores, grades, odds, evs, filters);
 
     return {
       // Identificação
@@ -2408,14 +2077,13 @@ const PredictionEngine = (function () {
       match_date:   raw.match_date   ?? null,
       hour:         raw.hour         ?? null,
 
-      // Dados de cálculo intermediário
-      derivadas:   d,
+      // Dados intermediários
+      derivadas:    d,
       normalizadas: norm,
-      poisson:     poiss,
+      poisson:      poiss,
 
       // Scores, grades, odds, EVs por mercado
       scores,
-      raw_grades,
       grades,
       odds,
       evs,
@@ -2431,43 +2099,28 @@ const PredictionEngine = (function () {
       best_odd,
       best_ev,
       main_markets,
-      premium_audit: premiumAudit.audits,
-      best_premium_audit: premiumAudit.bestAudit,
-      is_official,   // true se A+ ou A — entra em Melhores Previsões
+      is_official,  // true se A+ ou A — entra em Melhores Previsões
     };
   }
-
 
   // ═══════════════════════════════════════════════════════════════
   // HELPER: mapeamento market → chave interna de odds/evs
   // ═══════════════════════════════════════════════════════════════
 
   const _MKT_TO_KEY = {
-    'Resultado Final (1X2)': 'resultadoFinal',
-    'Over 1.5 gols': 'over15',
-    'Over 2.5 gols': 'over25',
     'Over 1.5':    'over15',
     'Over 2.5':    'over25',
     'BTTS':        'btts',
     'Over 0.5 HT': 'over05ht',
-    'Under 4.5 gols': 'under45',
-    'Under 3.5 gols': 'under35',
     'Under 4.5':   'under45',
     'Under 3.5':   'under35',
-    'Over 7.5 cantos': 'esc75',
-    'Over 8.5 cantos': 'esc85',
     'Esc 7.5':     'esc75',
     'Esc 8.5':     'esc85',
-    'Over 2.5 cartão': 'cards25',
-    'Over 3.5 cartão': 'cards35',
-    'Over 5.5 cartão': 'cards55',
     'Cart 2.5':    'cards25',
     'Cart 3.5':    'cards35',
-    'Cart 5.5':    'cards55',
   };
 
   function _mktKey(market) {
-    if (String(market || '').startsWith('Resultado Final (1X2)')) return 'resultadoFinal';
     return _MKT_TO_KEY[market] ?? null;
   }
 
@@ -2497,7 +2150,6 @@ const PredictionEngine = (function () {
     scoreEsc85,
     scoreCards25,
     scoreCards35,
-    scoreCards55,
 
     // Filtros
     filtroOver15,
@@ -2535,6 +2187,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = PredictionEngine;  // Node.js / Jest
 }
 // Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
+
 // Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
 
 </script>
@@ -2564,7 +2217,7 @@ const MKT_MIN = {
   'Over 8.5 cantos': { min: 75, needFilter: null            },
   'Over 2.5 cartão': { min: 75, needFilter: null            },
   'Over 3.5 cartão': { min: 75, needFilter: null            },
-  'Over 5.5 cartão': { min: 75, needFilter: null            },  'Over 1.5 Gols':   { min: 85, needFilter: 'passed_filter' },
+  'Over 1.5 Gols':   { min: 85, needFilter: 'passed_filter' },
   'Over 2.5 Gols':   { min: 75, needFilter: null            },
   'Ambas marcam':    { min: 70, needFilter: null            },
   'Under 3.5 Gols':  { min: 75, needFilter: 'under35_passed' },
@@ -2608,37 +2261,7 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, sn
     .slice(0, 3)
     .map(p => ({ market: displayMarket(p.market), rawMarket: p.market }));
 
-  // Injetar DNB e DC nas alternativas com hierarquia: DNB → DC → outros
-  const dnbMarket = snap?.dnb_market ?? null;
-  const dnbLabel  = snap?.dnb_label  ?? null;
-  const dcMarket  = snap?.dc_market  ?? null;
-  const dcLabel   = snap?.dc_label   ?? null;
-
-  let injected = [...otherAlts];
-
-  // DC — alternativa ultra segura (topo)
-  if (dcMarket && canonicalMarketKey(dcMarket) !== canonicalMarketKey(mainMarket)) {
-    const dcDisplay = displayMarket(dcMarket);
-    injected = injected.filter(a => canonicalMarketKey(a.rawMarket) !== canonicalMarketKey(dcMarket));
-    injected.unshift({
-      market:    dcLabel ? `${dcDisplay} (${dcLabel})` : dcDisplay,
-      rawMarket: dcMarket,
-      isDC:      true,
-    });
-  }
-
-  // DNB — alternativa conservadora (acima do DC, abaixo do principal)
-  if (dnbMarket && canonicalMarketKey(dnbMarket) !== canonicalMarketKey(mainMarket)) {
-    const dnbDisplay = displayMarket(dnbMarket);
-    injected = injected.filter(a => canonicalMarketKey(a.rawMarket) !== canonicalMarketKey(dnbMarket));
-    injected.unshift({
-      market:    dnbLabel ? `${dnbDisplay} (${dnbLabel})` : dnbDisplay,
-      rawMarket: dnbMarket,
-      isDNB:     true,
-    });
-  }
-
-  return injected.slice(0, 4);
+  return otherAlts.slice(0, 4);
 }
 
 function getMainPalpites(snap, predictionsMap) {
@@ -2914,23 +2537,7 @@ async function fetchWorldCupMetrics(fixtureIds) {
   }, {});
 }
 
-// Busca odds de Casa e Visitante da tabela odds — usadas pelo scoreResultadoFinal
-async function fetchWorldCupOdds(fixtureIds) {
-  if (!fixtureIds.length) return {};
-  const { data, error } = await supabaseClient
-    .from('odds')
-    .select('fixture_id, market, odd')
-    .in('fixture_id', fixtureIds)
-    .in('market', ['Resultado Final (1X2) - Casa', 'Resultado Final (1X2) - Visitante']);
 
-  if (error || !data) return {};
-  return data.reduce((acc, row) => {
-    if (!acc[row.fixture_id]) acc[row.fixture_id] = {};
-    if (row.market.includes('Casa'))      acc[row.fixture_id].odds_h = Number(row.odd);
-    if (row.market.includes('Visitante')) acc[row.fixture_id].odds_a = Number(row.odd);
-    return acc;
-  }, {});
-}
 
 // section
 async function fetchLeagues() {
@@ -2965,8 +2572,6 @@ const MARKET_ORDER = [
   'Cart 2.5',
   'Over 3.5 cartão',
   'Cart 3.5',
-  'Over 5.5 cartão',
-  'Cart 5.5',
 ];
 
 function marketRank(market) {
@@ -3009,10 +2614,8 @@ function displayMarket(market) {
     .replace(/ã³/g, 'o');
   if (norm.includes('over 2.5 cart')) return 'Over 2.5 Cartão';
   if (norm.includes('over 3.5 cart')) return 'Over 3.5 Cartão';
-  if (norm.includes('over 5.5 cart')) return 'Over 5.5 Cartão';
   if (norm === 'cart 2.5') return 'Over 2.5 Cartão';
   if (norm === 'cart 3.5') return 'Over 3.5 Cartão';
-  if (norm === 'cart 5.5') return 'Over 5.5 Cartão';
   if (name === 'Resultado Final (1X2) - Casa DNB') return 'Casa empate anula';
   if (name === 'Resultado Final (1X2) - Visitante DNB') return 'Visitante empate anula';
   if (name === 'Resultado Final (1X2) - Dupla Chance 1X') return 'Dupla Chance 1X';
@@ -3030,7 +2633,6 @@ function displayMarket(market) {
   if (name === 'Esc 8.5' || name === 'Over 8.5 cantos' || name === 'Over 8.5 Escanteios') return 'Over 8.5 Escanteios';
   if (name === 'Cart 2.5' || name === 'Over 2.5 cartão' || name === 'Over 2.5 Cartão') return 'Over 2.5 Cartão';
   if (name === 'Cart 3.5' || name === 'Over 3.5 cartão' || name === 'Over 3.5 Cartão') return 'Over 3.5 Cartão';
-  if (name === 'Cart 5.5' || name === 'Over 5.5 cartão' || name === 'Over 5.5 Cartão') return 'Over 5.5 Cartão';
   return name;
 }
 
@@ -3055,14 +2657,13 @@ function canonicalMarketKey(market) {
   if (label.includes('8.5 escanteios')) return 'esc85';
   if (label.includes('2.5 cart')) return 'cards25';
   if (label.includes('3.5 cart')) return 'cards35';
-  if (label.includes('5.5 cart')) return 'cards55';
   return label;
 }
 
 const FUNCTIONAL_MARKETS = new Set([
   'Over 1.5', 'Over 2.5', 'Under 3.5', 'Under 4.5',
   'BTTS', 'Over 0.5 HT', 'Esc 7.5', 'Esc 8.5',
-  'Cart 2.5', 'Cart 3.5', 'Cart 5.5',
+  'Cart 2.5', 'Cart 3.5',
   'Resultado Final (1X2) - Casa DNB',
   'Resultado Final (1X2) - Visitante DNB',
   'Resultado Final (1X2) - Dupla Chance 1X',
@@ -3229,7 +2830,6 @@ function calcAltResult(rawMarket, snap) {
   if (mk === 'esc85')    return corners !== null ? (corners > 8.5  ? 'green' : 'red') : null;
   if (mk === 'cards25')  return cards   !== null ? (cards   > 2.5  ? 'green' : 'red') : null;
   if (mk === 'cards35')  return cards   !== null ? (cards   > 3.5  ? 'green' : 'red') : null;
-  if (mk === 'cards55')  return cards   !== null ? (cards   > 5.5  ? 'green' : 'red') : null;
   if (mk === 'home_win') return (gh !== null && ga !== null) ? (gh > ga  ? 'green' : 'red') : null;
   if (mk === 'away_win') return (gh !== null && ga !== null) ? (ga > gh  ? 'green' : 'red') : null;
   if (mk === 'dc1x')     return (gh !== null && ga !== null) ? (gh >= ga ? 'green' : 'red') : null;
@@ -3387,8 +2987,7 @@ function metricCandidate(key, group, type, title, market, score, filterBoost = 0
 //
 // Retorna um objeto com os mesmos campos de result.scores do engine:
 //   { over15, over25, btts, over05ht, under45, under35,
-//     esc75, esc85, cards25, cards35, resultadoFinal,
-//     rfMarket, rfSide }
+//     esc75, esc85, cards25, cards35 }
 //
 // Retorna null se não houver dados suficientes para nenhum mercado.
 // ─────────────────────────────────────────────────────────────────
@@ -3422,10 +3021,8 @@ function buildWorldCupEngineScores(metrics, oddsForFixture) {
     avg_sot:      metrics.avg_sot      ?? null,
     under25_h:    metrics.under25_h    ?? null,
     under25_a:    metrics.under25_a    ?? null,
-    // Odds da Casa/Visitante para scoreResultadoFinal
-    odds_h:       oddsForFixture?.odds_h ?? null,
-    odds_a:       oddsForFixture?.odds_a ?? null,
-    // win_home/win_away não estão no banco — engine funciona sem eles via odds
+    odds_h:       null,
+    odds_a:       null,
     win_home:     null,
     win_away:     null,
     avg_shots_h:  null,
@@ -3476,62 +3073,22 @@ function buildWorldCupEngineScores(metrics, oddsForFixture) {
   const sesc85 = PredictionEngine.scoreEsc85(raw, d, norm);
   const sc25   = PredictionEngine.scoreCards25(raw, d, norm);
   const sc35   = PredictionEngine.scoreCards35(raw, d, norm);
-  const sc55   = PredictionEngine.scoreCards55(raw, d, norm);
-
-  // Resultado Final — só calcula se tiver pelo menos odds ou PPG de ambos
-  let rfScore = null, rfMarket = null, rfSide = null;
-  const hasOdds = raw.odds_h !== null && raw.odds_a !== null;
-  const hasPPG  = raw.ppg_h  !== null && raw.ppg_a  !== null;
-  if (hasOdds || hasPPG) {
-    const rf = PredictionEngine.scoreResultadoFinal ? null : null; // engine não expõe scoreResultadoFinal
-    // scoreResultadoFinal é interno ao engine — simulamos via processFixture parcial
-    // Alternativa: usar apenas odds implícitas para inferir favorito
-    if (hasOdds) {
-      const oh = raw.odds_h, oa = raw.odds_a;
-      if (oh > 1 && oa > 1) {
-        rfSide    = oh < oa ? 'home' : 'away';
-        const favOdd = Math.min(oh, oa);
-        // Score baseado na odd + diferença de PPG/xG (alinhado com a lógica do engine)
-        const sign = rfSide === 'home' ? 1 : -1;
-        const ppgDiff = (hasPPG ? (raw.ppg_h - raw.ppg_a) * sign : 0);
-        const xgDiff  = (raw.exg_h != null && raw.exg_a != null ? (raw.exg_h - raw.exg_a) * sign : 0);
-        const oddsScore   = Math.max(0, 100 - (favOdd * 22));
-        const ppgBonus    = Math.min(15, Math.max(0, ppgDiff * 10));
-        const xgBonus     = Math.min(12, Math.max(0, xgDiff  * 8));
-        rfScore  = Math.min(100, Math.round((oddsScore + ppgBonus + xgBonus) * 10) / 10);
-        rfMarket = rfSide === 'home' ? 'Vitória da Casa' : 'Vitória do Visitante';
-      }
-    } else if (hasPPG) {
-      // Sem odds: usa diferença de PPG pura
-      const ppgDiff = raw.ppg_h - raw.ppg_a;
-      if (Math.abs(ppgDiff) >= 0.3) {
-        rfSide   = ppgDiff > 0 ? 'home' : 'away';
-        const sign = rfSide === 'home' ? 1 : -1;
-        const xgDiff = (raw.exg_h != null && raw.exg_a != null ? (raw.exg_h - raw.exg_a) * sign : 0);
-        rfScore  = Math.min(100, Math.round((35 + Math.abs(ppgDiff) * 15 + Math.abs(xgDiff) * 10) * 10) / 10);
-        rfMarket = rfSide === 'home' ? 'Vitória da Casa' : 'Vitória do Visitante';
-      }
-    }
-  }
-
   // Verifica se temos ao menos 1 score válido
-  const hasAny = [s15, s25, sbtts, s05ht, su45, su35, sesc75, sesc85, sc25, sc35, sc55, rfScore]
+  const hasAny = [s15, s25, sbtts, s05ht, su45, su35, sesc75, sesc85, sc25, sc35]
     .some(s => s !== null);
   if (!hasAny) return null;
 
   return {
-    over15:  s15,
-    over25:  s25,
-    btts:    sbtts,
+    over15:   s15,
+    over25:   s25,
+    btts:     sbtts,
     over05ht: s05ht,
-    under45: su45,
-    under35: su35,
-    esc75:   sesc75,
-    esc85:   sesc85,
-    cards25: sc25,
-    cards35: sc35,
-    cards55: sc55,
-    rfScore, rfMarket, rfSide,
+    under45:  su45,
+    under35:  su35,
+    esc75:    sesc75,
+    esc85:    sesc85,
+    cards25:  sc25,
+    cards35:  sc35,
   };
 }
 
@@ -3565,7 +3122,6 @@ function pickSmartSuggestions(fixtureId, predictionsMap, metricsMap = {}, oddsMa
     { label: 'Over 8.5 Escanteios', key: 'esc85', group: 'corners', type: 'corners', title: 'Escanteios'   },
     { label: 'Over 2.5 Cartão',  key: 'cards25',  group: 'cards',   type: 'cards',   title: 'Cartões'      },
     { label: 'Over 3.5 Cartão',  key: 'cards35',  group: 'cards',   type: 'cards',   title: 'Cartões'      },
-    { label: 'Over 5.5 Cartão',  key: 'cards55',  group: 'cards',   type: 'cards',   title: 'Cartões'      },
   ];
 
   // ── Fonte 2: engine scores calculados do match_metrics ─────────
@@ -3600,36 +3156,7 @@ function pickSmartSuggestions(fixtureId, predictionsMap, metricsMap = {}, oddsMa
     });
   });
 
-  // ── Resultado Final ─────────────────────────────────────────────
-  // Vitória da Casa e Vitória do Visitante são sempre adicionados
-  // se houver dados suficientes (odds ou PPG).
-  if (engineScores?.rfScore !== null && engineScores?.rfScore !== undefined && engineScores?.rfMarket) {
-    // Adiciona o favorito calculado
-    candidates.push({
-      key:    'rfFav',
-      group:  'winnerFav',
-      type:   'result',
-      title:  'Vencedor',
-      market: engineScores.rfMarket,
-      score:  engineScores.rfScore,
-      grade:  fallbackSuggestionGrade(engineScores.rfScore),
-      filterBoost: 0,
-    });
 
-    // Adiciona o outro lado com score invertido (proporcional)
-    const otherMarket = engineScores.rfSide === 'home' ? 'Vitória do Visitante' : 'Vitória da Casa';
-    const otherScore  = Math.max(20, Math.round((100 - engineScores.rfScore) * 0.7 * 10) / 10);
-    candidates.push({
-      key:    'rfOther',
-      group:  'winnerOther',
-      type:   'result',
-      title:  'Vencedor',
-      market: otherMarket,
-      score:  otherScore,
-      grade:  fallbackSuggestionGrade(otherScore),
-      filterBoost: 0,
-    });
-  }
 
   return candidates
     .filter(c => c.market !== officialMarket)
@@ -3991,7 +3518,6 @@ async function loadPrevisoes() {
         fetchOfficialSnapshotsByFixtureIds(fixtureIds),
         fetchPredictions(fixtureIds),
         fetchWorldCupMetrics(fixtureIds),
-        fetchWorldCupOdds(fixtureIds),
       ]);
 
       const rows = pageFixtures.map(f => {
