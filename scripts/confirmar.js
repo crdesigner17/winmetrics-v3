@@ -87,9 +87,7 @@ const MKT_RESULTADO = {
   'Cart 2.5':          'cart25_ok',
   'Over 2.5 cartão':   'cart25_ok',
   'Cart 3.5':          'cart35_ok',
-  'Over 3.5 cartão':   'cart35_ok',   // estava ausente → result_status nunca preenchido
-  'Cart 5.5':          'cart55_ok',
-  'Over 5.5 cartão':   'cart55_ok',   // estava ausente → result_status nunca preenchido
+  'Over 3.5 cartão':   'cart35_ok',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -226,7 +224,6 @@ async function buscarResultado(fixtureId) {
     esc85_ok:     cornersTotal !== null ? cornersTotal > 8.5  : null,
     cart25_ok:    cardsTotal   !== null ? cardsTotal   > 2.5  : null,
     cart35_ok:    cardsTotal   !== null ? cardsTotal   > 3.5  : null,
-    cart55_ok:    cardsTotal   !== null ? cardsTotal   > 5.5  : null,
     corners_total: cornersTotal,
     cards_total:   cardsTotal,
   };
@@ -237,45 +234,6 @@ async function buscarResultado(fixtureId) {
 // ─────────────────────────────────────────────────────────────────
 
 function calcResultStatus(market, resultado) {
-  if (String(market || '').startsWith('Resultado Final (1X2)')) {
-    const gh = resultado.goals_home;
-    const ga = resultado.goals_away;
-    if (gh === null || gh === undefined || ga === null || ga === undefined) return null;
-    const homeWin = gh > ga;
-    const awayWin = ga > gh;
-    const draw = gh === ga;
-    const isHome = market.includes('Casa');
-    const isAway = market.includes('Visitante');
-
-    if (market.includes('Vitória')) {
-      return ((isHome && homeWin) || (isAway && awayWin)) ? 'green' : 'red';
-    }
-    if (market.includes('DNB')) {
-      if (draw) return null;
-      return ((isHome && homeWin) || (isAway && awayWin)) ? 'green' : 'red';
-    }
-    if (market.includes('Dupla Chance')) {
-      // FIX BUG 1: isHome/isAway eram sempre false porque o label
-      // 'Dupla Chance 1X' não contém 'Casa' nem 'Visitante'.
-      // ATENÇÃO: market.includes('1X') detecta '1X' dentro de '(1X2)'
-      // então usamos o sufixo após o hífen para identificar a variante.
-      const suffix = market.split('-').pop().trim(); // ex: 'Dupla Chance 1X'
-      // 1X = Casa OU Empate → perde APENAS se visitante vencer
-      if (suffix.endsWith('1X')) {
-        return awayWin ? 'red' : 'green';
-      }
-      // X2 = Empate OU Visitante → perde APENAS se casa vencer
-      if (suffix.endsWith('X2')) {
-        return homeWin ? 'red' : 'green';
-      }
-      // 12 = Casa OU Visitante → perde APENAS se empate
-      if (suffix.endsWith('12')) {
-        return draw ? 'red' : 'green';
-      }
-      return null; // variante não reconhecida
-    }
-  }
-
   const campo = MKT_RESULTADO[market];
   if (!campo) return null;
   const acertou = resultado[campo];
