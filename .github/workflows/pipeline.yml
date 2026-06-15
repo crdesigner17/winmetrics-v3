@@ -32,6 +32,7 @@ on:
           - data_especifica # Uma data específica
           - so_confirmar          # Só confirmar resultados (não roda backfill)
           - so_confirmar_force    # Reconfirmar forçado (sobrescreve resultados existentes)
+          - reprocess_engine      # Reprocessa RF/DC/engine em datas passadas E futuras (preserva result_status)
       date:
         description: '[data_especifica] Data YYYY-MM-DD'
         required: false
@@ -51,6 +52,10 @@ on:
         type: boolean
       days_confirmar:
         description: '[so_confirmar_force] Quantos dias reprocessar (default: 21)'
+        required: false
+        default: '21'
+      days_reprocess:
+        description: '[reprocess_engine] Quantos dias reprocessar (default: 21)'
         required: false
         default: '21'
 
@@ -161,7 +166,8 @@ jobs:
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar_force')
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar_force') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'reprocess_engine')
 
     steps:
       - name: Checkout
@@ -182,6 +188,17 @@ jobs:
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
+          if [ "${{ github.event.inputs.mode }}" = "reprocess_engine" ]; then
+            DAYS="${{ github.event.inputs.days_reprocess || '21' }}"
+            echo "▶ Reprocessando engine (RF/DC) nos últimos $DAYS dias + próximos 7 dias"
+            # Passado: --reprocess-engine --force
+            node frontend/jobs/generate_predictions.js --days=$DAYS --force --reprocess-engine
+            # Futuro: próximos 7 dias (fixtures ainda sem resultado)
+            FUTURE_DATE=$(date -d "+1 day" +%Y-%m-%d)
+            node frontend/jobs/generate_predictions.js --date=$FUTURE_DATE --days=7 --force --reprocess-engine
+            exit 0
+          fi
+
           FORCE_FLAG=""
           DAYS="7"
 
