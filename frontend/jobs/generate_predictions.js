@@ -14,7 +14,7 @@
  *   6. Log detalhado por fixture
  *
  * Uso:
- *   node generate_predictions.js [--date YYYY-MM-DD] [--days N] [--dry-run] [--force] [--only-new] [--limit N]
+ *   node generate_predictions.js [--date YYYY-MM-DD] [--days N] [--dry-run] [--force] [--only-new] [--limit N] [--reprocess-engine]
  *
  * Exemplos econômicos:
  *   node generate_predictions.js --days=3 --only-new --dry-run
@@ -61,8 +61,9 @@ const API_BASE      = 'https://v3.football.api-sports.io';
 // Flags de execução
 const args      = process.argv.slice(2);
 const DRY_RUN   = args.includes('--dry-run');
-const FORCE     = args.includes('--force');
-const ONLY_NEW  = args.includes('--only-new');
+const FORCE            = args.includes('--force');
+const ONLY_NEW         = args.includes('--only-new');
+const REPROCESS_ENGINE = args.includes('--reprocess-engine'); // Reprocessa RF/DC/engine sem tocar result_status
 const MOCK_TO_SUPABASE = args.includes('--mock-to-supabase');
 const dateArg   = args.find(a => a.startsWith('--date='))?.split('=')[1];
 const daysArg   = args.find(a => a.startsWith('--days='))?.split('=')[1];
@@ -949,8 +950,12 @@ async function upsertSnapshot(result, raw) {
     .single();
 
   if (existing?.result_status && existing.result_status !== null) {
-    LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} ja confirmado (${existing.result_status}) - preservado.`);
-    return 0;
+    if (!REPROCESS_ENGINE) {
+      LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} ja confirmado (${existing.result_status}) - preservado.`);
+      return 0;
+    }
+    // --reprocess-engine: atualiza RF/DC mas preserva result_status
+    LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} confirmado mas reprocessando engine (RF/DC)...`);
   }
 
   // [NOVO] Opção B: usa score/grade enriquecidos se disponíveis
@@ -991,6 +996,8 @@ async function upsertSnapshot(result, raw) {
     dc_label:          result.dc_label   ?? null,
     dc_odd:            result.dc_odd     ?? null,
     created_at:        new Date().toISOString(),
+    // Ao reprocessar engine: preservar result_status existente
+    ...(REPROCESS_ENGINE && existing?.result_status ? { result_status: existing.result_status } : {}),
   };
 
   const { error } = await supabase
@@ -1109,7 +1116,7 @@ function printFixtureLog(raw, result, savedSnapshot, validation) {
 async function run() {
   console.log('\n' + '═'.repeat(64));
   console.log(' WinMetrics Analytics — Generate Predictions');
-  console.log(` Data inicial: ${TODAY}  |  days: ${DAYS}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}  |  only-new: ${ONLY_NEW}  |  limit: ${LIMIT || 'sem limite'}`);
+  console.log(` Data inicial: ${TODAY}  |  days: ${DAYS}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}  |  only-new: ${ONLY_NEW}  |  reprocess-engine: ${REPROCESS_ENGINE}  |  limit: ${LIMIT || 'sem limite'}`);
   console.log('═'.repeat(64) + '\n');
 
   // ── Carrega CSVs do PackBall ──────────────────────────────────
