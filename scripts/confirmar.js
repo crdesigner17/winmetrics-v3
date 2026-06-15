@@ -290,9 +290,16 @@ function calcResultStatus(market, resultado) {
 
 async function fetchSnapshotsPendentes(dateStr) {
   // Converte YYYY-MM-DD BRT para range UTC
+  // BRT = UTC-3, então um dia BRT vai de UTC-3h até UTC+21h do mesmo dia
+  // Para cobrir jogos salvos em qualquer fuso, usamos UTC-3 como início e UTC+3 como fim
   const [y, m, d] = dateStr.split('-').map(Number);
-  const start = new Date(Date.UTC(y, m - 1, d, 0, 0, 0)).toISOString();
-  const end   = new Date(Date.UTC(y, m - 1, d, 23, 59, 59)).toISOString();
+  // 00:00 BRT = 03:00 UTC | 23:59 BRT = 02:59 UTC do dia seguinte
+  const startDate = new Date(Date.UTC(y, m - 1, d, 3, 0, 0));
+  const endDate   = new Date(Date.UTC(y, m - 1, d, 3, 0, 0));
+  endDate.setUTCDate(endDate.getUTCDate() + 1); // avança 1 dia
+  endDate.setUTCMinutes(endDate.getUTCMinutes() - 1); // 02:59 UTC do dia seguinte
+  const start = startDate.toISOString();
+  const end   = endDate.toISOString();
 
   let q = supabase
     .from('prediction_snapshots')
