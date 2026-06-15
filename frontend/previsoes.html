@@ -983,11 +983,8 @@ async function getCurrentProfile() {
     <!-- Toolbar -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div class="toolbar" style="margin-bottom:0;">
-        <div class="tab-group">
-          <div class="tab">Ontem</div>
-          <div class="tab active">Hoje</div>
-          <div class="tab">Amanhã</div>
-          <div class="tab">Próximos 7 dias</div>
+        <div class="tab-group" id="date-tab-group">
+          <!-- Tabs de data gerados dinamicamente por buildDateTabs() -->
         </div>
         <!-- Dropdown Campeonato -->
         <div class="dd-wrap" id="dd-league-wrap">
@@ -3905,27 +3902,57 @@ async function loadPrevisoes() {
 }
 
 // section
-function initTabs() {
-  document.querySelectorAll('.tab').forEach(t => {
-    const txt = t.textContent.trim();
-    if (txt.includes('Ontem')) { t.dataset.filter = 'ontem'; return; }
-    if (txt.includes('Hoje')) { t.dataset.filter = 'hoje'; return; }
-    if (txt.includes('Amanh')) { t.dataset.filter = 'amanha'; return; }
-    if (txt.includes('7')) { t.dataset.filter = '7dias'; return; }
-    if (txt === 'Hoje')                            t.dataset.filter = 'hoje';
-    else if (txt === 'Amanhã' || txt === 'Amanha') t.dataset.filter = 'amanha';
-    else if (txt === '7 Dias' || txt === '7 dias') t.dataset.filter = '7dias';
-    else if (txt === 'Todos')                      t.dataset.filter = 'todos';
-  });
+function buildDateTabs() {
+  const group = document.getElementById('date-tab-group');
+  if (!group) return;
 
+  const now   = new Date();
+  const today = brtDateStr(now);
+
+  // Gera array: 2 dias antes, hoje, 2 dias depois
+  const days = [];
+  for (let i = -2; i <= 2; i++) {
+    const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+    const ymd = brtDateStr(d);
+    const [y, m, dia] = ymd.split('-');
+    let label;
+    if      (i === -1) label = 'Ontem';
+    else if (i ===  0) label = 'Hoje';
+    else if (i ===  1) label = 'Amanhã';
+    else               label = `${dia}/${m}`;
+    days.push({ ymd, label, isToday: i === 0 });
+  }
+
+  group.innerHTML = days.map(d => {
+    const cls = d.isToday ? 'tab active' : 'tab';
+    return `<div class="${cls}" data-filter="dia" data-ymd="${d.ymd}">${d.label}</div>`;
+  }).join('');
+
+  _bindTabEvents();
+}
+
+function initTabs() {
+  buildDateTabs();
+}
+
+function _bindTabEvents() {
   document.querySelectorAll('.tab').forEach(t => {
     t.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
       t.classList.add('active');
-      activeFilter    = t.dataset.filter || 'hoje';
-      filterDateStart = null;
-      filterDateEnd   = null;
-      // section
+
+      const ymd = t.dataset.ymd || null;
+      if (ymd) {
+        // Tab de dia específico
+        activeFilter    = 'dia';
+        filterDateStart = ymd;
+        filterDateEnd   = ymd;
+      } else {
+        activeFilter    = t.dataset.filter || 'hoje';
+        filterDateStart = null;
+        filterDateEnd   = null;
+      }
+
       document.getElementById('filter-date-label').textContent = 'Filtros';
       document.getElementById('filter-date-btn').style.borderColor = '';
       currentPage = 1;
@@ -4137,14 +4164,6 @@ function initFilterModal() {
 
 // section
 document.addEventListener('DOMContentLoaded', () => {
-  const tabGroup = document.querySelector('.tab-group');
-  if (tabGroup && !Array.from(tabGroup.querySelectorAll('.tab')).some(t => t.textContent.trim() === 'Todos')) {
-    const allTab = document.createElement('div');
-    allTab.className = 'tab';
-    allTab.textContent = 'Todos';
-    tabGroup.appendChild(allTab);
-  }
-
   applyWcThead();
 
   initTabs();
