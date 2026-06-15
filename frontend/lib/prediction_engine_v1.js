@@ -751,6 +751,180 @@ const PredictionEngine = (function () {
 
 
   /**
+   * scoreDNB(raw, d, norm)
+   * Lógica PackBall v3.0 — Empate Anula Aposta (DNB) Casa e Fora.
+   *
+   * ── Conceito ─────────────────────────────────────────────────────
+   * Mercado intermediário entre Vitória Seca e Dupla Chance.
+   * Entra quando o time tem boa chance de vencer mas o empate
+   * ainda é risco relevante. O empate devolve a aposta.
+   *
+   * ── Critérios DNB Casa ───────────────────────────────────────────
+   *   form_gap_h >= 6
+   *   home_home_perf >= 65
+   *   away_away_perf <= 62
+   *   avg_sc_h >= 1.3
+   *   away_avg_conc_away >= 1.1   (se disponível)
+   *   away_prob baixa             (se prob válida)
+   *
+   * ── Critérios DNB Fora ───────────────────────────────────────────
+   *   form_gap_a >= 6
+   *   away_away_perf >= 62
+   *   home_home_perf <= 62
+   *   avg_sc_a >= 1.2
+   *   home_avg_conc_home >= 1.1   (se disponível)
+   *   home_prob baixa             (se prob válida)
+   *
+   * ── Score ────────────────────────────────────────────────────────
+   * Com prob. válida:
+   *   score = prob*0.28 + form_gap*0.24 + local_perf*0.22
+   *         + (100-draw_risk)*0.16 + (100-opp_perf)*0.10
+   *
+   * Sem prob. válida:
+   *   score = form_gap*0.34 + local_perf*0.30 + (100-draw_risk)*0.22
+   *         + (100-opp_perf)*0.14
+   *
+   * Penalidades: -8 se draw_risk >= 32; -5 se form_gap < 8
+   *
+   * ── Classificação ────────────────────────────────────────────────
+   *   raw >= 72 → Elite       (A+, finalScore = max(raw, 88))
+   *   raw >= 63 → Alta        (A,  finalScore = max(raw, 82))
+   *   raw >= 55 → Boa Entrada (A,  finalScore = max(raw, 76))
+   *   raw <  55 → descartado
+   *
+   * ── Hierarquia ───────────────────────────────────────────────────
+   *   RF  (Vitória) → principal quando existe
+   *   DNB → alternativa conservadora ou principal se RF não passa
+   *   DC  → alternativa ultra segura
+   *
+   * @returns {{ score, market, side, pickType, dnbLabel }}
+   */
+  function scoreDNB(raw, d, norm) {
+    const _n = v => (v !== null && v !== undefined && Number.isFinite(Number(v))) ? Number(v) : null;
+
+    const home_prob     = _n(raw.win_home);
+    const away_prob     = _n(raw.win_away);
+    const draw_prob_api = _n(raw.win_draw);
+    const pv            = _rfProbValida(home_prob, draw_prob_api, away_prob);
+
+    const home_form     = _rfFormScore(raw.home_form_score);
+    const away_form     = _rfFormScore(raw.away_form_score);
+
+    const home_home_p   = _n(raw.home_home_perf);
+    const away_away_p   = _n(raw.away_away_perf);
+
+    const avg_sc_h      = _n(raw.avg_sc_h);
+    const avg_sc_a      = _n(raw.avg_sc_a);
+    const home_conc     = _n(raw.home_avg_conc_home);
+    const away_conc     = _n(raw.away_avg_conc_away);
+
+    // draw_risk: usa prob. API se válida, senão estima via form
+    let draw_risk = null;
+    if (pv && draw_prob_api !== null) {
+      draw_risk = draw_prob_api;
+    } else if (home_form !== null && away_form !== null) {
+      const gap = Math.abs(home_form - away_form);
+      draw_risk = Math.max(18, 48 - gap * 0.4);
+    }
+
+    // Prob só entra se válida — senão 50 (neutro)
+    const away_p_score = (pv && away_prob !== null) ? away_prob : 50;
+    const home_p_score = (pv && home_prob !== null) ? home_prob : 50;
+
+    // ── Score function ────────────────────────────────────────────
+    function _score(prob, fg, lp, dr, op) {
+      const dr_v = dr  !== null ? dr  : 30;
+      const op_v = op  !== null ? op  : 50;
+      const fg_v = fg  !== null ? fg  : 0;
+      const lp_v = lp  !== null ? lp  : 50;
+      let s;
+      if (prob !== null && pv) {
+        s = prob  * 0.28
+          + fg_v  * 0.24
+          + lp_v  * 0.22
+          + (100 - dr_v) * 0.16
+          + (100 - op_v) * 0.10;
+      } else {
+        s = fg_v  * 0.34
+          + lp_v  * 0.30
+          + (100 - dr_v) * 0.22
+          + (100 - op_v) * 0.14;
+      }
+      if (draw_risk !== null && draw_risk >= 32) s -= 8;
+      if (fg !== null && fg < 8)                 s -= 5;
+      return Math.min(100, Math.round(s * 10) / 10);
+    }
+
+    // ── Classificação ─────────────────────────────────────────────
+    function _classify(s) {
+      if (s >= 72) return { label: 'Elite',       grade: 'A+', finalScore: Math.max(s, 88) };
+      if (s >= 63) return { label: 'Alta',        grade: 'A',  finalScore: Math.max(s, 82) };
+      if (s >= 55) return { label: 'Boa Entrada', grade: 'A',  finalScore: Math.max(s, 76) };
+      return null;
+    }
+
+    // ── DNB Casa ──────────────────────────────────────────────────
+    const form_gap_h = (home_form !== null && away_form !== null) ? home_form - away_form : null;
+
+    const casa_ok = all([
+      form_gap_h === null  || form_gap_h  >= 6,
+      home_home_p === null || home_home_p >= 65,
+      away_away_p === null || away_away_p <= 62,
+      avg_sc_h === null    || avg_sc_h    >= 1.3,
+      away_conc === null   || away_conc   >= 1.1,
+      !pv || away_p_score <= 40,   // prob válida → visitante não pode ter prob alta
+    ]) && (form_gap_h !== null || home_home_p !== null);
+
+    if (casa_ok) {
+      const s = _score(home_prob, form_gap_h, home_home_p, draw_risk, away_away_p);
+      const cls = _classify(s);
+      if (cls) {
+        return {
+          score:    Math.min(100, cls.finalScore),
+          market:   'Resultado Final (1X2) - Casa DNB',
+          side:     'home',
+          pickType: 'dnb',
+          dnbLabel: cls.label,
+          prob_valida: pv,
+        };
+      }
+    }
+
+    // ── DNB Fora ──────────────────────────────────────────────────
+    const form_gap_a = (home_form !== null && away_form !== null) ? away_form - home_form : null;
+
+    const fora_ok = all([
+      form_gap_a === null  || form_gap_a  >= 6,
+      away_away_p === null || away_away_p >= 62,
+      home_home_p === null || home_home_p <= 62,
+      avg_sc_a === null    || avg_sc_a    >= 1.2,
+      home_conc === null   || home_conc   >= 1.1,
+      !pv || home_p_score <= 40,
+    ]) && (form_gap_a !== null || away_away_p !== null);
+
+    if (fora_ok) {
+      const s = _score(away_prob, form_gap_a, away_away_p, draw_risk, home_home_p);
+      const cls = _classify(s);
+      if (cls) {
+        return {
+          score:    Math.min(100, cls.finalScore),
+          market:   'Resultado Final (1X2) - Visitante DNB',
+          side:     'away',
+          pickType: 'dnb',
+          dnbLabel: cls.label,
+          prob_valida: pv,
+        };
+      }
+    }
+
+    return { score: null, market: null, side: null, pickType: null };
+  }
+
+  // helper interno — verifica se todos os booleans são true
+  function all(arr) { return arr.every(Boolean); }
+
+
+  /**
    * scoreDuplaChance(raw, d, norm)
    * Lógica PackBall v3.0 — Dupla Chance 1X e X2.
    *
@@ -1054,6 +1228,7 @@ const PredictionEngine = (function () {
   function selectBestMkt(scores, filters) {
     const candidatos = [
       { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true },
+      { market: filters.dnb_market || 'Resultado Final (1X2) - DNB', score: scores.dnb, eligible: scores.dnb !== null },
       { market: filters.duplaChance_market || 'Resultado Final (1X2) - Dupla Chance', score: scores.duplaChance, eligible: scores.duplaChance !== null },
       { market: 'Over 1.5 gols', score: scores.over15, eligible: filters.over15_passed  },
       { market: 'Over 2.5 gols', score: scores.over25, eligible: true                   },
@@ -1100,6 +1275,7 @@ const PredictionEngine = (function () {
   function buildMainMarkets(scores, grades, odds, evs, filters) {
     const candidatos = [
       { key: 'resultadoFinal', market: filters.resultadoFinal_market || 'Resultado Final (1X2)' },
+      { key: 'dnb',            market: filters.dnb_market            || 'Resultado Final (1X2) - DNB' },
       { key: 'duplaChance',    market: filters.duplaChance_market    || 'Resultado Final (1X2) - Dupla Chance' },
       { key: 'over15', market: 'Over 1.5 gols' },
       { key: 'over25', market: 'Over 2.5 gols' },
@@ -1330,6 +1506,7 @@ const PredictionEngine = (function () {
     const s_c35    = scoreCards35(raw, d, norm);
     const s_c55    = scoreCards55(raw, d, norm);
     const rf       = scoreResultadoFinal(raw, d, norm);
+    const dnb      = scoreDNB(raw, d, norm);
     const dc       = scoreDuplaChance(raw, d, norm);
 
     // ── Etapa 5: Filtros ───────────────────────────────────────
@@ -1342,6 +1519,7 @@ const PredictionEngine = (function () {
     // DC (Dupla Chance) é sempre alternativa de segurança.
     const scores = {
       resultadoFinal: rf.score ?? null,
+      dnb:            dnb.score ?? null,
       duplaChance:    dc.score ?? null,
       over15:  s15,
       over25:  s25,
@@ -1366,6 +1544,9 @@ const PredictionEngine = (function () {
     const odds = {
       resultadoFinal: rf.side === 'home' ? (raw.odds_h ?? null)
                     : rf.side === 'away' ? (raw.odds_a ?? null)
+                    : null,
+      dnb:           dnb.side === 'home' ? (raw.odds_h ?? null)
+                    : dnb.side === 'away' ? (raw.odds_a ?? null)
                     : null,
       duplaChance:   dc.side === 'home' ? (raw.odds_h ?? null)
                     : dc.side === 'away' ? (raw.odds_a ?? null)
@@ -1395,9 +1576,11 @@ const PredictionEngine = (function () {
       over15_passed: filtro15.passed,
       over15_via:    filtro15.via,
       under35_passed: under35_ok,
-      resultadoFinal_market: rf.market ?? null,
-      duplaChance_market:    dc.market ?? null,
-      duplaChance_side:      dc.side   ?? null,
+      resultadoFinal_market: rf.market  ?? null,
+      dnb_market:            dnb.market ?? null,
+      dnb_side:              dnb.side   ?? null,
+      duplaChance_market:    dc.market  ?? null,
+      duplaChance_side:      dc.side    ?? null,
     };
 
     const best = selectBestMkt(scores, filters);
@@ -1439,6 +1622,15 @@ const PredictionEngine = (function () {
       // Filtros
       filters,
 
+      // DNB — alternativa conservadora (independente do RF)
+      dnb_market:   dnb.market  ?? null,
+      dnb_score:    dnb.score   ?? null,
+      dnb_side:     dnb.side    ?? null,
+      dnb_label:    dnb.dnbLabel ?? null,
+      dnb_odd:      dnb.side === 'home' ? (raw.odds_h ?? null)
+                  : dnb.side === 'away' ? (raw.odds_a ?? null)
+                  : null,
+
       // Dupla Chance — alternativa de segurança (independente do RF)
       dc_market:    dc.market  ?? null,
       dc_score:     dc.score   ?? null,
@@ -1469,6 +1661,10 @@ const PredictionEngine = (function () {
 
   const _MKT_TO_KEY = {
     'Resultado Final (1X2)': 'resultadoFinal',
+    'Resultado Final (1X2) - Casa DNB':        'dnb',
+    'Resultado Final (1X2) - Visitante DNB':   'dnb',
+    'Casa DNB':        'dnb',
+    'Visitante DNB':   'dnb',
     'Resultado Final (1X2) - Dupla Chance 1X': 'duplaChance',
     'Resultado Final (1X2) - Dupla Chance X2': 'duplaChance',
     'Dupla Chance 1X': 'duplaChance',
@@ -1498,6 +1694,7 @@ const PredictionEngine = (function () {
   function _mktKey(market) {
     if (String(market || '').startsWith('Resultado Final (1X2)')) {
       if (market.includes('Dupla Chance')) return 'duplaChance';
+      if (market.includes('DNB'))         return 'dnb';
       return 'resultadoFinal';
     }
     return _MKT_TO_KEY[market] ?? null;
