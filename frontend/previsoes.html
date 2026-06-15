@@ -2608,22 +2608,37 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, sn
     .slice(0, 3)
     .map(p => ({ market: displayMarket(p.market), rawMarket: p.market }));
 
-  // Injetar DC no topo das alternativas quando existir e for diferente do palpite principal
-  const dcMarket = snap?.dc_market ?? null;
-  const dcLabel  = snap?.dc_label  ?? null;
+  // Injetar DNB e DC nas alternativas com hierarquia: DNB → DC → outros
+  const dnbMarket = snap?.dnb_market ?? null;
+  const dnbLabel  = snap?.dnb_label  ?? null;
+  const dcMarket  = snap?.dc_market  ?? null;
+  const dcLabel   = snap?.dc_label   ?? null;
+
+  let injected = [...otherAlts];
+
+  // DC — alternativa ultra segura (topo)
   if (dcMarket && canonicalMarketKey(dcMarket) !== canonicalMarketKey(mainMarket)) {
     const dcDisplay = displayMarket(dcMarket);
-    const dcItem = {
+    injected = injected.filter(a => canonicalMarketKey(a.rawMarket) !== canonicalMarketKey(dcMarket));
+    injected.unshift({
       market:    dcLabel ? `${dcDisplay} (${dcLabel})` : dcDisplay,
       rawMarket: dcMarket,
       isDC:      true,
-    };
-    // Remove DC da lista se já estiver (evita duplicata)
-    const filtered = otherAlts.filter(a => canonicalMarketKey(a.rawMarket) !== canonicalMarketKey(dcMarket));
-    return [dcItem, ...filtered].slice(0, 4);
+    });
   }
 
-  return otherAlts;
+  // DNB — alternativa conservadora (acima do DC, abaixo do principal)
+  if (dnbMarket && canonicalMarketKey(dnbMarket) !== canonicalMarketKey(mainMarket)) {
+    const dnbDisplay = displayMarket(dnbMarket);
+    injected = injected.filter(a => canonicalMarketKey(a.rawMarket) !== canonicalMarketKey(dnbMarket));
+    injected.unshift({
+      market:    dnbLabel ? `${dnbDisplay} (${dnbLabel})` : dnbDisplay,
+      rawMarket: dnbMarket,
+      isDNB:     true,
+    });
+  }
+
+  return injected.slice(0, 4);
 }
 
 function getMainPalpites(snap, predictionsMap) {
@@ -2751,7 +2766,8 @@ async function fetchSnapshots(page) {
     .from('prediction_snapshots')
     .select(
       'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, ' +
-      'market, score, grade, odd, result_status, confirmed_at, match_date, hour',
+      'market, score, grade, odd, result_status, confirmed_at, match_date, hour, ' +
+      'dc_market, dc_score, dc_label, dc_odd, dnb_market, dnb_score, dnb_label, dnb_odd',
       { count: 'exact' }
     )
     .order('score', { ascending: false })
@@ -2825,7 +2841,7 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
   if (!fixtureIds.length) return {};
   const { data, error } = await supabaseClient
     .from('prediction_snapshots')
-    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour')
+    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour, dc_market, dc_score, dc_label, dc_odd, dnb_market, dnb_score, dnb_label, dnb_odd')
     .in('fixture_id', fixtureIds)
     .in('grade', ['A+', 'A', 'B', 'C']);
 
