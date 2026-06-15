@@ -750,6 +750,9 @@ const PredictionEngine = (function () {
   }
 
 
+  // helper: verifica se todos os booleans são true
+  function all(arr) { return arr.every(Boolean); }
+
   /**
    * scoreDNB(raw, d, norm)
    * Lógica PackBall v3.0 — Empate Anula Aposta (DNB) Casa e Fora.
@@ -919,9 +922,6 @@ const PredictionEngine = (function () {
 
     return { score: null, market: null, side: null, pickType: null };
   }
-
-  // helper interno — verifica se todos os booleans são true
-  function all(arr) { return arr.every(Boolean); }
 
 
   /**
@@ -1227,7 +1227,9 @@ const PredictionEngine = (function () {
    */
   function selectBestMkt(scores, filters) {
     const candidatos = [
-      { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true },
+      // RF tem prioridade hierárquica sobre DNB/DC
+      // O boost de 20pts é só para o effectiveScore interno — scores.resultadoFinal mantém o valor real
+      { market: filters.resultadoFinal_market || 'Resultado Final (1X2)', score: scores.resultadoFinal, eligible: true, hierarchyBoost: 20 },
       { market: filters.dnb_market || 'Resultado Final (1X2) - DNB', score: scores.dnb, eligible: scores.dnb !== null },
       { market: filters.duplaChance_market || 'Resultado Final (1X2) - Dupla Chance', score: scores.duplaChance, eligible: scores.duplaChance !== null },
       { market: 'Over 1.5 gols', score: scores.over15, eligible: filters.over15_passed  },
@@ -1247,7 +1249,7 @@ const PredictionEngine = (function () {
 
     for (const c of candidatos) {
       if (c.score === null) continue;
-      const effectiveScore = c.eligible ? c.score : 0;
+      const effectiveScore = c.eligible ? (c.score + (c.hierarchyBoost || 0)) : 0;
       if (best === null || effectiveScore > best.effectiveScore) {
         best = {
           market:         c.market,
