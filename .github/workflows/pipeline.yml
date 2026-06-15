@@ -30,7 +30,8 @@ on:
           - backfill        # Histórico + futuro (uso normal)
           - hoje            # Só hoje + amanhã
           - data_especifica # Uma data específica
-          - so_confirmar    # Só confirmar resultados (não roda backfill)
+          - so_confirmar          # Só confirmar resultados (não roda backfill)
+          - so_confirmar_force    # Reconfirmar forçado (sobrescreve resultados existentes)
       date:
         description: '[data_especifica] Data YYYY-MM-DD'
         required: false
@@ -48,6 +49,10 @@ on:
         required: false
         default: 'false'
         type: boolean
+      days_confirmar:
+        description: '[so_confirmar_force] Quantos dias reprocessar (default: 21)'
+        required: false
+        default: '21'
 
 concurrency:
   group: pipeline-v3
@@ -155,7 +160,8 @@ jobs:
     # e pode ser disparado manualmente
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar')
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar_force')
 
     steps:
       - name: Checkout
@@ -176,8 +182,18 @@ jobs:
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
-          # Confirma últimos 7 dias (seguro — não sobrescreve resultados já confirmados)
-          node scripts/confirmar.js --days=7
+          FORCE_FLAG=""
+          DAYS="7"
+
+          if [ "${{ github.event.inputs.mode }}" = "so_confirmar_force" ]; then
+            FORCE_FLAG="--force"
+            DAYS="${{ github.event.inputs.days_confirmar || '21' }}"
+            echo "▶ Reconfirmando com --force, últimos $DAYS dias"
+          else
+            echo "▶ Confirmando resultados pendentes, últimos $DAYS dias"
+          fi
+
+          node scripts/confirmar.js --days=$DAYS $FORCE_FLAG
           EXIT=$?
           if [ $EXIT -eq 2 ]; then
             echo "⛔ Quota esgotada no confirmar."
