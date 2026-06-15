@@ -270,24 +270,31 @@ const PackBallMapper = (function () {
   function _calcBTTS(teamStats) {
     if (!teamStats || !teamStats.fixtures || !teamStats.goals) return null;
 
-    const played   = _num(teamStats.fixtures.played?.total);
+    const played = _num(teamStats.fixtures.played?.total);
     if (!played || played === 0) return null;
 
-    // Jogos em que o time marcou pelo menos 1
-    const scored     = _num(teamStats.goals.for?.total?.total)   || 0;
-    const conceded   = _num(teamStats.goals.against?.total?.total) || 0;
+    // V1 coletar.py: btts_pct = (1 - clean_sheets / played) * 100
+    // clean_sheet = jogos onde o time NÃO sofreu gol
+    // Proxy: se o time não tem clean_sheet no response, usa played - jogos_com_gol_sofrido
+    const clean = teamStats.clean_sheet;
+    if (clean !== undefined && clean !== null) {
+      const cs = (_num(clean.home) || 0) + (_num(clean.away) || 0) + (_num(clean.total) || 0);
+      // API retorna home + away separados OU total — evitar dupla contagem
+      const cs_total = _num(clean.total) !== null
+        ? _num(clean.total)
+        : (_num(clean.home) || 0) + (_num(clean.away) || 0);
+      return Math.round((1 - cs_total / played) * 1000) / 10;
+    }
 
-    // Estimativa conservadora: assume distribuição de Poisson por jogo
-    // P(marcar >= 1) ≈ 1 - e^(-avg_scored)
-    // P(sofrer >= 1)  ≈ 1 - e^(-avg_conceded)
-    const avg_sc  = scored   / played;
-    const avg_con = conceded / played;
-
+    // Fallback: sem clean_sheet no response → Poisson (menos preciso mas melhor que null)
+    const scored   = _num(teamStats.goals.for?.total?.total)    || 0;
+    const conceded = _num(teamStats.goals.against?.total?.total) || 0;
+    const avg_sc   = scored   / played;
+    const avg_con  = conceded / played;
     if (avg_sc === 0 || avg_con === 0) return 0;
-
     const p_score   = 1 - Math.exp(-avg_sc);
     const p_concede = 1 - Math.exp(-avg_con);
-    return p_score * p_concede * 100;
+    return Math.round(p_score * p_concede * 1000) / 10;
   }
 
   /**
@@ -534,47 +541,15 @@ const PackBallMapper = (function () {
     // ── Source 0: predictions.under_over (campo direto — idêntico ao V1 coletar.py)
     // API v3: pred.under_over = { "over": {"1.5": "78%", "2.5": "45%"}, "under": {...} }
     // Este campo existe em ligas premium (Copa do Mundo, Premier League, etc.)
+    // V1: preds.get("over15_pct") → vem deste campo. Se null, V1 usa fallback H2H.
+    // Não usar Sources extras (comparison.goals, win%, hints) — geram valores que
+    // o V1 não teria, produzindo palpites divergentes.
     const uo = pred.under_over || {};
     const uoOver = typeof uo.over === 'object' ? uo.over : {};
     const _uo15 = _pct(uoOver['1.5'] ?? uo['1.5'] ?? null);
     const _uo25 = _pct(uoOver['2.5'] ?? uo['2.5'] ?? null);
     if (_uo15 !== null) over15_g = _uo15;
     if (_uo25 !== null) over25_g = _uo25;
-
-    // ── Source 1: comparison.goals — só se under_over não disponível
-    const comp = predictionsResp.comparison;
-    if (over15_g === null && comp && comp.goals) {
-      const ph = _pct(comp.goals.home);
-      const pa = _pct(comp.goals.away);
-      if (ph !== null && pa !== null) {
-        over15_g = Math.min(100, (ph + pa) / 2 * 1.4);
-        over25_g = Math.min(100, (ph + pa) / 2 * 0.9);
-      }
-    }
-
-    // ── Source 2: predictions.goals.home/away hint
-    if (over15_g !== null && pred.goals) {
-      const goalsHint = String(pred.goals.home || pred.goals.away || '').toLowerCase();
-      if (goalsHint.includes('over 2.5') || goalsHint.includes('over 3')) {
-        // Strong over signal — boost
-        if (over15_g !== null) over15_g = Math.min(100, over15_g * 1.1);
-        if (over25_g !== null) over25_g = Math.min(100, over25_g * 1.2);
-      } else if (goalsHint.includes('under 2.5') || goalsHint.includes('under 1.5')) {
-        // Under signal — reduce
-        if (over15_g !== null) over15_g = Math.max(0, over15_g * 0.75);
-        if (over25_g !== null) over25_g = Math.max(0, over25_g * 0.6);
-      }
-    }
-
-    // ── Source 3: percent home/away (1X2 win %) as final fallback
-    if (over15_g === null && pred.percent) {
-      const ph = _pct(pred.percent.home);
-      const pa = _pct(pred.percent.away);
-      if (ph !== null && pa !== null) {
-        over15_g = Math.min(100, ph + pa);
-        over25_g = over15_g * 0.65;
-      }
-    }
 
     return {
       over15_g: over15_g !== null ? Math.round(Math.min(100, Math.max(0, over15_g)) * 10) / 10 : null,
@@ -854,26 +829,8 @@ const PackBallMapper = (function () {
       over25_g = h2hStats.h2h_over25;
     }
 
-    // Fallback 3 — avg_scored (V1: "xg_h = ts_h.get('avg_scored')")
-    // Quando predictions E h2h são nulos, estima over15_g via Poisson simples
-    // P(gols >= 2) ≈ 1 - P(0) - P(1) onde lambda = avg_sc_h + avg_sc_a
-    if (over15_g === null && avg_sc_h !== null && avg_sc_a !== null) {
-      const lambda = avg_sc_h + avg_sc_a;
-      if (lambda > 0) {
-        const p0 = Math.exp(-lambda);
-        const p1 = p0 * lambda;
-        over15_g = Math.round((1 - p0 - p1) * 1000) / 10;  // % com 1 decimal
-      }
-    }
-    if (over25_g === null && avg_sc_h !== null && avg_sc_a !== null) {
-      const lambda = avg_sc_h + avg_sc_a;
-      if (lambda > 0) {
-        const p0 = Math.exp(-lambda);
-        const p1 = p0 * lambda;
-        const p2 = p1 * lambda / 2;
-        over25_g = Math.round((1 - p0 - p1 - p2) * 1000) / 10;
-      }
-    }
+    // V1 compat: se under_over E h2h são nulos, over15_g fica null.
+    // O engine usa a fórmula sem over15_g (ws com ppg_n/af_n/exg_n).
 
     // ── /odds → todas as odds ────────────────────────────────────
     const allOdds = _extractAllOdds(
