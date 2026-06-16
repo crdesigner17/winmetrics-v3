@@ -30,12 +30,12 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
 
   const GRADE_THRESHOLDS = {
-    'A+': 88,
-    'A':  80,
-    'B':  70,
-    'C':  60,
+    'A+': 85,
+    'A':  75,
+    'B':  65,
+    'C':  50,
   };
-  // D = qualquer score abaixo de 60
+  // D = qualquer score abaixo de 50
 
   const CONFIDENCE_LABELS = {
     'A+': 'Muito Baixo',
@@ -57,7 +57,7 @@ const PredictionEngine = (function () {
     cant_n:  { min: 0, max: 15 },
     shots_n: { min: 0, max: 40 },
     cards_n: { min: 0, max: 8  },
-    sot_n:   { min: 0, max: 10 },
+    sot_n:   { min: 0, max: 20 },
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -263,12 +263,18 @@ const PredictionEngine = (function () {
   /**
    * _o25cf(raw, derivadas)
    * o25cf — confidence fator Over 2.5.
-   * Interpretado como: média(over25_g, af_avg_n×100).
+   * V1 coletar.py: o25cf = avg_nn(over25_h, over25_a)
+   * No modo API, over25_h e over25_a são sempre None → o25cf = null → ws ignora.
    *
    * @returns {number|null}
    */
   function _o25cf(raw, derivadas) {
-    return ws([[raw.over25_g, 1], [derivadas.af_avg != null ? n(derivadas.af_avg, 0, 4) : null, 1]]);
+    // over25_h e over25_a só existem no pipeline CSV (processar.py)
+    // No modo API (coletar.py) são null → o25cf fica null
+    const o25h = raw.over25_h ?? null;
+    const o25a = raw.over25_a ?? null;
+    if (o25h === null && o25a === null) return null;
+    return ws([[o25h, 1], [o25a, 1]]);
   }
 
 
@@ -280,34 +286,20 @@ const PredictionEngine = (function () {
    * scoreOver15(raw, d, norm, poiss)
    * §4.1 — Over 1.5 Gols
    *
-   * Com xG:
-   *   ws([(over15_g,30),(o15cf,18),(h2h_nv,12),(ppg_n,12),(af_n,8),(exg_n,15),(poisson_o15,5)])
-   *
-   * Sem xG:
-   *   ws([(over15_g,35),(o15cf,22),(h2h_nv,15),(ppg_n,15),(af_n,13)])
+   * Modo API (coletar.py):
+   *   s15 = float(o15g)  se over15_g não for null
+   *   s15 = ws([(ppg_n,50),(af_n,30),(exg_n|50,20)])  se over15_g for null
    */
   function scoreOver15(raw, d, norm, poiss) {
-    const o15cf_val = _o15cf(raw, d);
-
-    if (norm.exg_n !== null) {
-      return ws([
-        [raw.over15_g,             30],
-        [o15cf_val,                18],
-        [norm.h2h_nv,              12],
-        [norm.ppg_n,               12],
-        [norm.af_n,                 8],
-        [norm.exg_n,               15],
-        [poiss ? poiss.o15 : null,  5],
-      ]);
-    } else {
-      return ws([
-        [raw.over15_g, 35],
-        [o15cf_val,    22],
-        [norm.h2h_nv,  15],
-        [norm.ppg_n,   15],
-        [norm.af_n,    13],
-      ]);
+    if (raw.over15_g !== null && raw.over15_g !== undefined) {
+      return Number(raw.over15_g);
     }
+    // Fallback quando predictions não disponível
+    return ws([
+      [norm.ppg_n,          50],
+      [norm.af_n,           30],
+      [_v(norm.exg_n, 50),  20],
+    ]);
   }
 
   /**
@@ -394,25 +386,17 @@ const PredictionEngine = (function () {
    * scoreUnder45(raw, d, norm, poisson)
    * §4.5 — Under 4.5 Gols
    *
-   * avg_gl = média gols totais por jogo — proxy via af_avg*2 (ambos os times)
-   *
-   * Com Poisson:
-   *   ws([(poisson_u45,35),(u25cf|50,25),(100-exg_n|50,20),(avg_gl|50,10),(50,10)])
-   *
-   * Sem Poisson:
-   *   ws([(u25cf|50,40),(100-ppg_n|50,30),(50,30)])
+   * V1 coletar.py:
+   *   Com Poisson: ws([(prob_u45,35),(u25cf|50,25),(100-exg_n,20),(50,20)])
+   *   Sem Poisson: ws([(u25cf|50,40),(100-ppg_n|50,30),(50,30)])
    */
   function scoreUnder45(raw, d, norm, poiss) {
-    // avg_gl: estimativa de gols totais — usamos af_avg*2 (média das médias de gols de cada time)
-    const avg_gl = d.af_avg != null ? Math.min(100, d.af_avg * 2 * (100 / 4)) : null;
-
     if (poiss !== null) {
       return ws([
         [poiss.u45,                     35],
         [_v(d.u25cf, 50),               25],
         [100 - _v(norm.exg_n, 50),      20],
-        [_v(avg_gl, 50),                10],
-        [50,                            10],
+        [50,                            20],
       ]);
     } else {
       return ws([
@@ -518,18 +502,20 @@ const PredictionEngine = (function () {
 
   /**
    * filtroOver15(raw, d)
-   * Retorna true se o jogo passar em ao menos UMA das 3 vias.
+   * Retorna true se o jogo passar em ao menos UMA das 4 vias.
+   * Thresholds do coletar.py (modo API).
    *
-   * Via 1: exg_tot != null AND exg_tot >= 4.5
-   * Via 2: exg_tot >= 2.0 AND ppg_min >= 1.0
-   * Via 3: exg_tot = null AND over15_g >= 90 AND ppg_avg >= 2.0
+   * Via 1: exg_tot >= 4.5
+   * Via 2: exg_tot >= 2.0 AND ppg_min >= 0.7
+   * Via 3: exg_tot = null AND over15_g >= 90 AND ppg_avg >= 1.5
+   * Via 4: over15_g >= 85  (predictions alta = qualidade garantida pela API)
    *
    * @param {object} raw
    * @param {object} d   — derivadas
    * @returns {{ passed: boolean, via: number|null }}
    */
   function filtroOver15(raw, d) {
-    const { over15_g }     = raw;
+    const { over15_g }                  = raw;
     const { exg_tot, ppg_min, ppg_avg } = d;
 
     // Via 1 — xG alto
@@ -538,13 +524,18 @@ const PredictionEngine = (function () {
     }
 
     // Via 2 — Equilíbrio
-    if (exg_tot !== null && exg_tot >= 2.0 && ppg_min !== null && ppg_min >= 1.0) {
+    if (exg_tot !== null && exg_tot >= 2.0 && ppg_min !== null && ppg_min >= 0.7) {
       return { passed: true, via: 2 };
     }
 
-    // Via 3 — Sem xG
-    if (exg_tot === null && over15_g != null && over15_g >= 90 && ppg_avg !== null && ppg_avg >= 2.0) {
+    // Via 3 — Sem xG mas predictions alta
+    if (exg_tot === null && over15_g != null && over15_g >= 90 && ppg_avg !== null && ppg_avg >= 1.5) {
       return { passed: true, via: 3 };
+    }
+
+    // Via 4 — Predictions >= 85% (qualidade garantida pela API)
+    if (over15_g != null && over15_g >= 85) {
+      return { passed: true, via: 4 };
     }
 
     return { passed: false, via: null };
