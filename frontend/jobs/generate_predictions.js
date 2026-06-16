@@ -506,15 +506,72 @@ async function fetchAllData({ fixture, liga }) {
     apiFetch('/teams/statistics', { team: homeId, league: leagueId, season }),
     // /teams/statistics (away)
     apiFetch('/teams/statistics', { team: awayId, league: leagueId, season }),
-    // /fixtures?team=home&last=10 — filtra por liga+season igual ao V1 coletar.py
+    // /fixtures?team=home&last=10 — mesma liga+season (igual ao V1 coletar.py)
     apiFetch('/fixtures', { team: homeId, league: leagueId, season, last: 10, status: 'FT' }),
-    // /fixtures?team=away&last=10 — filtra por liga+season igual ao V1 coletar.py
+    // /fixtures?team=away&last=10 — mesma liga+season (igual ao V1 coletar.py)
     apiFetch('/fixtures', { team: awayId, league: leagueId, season, last: 10, status: 'FT' }),
     // /fixtures/headtohead
     apiFetch('/fixtures/headtohead', { h2h: `${homeId}-${awayId}`, last: 10 }),
     // /predictions
     apiFetch('/predictions', { fixture: fixtureId }),
   ]);
+
+  // ── CASCATA DE DADOS HISTÓRICOS ──────────────────────────────
+  // Conta quantos jogos retornaram na liga+season atual para cada time.
+  // Ligas longas (Serie B, Premier) têm histórico rico → dados confiáveis.
+  // Torneios curtos (Copa do Mundo fase de grupos, início de temporada) podem
+  // ter 0 jogos finalizados na edição atual → precisam de fallback multi-liga.
+  //
+  // Nível 1 (≥5 jogos): dados da própria liga — confiança alta
+  // Nível 2 (3–4 jogos): dados da própria liga — confiança média
+  // Nível 3 (<3 jogos) : fallback multi-liga (últimas competições do time)
+  //                      → cap de score em 65, bloqueia cantos/cartões como best_mkt
+  // Nível 4 (sem dados): nulo — engine usa só gols/ppg, score 50 (Under 4.5)
+
+  const homeGamesCount = (homeGamesRaw?.response || []).length;
+  const awayGamesCount = (awayGamesRaw?.response || []).length;
+  const minGamesInLeague = Math.min(homeGamesCount, awayGamesCount);
+
+  let homeGamesRawFinal = homeGamesRaw;
+  let awayGamesRawFinal = awayGamesRaw;
+  let historicDataSource = 'league';       // 'league' | 'multi_league' | 'none'
+  let historicDataLevel  = 1;              // 1=alto 2=medio 3=fallback 4=sem dados
+
+  if (minGamesInLeague >= 5) {
+    // Nível 1 — suficiente na própria liga
+    historicDataLevel = 1;
+    LOG.dim(`  Histórico: nível 1 (liga) — home=${homeGamesCount} away=${awayGamesCount} jogos`);
+
+  } else if (minGamesInLeague >= 3) {
+    // Nível 2 — poucos jogos na liga, mas suficiente para usar
+    historicDataLevel = 2;
+    historicDataSource = 'league';
+    LOG.dim(`  Histórico: nível 2 (liga, poucos jogos) — home=${homeGamesCount} away=${awayGamesCount} jogos`);
+
+  } else {
+    // Nível 3 — fallback: busca últimas competições do time (sem filtro de liga)
+    LOG.dim(`  Histórico: nível 3 (fallback multi-liga) — home=${homeGamesCount} away=${awayGamesCount} jogos na liga atual`);
+    historicDataSource = 'multi_league';
+    historicDataLevel  = 3;
+
+    const [homeFallback, awayFallback] = await Promise.all([
+      apiFetch('/fixtures', { team: homeId, last: 10, status: 'FT' }),
+      apiFetch('/fixtures', { team: awayId, last: 10, status: 'FT' }),
+    ]);
+
+    const homeFallbackCount = (homeFallback?.response || []).length;
+    const awayFallbackCount = (awayFallback?.response || []).length;
+
+    if (homeFallbackCount > 0 || awayFallbackCount > 0) {
+      homeGamesRawFinal = homeFallback;
+      awayGamesRawFinal = awayFallback;
+      LOG.dim(`    Fallback encontrou: home=${homeFallbackCount} away=${awayFallbackCount} jogos (multi-liga)`);
+    } else {
+      historicDataLevel  = 4;
+      historicDataSource = 'none';
+      LOG.dim(`    Sem histórico disponível — cantos/cartões serão nulos`);
+    }
+  }
 
   // ── Odds com fallback real ────────────────────────────────
   // Tentativa 1: bookmaker=6 (Bet365)
@@ -651,8 +708,8 @@ async function fetchAllData({ fixture, liga }) {
   // /fixtures?team&last=10 não traz statistics embutido de forma confiável.
   // Para cantos, cartões, chutes e SOT, enriquecemos cada fixture histórico
   // com /fixtures/statistics?fixture=ID antes de enviar ao PackBallMapper.
-  const homeGamesBase = homeGamesRaw?.response || [];
-  const awayGamesBase = awayGamesRaw?.response || [];
+  const homeGamesBase = homeGamesRawFinal?.response || [];
+  const awayGamesBase = awayGamesRawFinal?.response || [];
 
   const homeGames = await enrichGamesWithStatistics(homeGamesBase, 10);
   const awayGames = await enrichGamesWithStatistics(awayGamesBase, 10);
@@ -673,6 +730,11 @@ async function fetchAllData({ fixture, liga }) {
     // Manter resposta completa; o mapper já normaliza predictions.response[0].
     predictions: predictionsRaw,
     odds:        oddsRaw,
+
+    // Metadados da cascata — usados após o processFixture para ajustar
+    // score cap e elegibilidade de mercados de cantos/cartões
+    historicDataSource,
+    historicDataLevel,
   };
 }
 
@@ -770,6 +832,8 @@ async function upsertMetrics(raw, result) {
     over05_ht:     raw.over05_ht,
     over15_ht:     raw.over15_ht,
     avg_corners:   raw.avg_corners,
+    historic_data_level:  result.historic_data_level  ?? null,
+    historic_data_source: result.historic_data_source ?? null,
     over65_c:      raw.over65_c,
     over75_c:      raw.over75_c,
     over85_c:      raw.over85_c,
@@ -1252,9 +1316,61 @@ async function run() {
         result = AltLineResolver.applyLabelOverrides(_resultBase, labelOverrides, altLines);
       }
 
-      // u2500u2500 [NOVO] ENRIQUECER SCORES COM FUSu00c3O PACKBALL + MERCADO u2500u2500
+      // ── AJUSTE DE CASCATA — aplica restrições baseadas na qualidade dos dados ──
+      // Nível 3 (fallback multi-liga): cantos e cartões vieram de competições
+      // diferentes da atual — o contexto é diferente, score cap em 65 e
+      // esses mercados não podem ser best_mkt.
+      // Nível 4 (sem dados): nenhum ajuste necessário — campos já são nulos.
+      if (apiData.historicDataLevel === 3) {
+        const BLOCKED_MKTS_FALLBACK = new Set(['Esc 7.5', 'Esc 8.5', 'Cart 2.5', 'Cart 3.5']);
+        const SCORE_CAP_FALLBACK = 65;
+
+        // Aplicar cap nos scores de cantos e cartões
+        if (result.scores) {
+          if (result.scores.esc75  !== null) result.scores.esc75  = Math.min(result.scores.esc75,  SCORE_CAP_FALLBACK);
+          if (result.scores.esc85  !== null) result.scores.esc85  = Math.min(result.scores.esc85,  SCORE_CAP_FALLBACK);
+          if (result.scores.cards25 !== null) result.scores.cards25 = Math.min(result.scores.cards25, SCORE_CAP_FALLBACK);
+          if (result.scores.cards35 !== null) result.scores.cards35 = Math.min(result.scores.cards35, SCORE_CAP_FALLBACK);
+        }
+
+        // Se best_mkt é cantos ou cartões, recalcular com esses mercados bloqueados
+        if (BLOCKED_MKTS_FALLBACK.has(result.best_mkt)) {
+          // Recalcular best_mkt excluindo cantos e cartões
+          const candidates = [
+            { market: 'Over 1.5',    score: result.scores?.over15,   eligible: result.filters?.over15_passed },
+            { market: 'Over 2.5',    score: result.scores?.over25,   eligible: true },
+            { market: 'BTTS',        score: result.scores?.btts,     eligible: true },
+            { market: 'Over 0.5 HT', score: result.scores?.over05ht, eligible: true },
+            { market: 'Under 4.5',   score: result.scores?.under45,  eligible: true },
+            { market: 'Under 3.5',   score: result.scores?.under35,  eligible: result.filters?.under35_passed },
+            { market: 'Esc 7.5',     score: null,                    eligible: false },  // bloqueado
+            { market: 'Cart 2.5',    score: null,                    eligible: false },  // bloqueado
+          ];
+          const best = candidates
+            .filter(c => c.eligible && c.score !== null && c.score !== undefined)
+            .sort((a, b) => b.score - a.score)[0];
+
+          if (best) {
+            LOG.dim(`  Cascata nível 3: best_mkt "${result.best_mkt}" → "${best.market}" (cantos/cartões bloqueados, dados multi-liga)`);
+            result.best_mkt    = best.market;
+            result.best_score  = best.score;
+            result.best_grade  = result.grades?.[best.market.toLowerCase().replace(/[^a-z0-9]/g,'')] ?? result.best_grade;
+          }
+        }
+
+        // Marcar a fonte dos dados históricos no resultado
+        result.historic_data_source = 'multi_league';
+        result.historic_data_level  = 3;
+        LOG.dim(`  Score cap ${SCORE_CAP_FALLBACK} aplicado em cantos/cartões (dados multi-liga)`);
+
+      } else {
+        result.historic_data_source = apiData.historicDataSource || 'league';
+        result.historic_data_level  = apiData.historicDataLevel  || 1;
+      }
+
+      // ── [NOVO] ENRIQUECER SCORES COM FUSÃO PACKBALL + MERCADO ──
       // Adiciona result.scores_enriquecidos e result.graus_enriquecidos
-      // Nu00e3o altera result.scores nem result.grades originais
+      // Não altera result.scores nem result.grades originais
       enrichResultScores(result, raw);
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
