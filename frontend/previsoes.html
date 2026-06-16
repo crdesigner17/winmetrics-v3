@@ -2236,10 +2236,6 @@ const MKT_MIN = {
   'Over 8.5 Escanteios': { min: 75, needFilter: null            },
   'Over 2.5 Cartão':   { min: 75, needFilter: null              },
   'Over 3.5 Cartão':   { min: 75, needFilter: null              },
-  // Mercados RF/DNB/DC removidos do engine — não geram mais palpites
-  // 'Resultado Final (1X2)': { min: 75, needFilter: null },
-  // 'Casa empate anula':     { min: 75, needFilter: null },
-  // 'Dupla Chance 1X':       { min: 75, needFilter: null },
 };
 
 function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, snap) {
@@ -2403,8 +2399,7 @@ async function fetchSnapshots(page) {
     .from('prediction_snapshots')
     .select(
       'fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, ' +
-      'market, score, grade, odd, result_status, confirmed_at, match_date, hour, ' +
-      'dc_market, dc_score, dc_label, dc_odd, dnb_market, dnb_score, dnb_label, dnb_odd',
+      'market, score, grade, odd, result_status, confirmed_at, match_date, hour',
       { count: 'exact' }
     )
     .order('score', { ascending: false })
@@ -2418,6 +2413,7 @@ async function fetchSnapshots(page) {
   //   ? q.in('grade', ['A+', 'A', 'B', 'C', 'D'])
   //   : q.in('grade', ['A+', 'A']);
   q = q.in('grade', ['A+', 'A']);
+  q = applyMarketBlocklist(q);
 
   if (start) q = q.gte('match_date', start);
   if (end)   q = q.lte('match_date', end);
@@ -2480,14 +2476,17 @@ async function fetchWorldCupFixtures() {
 
 async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
   if (!fixtureIds.length) return {};
-  const { data, error } = await supabaseClient
+  let q = supabaseClient
     .from('prediction_snapshots')
-    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour, dc_market, dc_score, dc_label, dc_odd, dnb_market, dnb_score, dnb_label, dnb_odd')
+    .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour')
     .in('fixture_id', fixtureIds)
     .in('grade', ['A+', 'A']);
+  q = applyMarketBlocklist(q);
+  const { data, error } = await q;
 
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
+    if (isBlockedMarket(snap.market)) return acc;
     if (!acc[snap.fixture_id] || Number(snap.score || 0) > Number(acc[snap.fixture_id].score || 0)) {
       acc[snap.fixture_id] = snap;
     }
@@ -2497,15 +2496,18 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
 
 async function fetchAllSnapshotsByFixtureIds(fixtureIds) {
   if (!fixtureIds.length) return {};
-  const { data, error } = await supabaseClient
+  let q = supabaseClient
     .from('prediction_snapshots')
     .select('fixture_id, market, result_status')
     .in('fixture_id', fixtureIds);
+  q = applyMarketBlocklist(q);
+  const { data, error } = await q;
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
     const fid = String(snap.fixture_id);
     if (!acc[fid]) acc[fid] = {};
     const raw = snap.market ? snap.market.trim() : '';
+    if (isBlockedMarket(raw)) return acc;
     if (!raw) return acc;
     const status = snap.result_status || null;
     // Index by raw name AND canonical key for flexible lookup
@@ -2528,6 +2530,7 @@ async function fetchPredictions(fixtureIds) {
 
   if (error || !data) return {};
   return data.reduce((acc, p) => {
+    if (isBlockedMarket(p.market)) return acc;
     if (!acc[p.fixture_id]) acc[p.fixture_id] = [];
     acc[p.fixture_id].push(p);
     return acc;
@@ -2573,7 +2576,6 @@ async function fetchLeagues() {
 
 // section
 const MARKET_ORDER = [
-  // 'Resultado Final (1X2)', // removido do engine
   'Over 1.5 gols',
   'Over 1.5',
   'Over 2.5 gols',
@@ -2598,7 +2600,6 @@ function marketRank(market) {
   let idx = MARKET_ORDER.findIndex(m => m === name);
   // section
   // RF removido do engine — comentado para referência
-  // if (idx === -1 && name.startsWith('Resultado Final (1X2)')) idx = 0;
   return idx === -1 ? MARKET_ORDER.length : idx;
 }
 
@@ -2625,6 +2626,30 @@ function marketNaturalRank(market) {
   return 999;
 }
 
+function normalizeMarketText(market) {
+  return String(market || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/Ã£Â£/g, 'a')
+    .replace(/Ã£Â³/g, 'o');
+}
+
+function isBlockedMarket(market) {
+  const label = normalizeMarketText(market);
+  return label.includes('resultado final') ||
+    label.includes('dupla chance') ||
+    label.includes('dnb') ||
+    label.includes('empate anula');
+}
+
+function applyMarketBlocklist(query) {
+  return query
+    .not('market', 'ilike', 'Resultado Final%')
+    .not('market', 'ilike', '%Dupla Chance%')
+    .not('market', 'ilike', '%DNB%')
+    .not('market', 'ilike', '%empate anula%');
+}
+
 function displayMarket(market) {
   const name = String(market || '');
   const norm = name.toLowerCase()
@@ -2635,7 +2660,6 @@ function displayMarket(market) {
   if (norm.includes('over 3.5 cart')) return 'Over 3.5 Cartão';
   if (norm === 'cart 2.5') return 'Over 2.5 Cartão';
   if (norm === 'cart 3.5') return 'Over 3.5 Cartão';
-  // Resultado Final / DNB / Dupla Chance removidos do engine — não gerar mais
   if (name === 'BTTS') return 'Ambas marcam';
   if (name === 'Over 1.5' || name === 'Over 1.5 gols' || name === 'Over 1.5 Gols') return 'Over 1.5 Gols';
   if (name === 'Over 2.5' || name === 'Over 2.5 gols' || name === 'Over 2.5 Gols') return 'Over 2.5 Gols';
@@ -2654,10 +2678,6 @@ function canonicalMarketKey(market) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/ã£/g, 'a')
     .replace(/ã³/g, 'o');
-  // RF/DNB/DC removidos do engine
-  // if (label.includes('dupla chance 1x')) return 'dc1x';
-  // if (label.includes('casa empate anula')) return 'home_dnb';
-  // if (label.includes('vitoria da casa')) return 'home_win';
   if (label.includes('over 1.5 gols')) return 'over15';
   if (label.includes('over 2.5 gols')) return 'over25';
   if (label.includes('under 3.5 gols')) return 'under35';
@@ -2675,20 +2695,19 @@ const FUNCTIONAL_MARKETS = new Set([
   'Over 1.5', 'Over 2.5', 'Under 3.5', 'Under 4.5',
   'BTTS', 'Over 0.5 HT', 'Esc 7.5', 'Esc 8.5',
   'Cart 2.5', 'Cart 3.5',
-  // RF/DNB/DC removidos do engine:
-  // 'Resultado Final (1X2) - Casa DNB',
-  // 'Resultado Final (1X2) - Dupla Chance 1X',
-  // 'Resultado Final (1X2) - Vitória Casa',
 ]);
 
 async function fetchMarkets() {
-  const { data, error } = await supabaseClient
+  let q = supabaseClient
     .from('prediction_snapshots')
     .select('market')
     .not('market', 'is', null);
+  q = applyMarketBlocklist(q);
+  const { data, error } = await q;
   if (error || !data) return [];
   const byLabel = new Map();
   data.forEach(r => {
+    if (isBlockedMarket(r.market)) return;
     const label = displayMarket(r.market);
     const key = label.toLowerCase();
     if (!r.market || !r.market.trim()) return;
@@ -2839,20 +2858,6 @@ function calcAltResult(rawMarket, snap) {
   if (mk === 'esc85')    return corners !== null ? (corners > 8.5  ? 'green' : 'red') : null;
   if (mk === 'cards25')  return cards   !== null ? (cards   > 2.5  ? 'green' : 'red') : null;
   if (mk === 'cards35')  return cards   !== null ? (cards   > 3.5  ? 'green' : 'red') : null;
-  if (mk === 'home_win') return (gh !== null && ga !== null) ? (gh > ga  ? 'green' : 'red') : null;
-  if (mk === 'away_win') return (gh !== null && ga !== null) ? (ga > gh  ? 'green' : 'red') : null;
-  if (mk === 'dc1x')     return (gh !== null && ga !== null) ? (gh >= ga ? 'green' : 'red') : null;
-  if (mk === 'dcx2')     return (gh !== null && ga !== null) ? (ga >= gh ? 'green' : 'red') : null;
-  if (mk === 'home_dnb') {
-    if (gh === null || ga === null) return null;
-    if (gh === ga) return null; // void
-    return gh > ga ? 'green' : 'red';
-  }
-  if (mk === 'away_dnb') {
-    if (gh === null || ga === null) return null;
-    if (gh === ga) return null; // void
-    return ga > gh ? 'green' : 'red';
-  }
   return null;
 }
 
@@ -3030,10 +3035,6 @@ function buildWorldCupEngineScores(metrics, oddsForFixture) {
     avg_sot:      metrics.avg_sot      ?? null,
     under25_h:    metrics.under25_h    ?? null,
     under25_a:    metrics.under25_a    ?? null,
-    odds_h:       null,
-    odds_a:       null,
-    win_home:     null,
-    win_away:     null,
     avg_shots_h:  null,
     avg_shots_a:  null,
     avg_sot_h:    null,
@@ -3105,7 +3106,6 @@ function buildWorldCupEngineScores(metrics, oddsForFixture) {
 // pickSmartSuggestions
 // Usa os scores do PredictionEngine real para montar as sugestões.
 // Prioridade: predictions salvas no banco > scores calculados do metrics.
-// Sempre garante Vitória Casa + Vitória Visitante se dados disponíveis.
 // ─────────────────────────────────────────────────────────────────
 function pickSmartSuggestions(fixtureId, predictionsMap, metricsMap = {}, oddsMap = {}, officialMarket = null) {
   const candidates = [];
@@ -3958,6 +3958,3 @@ window.toggleSidebar = function () {
 </script>
 </body>
 </html>
-
-
-
