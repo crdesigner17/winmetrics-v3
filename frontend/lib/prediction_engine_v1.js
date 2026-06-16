@@ -111,6 +111,22 @@ const PredictionEngine = (function () {
     return valueSum / weightSum;
   }
 
+  function pyRound(value, digits = 0) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const factor = 10 ** digits;
+    const scaled = n * factor;
+    const sign = Math.sign(scaled) || 1;
+    const abs = Math.abs(scaled);
+    const floor = Math.floor(abs);
+    const diff = abs - floor;
+    const eps = 1e-10;
+    let rounded;
+    if (Math.abs(diff - 0.5) < eps) rounded = (floor % 2 === 0) ? floor : floor + 1;
+    else rounded = Math.round(abs);
+    return (sign * rounded) / factor;
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // 3. Poisson  §3.2
@@ -890,7 +906,7 @@ const PredictionEngine = (function () {
     const main_markets = buildMainMarkets(scores, grades, odds, evs, filters);
 
     const best_mkt        = best ? best.market     : null;
-    const best_score      = best ? best.score      : null;
+    const best_score      = best ? pyRound(best.score, 1) : null;
     const best_grade      = best ? best.grade      : 'D';
     const best_confidence = getConfidence(best_grade);
     const best_odd        = best ? (odds[_mktKey(best.market)] ?? null) : null;
