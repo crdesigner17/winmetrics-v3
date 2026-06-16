@@ -2592,8 +2592,9 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
     if (!isAllowedOfficialSnapshotMarket(snap.market)) return acc;
-    if (!acc[snap.fixture_id] || Number(snap.score || 0) > Number(acc[snap.fixture_id].score || 0)) {
-      acc[snap.fixture_id] = snap;
+    const key = String(snap.fixture_id);
+    if (!acc[key] || Number(snap.score || 0) > Number(acc[key].score || 0)) {
+      acc[key] = snap;
     }
     return acc;
   }, {});
@@ -2819,7 +2820,9 @@ const OFFICIAL_SNAPSHOT_MARKET_ALIASES = [
   'Under 4.5', 'Under 4.5 Gols', 'Under 4.5 gols',
   'Under 3.5', 'Under 3.5 Gols', 'Under 3.5 gols',
   'Esc 7.5', 'Over 7.5 Escanteios', 'Over 7.5 cantos',
+  'Esc 8.5', 'Over 8.5 Escanteios', 'Over 8.5 cantos',
   'Cart 2.5', 'Over 2.5 Cartao', 'Over 2.5 Cartão',
+  'Cart 3.5', 'Over 3.5 Cartao', 'Over 3.5 Cartão',
 ];
 
 // Override limpo dos aliases antigos: a UI deve exibir os nomes curtos do V1.
@@ -3709,7 +3712,7 @@ async function loadPrevisoes() {
       ]);
 
       const rows = pageFixtures.map(f => {
-        const official = syncSnapshotWithEngineBest(officialMap[f.fixture_id] || { fixture_id: f.fixture_id, ...f }, metricsMap);
+        const official = syncSnapshotWithEngineBest(officialMap[String(f.fixture_id)] || { fixture_id: f.fixture_id, ...f }, metricsMap);
         return {
           ...f,
           ...official,
