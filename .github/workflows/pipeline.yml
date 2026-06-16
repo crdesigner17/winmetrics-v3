@@ -15,7 +15,9 @@ on:
     branches: [main]
     paths:
       - 'frontend/jobs/pipeline_v1.js'
+      - 'frontend/jobs/generate_predictions.js'
       - 'frontend/lib/prediction_engine_v1.js'
+      - 'frontend/previsoes.html'
       - 'scripts/backfill.js'
       - '.github/workflows/pipeline.yml'
 
@@ -28,7 +30,7 @@ on:
         type: choice
         options:
           - backfill        # Histórico + futuro (uso normal)
-          - hoje            # Só hoje + amanhã
+          - hoje            # Hoje + próximos 7 dias
           - data_especifica # Uma data específica
           - so_confirmar          # Só confirmar resultados (não roda backfill)
           - so_confirmar_force    # Reconfirmar forçado (sobrescreve resultados existentes)
@@ -116,7 +118,7 @@ jobs:
           exit $EXIT
 
       # ── MODO: hoje ───────────────────────────────────────────────
-      - name: Processar hoje + amanhã
+      - name: Processar hoje + próximos 7 dias
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'hoje'
         env:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
@@ -129,13 +131,10 @@ jobs:
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FORCE_FLAG="--force"
           fi
-          echo "▶ Hoje + amanhã: $TODAY"
+          echo "▶ Hoje + próximos 7 dias: $TODAY"
           node frontend/jobs/pipeline_v1.js \
             --date="$TODAY" \
-            $FORCE_FLAG
-          TOMORROW=$(TZ="America/Sao_Paulo" date -d tomorrow +%Y-%m-%d)
-          node frontend/jobs/pipeline_v1.js \
-            --date="$TOMORROW" \
+            --days=7 \
             $FORCE_FLAG
 
       # ── MODO: data_especifica ────────────────────────────────────

@@ -10,7 +10,7 @@ on:
         options:
           - import_v1        # Importar JSONs do V1 para Supabase
           - pipeline_v1      # Pipeline novo (coleta igual ao V1)
-          - pipeline_v1_hoje # Pipeline novo para hoje
+          - pipeline_v1_hoje # Pipeline novo para hoje + próximos 7 dias
         default: 'import_v1'
       date:
         description: '[pipeline_v1] Data YYYY-MM-DD'
@@ -124,15 +124,15 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
-      - name: Rodar Pipeline V1 — Hoje
+      - name: Rodar Pipeline V1 — Hoje + próximos 7 dias
         env:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
         run: |
           DATE=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
-          echo "▶ Pipeline V1 para hoje: $DATE"
-          node frontend/jobs/pipeline_v1.js --date="$DATE"
+          echo "▶ Pipeline V1 para hoje + próximos 7 dias: $DATE"
+          node frontend/jobs/pipeline_v1.js --date="$DATE" --days=7
           EXIT=$?
           if [ $EXIT -eq 2 ]; then
             echo "⛔ Quota da API esgotada."
