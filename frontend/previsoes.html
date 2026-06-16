@@ -2279,6 +2279,16 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, sn
 }
 
 function getMainPalpites(snap, predictionsMap) {
+  if (isAllowedOfficialSnapshotMarket(snap.market)) {
+    return [{
+      key: canonicalMarketKey(snap.market),
+      market: displayMarket(snap.market),
+      score: Number(snap.score ?? 0),
+      grade: snap.grade || suggestionGrade(Number(snap.score ?? 0)),
+    }];
+  }
+  if (snap.market) return [];
+
   const preds = predictionsMap[snap.fixture_id] || [];
   const seen = new Set();
   const snapGrade = snap.grade || suggestionGrade(Number(snap.score ?? 0));
@@ -2309,7 +2319,7 @@ function getMainPalpites(snap, predictionsMap) {
     (GRADE_RANK[b.grade] || 0) - (GRADE_RANK[a.grade] || 0) ||
     marketNaturalRank(a.market) - marketNaturalRank(b.market) ||
     b.score - a.score
-  );
+  ).slice(0, 1);
 }
 
 function renderMainPalpites(items) {
@@ -2410,13 +2420,9 @@ async function fetchSnapshots(page) {
     .order('match_date', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
-  // Melhores Previsões: exibe apenas A+ e A (igual ao V1 coletar.py)
-  // Para futura implementação de filtro todos os mercados (B/C/D),
-  // descomentar abaixo e restaurar botão 'todos':
-  // q = activeFilter === 'todos'
-  //   ? q.in('grade', ['A+', 'A', 'B', 'C', 'D'])
-  //   : q.in('grade', ['A+', 'A']);
-  q = q.in('grade', ['A+', 'A']);
+  // Igual ao V1: exibe o best_mkt do dia em qualquer grade.
+  q = q.in('grade', ['A+', 'A', 'B', 'C', 'D']);
+  q = q.in('market', OFFICIAL_SNAPSHOT_MARKET_ALIASES);
   q = applyMarketBlocklist(q);
 
   if (start) q = q.gte('match_date', start);
@@ -2484,13 +2490,14 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
     .from('prediction_snapshots')
     .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour')
     .in('fixture_id', fixtureIds)
-    .in('grade', ['A+', 'A']);
+    .in('grade', ['A+', 'A', 'B', 'C', 'D'])
+    .in('market', OFFICIAL_SNAPSHOT_MARKET_ALIASES);
   q = applyMarketBlocklist(q);
   const { data, error } = await q;
 
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
-    if (isBlockedMarket(snap.market)) return acc;
+    if (!isAllowedOfficialSnapshotMarket(snap.market)) return acc;
     if (!acc[snap.fixture_id] || Number(snap.score || 0) > Number(acc[snap.fixture_id].score || 0)) {
       acc[snap.fixture_id] = snap;
     }
@@ -2614,17 +2621,17 @@ function marketNaturalRank(market) {
   if (label.includes('dupla chance 1x')) return 12;
   if (label.includes('dupla chance x2') || label.includes('dupla chance 2x')) return 13;
   if (label.includes('over 0.5 ht')) return 20;
-  if (label.includes('over 1.5 gols')) return 30;
-  if (label.includes('over 2.5 gols')) return 31;
-  if (label.includes('under 3.5 gols')) return 32;
-  if (label.includes('under 4.5 gols')) return 33;
-  if (label.includes('ambas marcam')) return 40;
-  if (label.includes('7.5 escanteios')) return 50;
-  if (label.includes('8.5 escanteios')) return 51;
+  if (label === 'over 1.5' || label.includes('over 1.5 gols')) return 30;
+  if (label === 'over 2.5' || label.includes('over 2.5 gols')) return 31;
+  if (label === 'under 3.5' || label.includes('under 3.5 gols')) return 32;
+  if (label === 'under 4.5' || label.includes('under 4.5 gols')) return 33;
+  if (label === 'btts' || label.includes('ambas marcam')) return 40;
+  if (label === 'esc 7.5' || label.includes('7.5 escanteios')) return 50;
+  if (label === 'esc 8.5' || label.includes('8.5 escanteios')) return 51;
   if (label.includes('9.5 escanteios')) return 52;
   if (label.includes('10.5 escanteios')) return 53;
-  if (label.includes('2.5 cart')) return 60;
-  if (label.includes('3.5 cart')) return 61;
+  if (label === 'cart 2.5' || label.includes('2.5 cart')) return 60;
+  if (label === 'cart 3.5' || label.includes('3.5 cart')) return 61;
   if (label.includes('4.5 cart')) return 62;
   if (label.includes('5.5 cart')) return 63;
   return 999;
@@ -2643,7 +2650,9 @@ function isBlockedMarket(market) {
   return label.includes('resultado final') ||
     label.includes('dupla chance') ||
     label.includes('dnb') ||
-    label.includes('empate anula');
+    label.includes('empate anula') ||
+    label.includes('over 5.5 cart') ||
+    label.includes('cart 5.5');
 }
 
 function applyMarketBlocklist(query) {
@@ -2651,7 +2660,9 @@ function applyMarketBlocklist(query) {
     .not('market', 'ilike', 'Resultado Final%')
     .not('market', 'ilike', '%Dupla Chance%')
     .not('market', 'ilike', '%DNB%')
-    .not('market', 'ilike', '%empate anula%');
+    .not('market', 'ilike', '%empate anula%')
+    .not('market', 'ilike', '%Over 5.5 Cart%')
+    .not('market', 'ilike', '%Cart 5.5%');
 }
 
 function displayMarket(market) {
@@ -2700,6 +2711,62 @@ const FUNCTIONAL_MARKETS = new Set([
   'BTTS', 'Over 0.5 HT', 'Esc 7.5', 'Esc 8.5',
   'Cart 2.5', 'Cart 3.5',
 ]);
+
+const OFFICIAL_SNAPSHOT_MARKET_KEYS = new Set([
+  'over15', 'over25', 'btts', 'over05ht',
+  'under45', 'under35', 'esc75', 'cards25',
+]);
+
+const OFFICIAL_SNAPSHOT_MARKET_ALIASES = [
+  'Over 1.5', 'Over 1.5 Gols', 'Over 1.5 gols',
+  'Over 2.5', 'Over 2.5 Gols', 'Over 2.5 gols',
+  'BTTS', 'Ambas marcam',
+  'Over 0.5 HT',
+  'Under 4.5', 'Under 4.5 Gols', 'Under 4.5 gols',
+  'Under 3.5', 'Under 3.5 Gols', 'Under 3.5 gols',
+  'Esc 7.5', 'Over 7.5 Escanteios', 'Over 7.5 cantos',
+  'Cart 2.5', 'Over 2.5 Cartao', 'Over 2.5 Cartão',
+];
+
+// Override limpo dos aliases antigos: a UI deve exibir os nomes curtos do V1.
+function displayMarket(market) {
+  const name = String(market || '').trim();
+  const norm = name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  if (norm === 'btts' || norm === 'ambas marcam') return 'BTTS';
+  if (norm === 'over 1.5' || norm === 'over 1.5 gols') return 'Over 1.5';
+  if (norm === 'over 2.5' || norm === 'over 2.5 gols') return 'Over 2.5';
+  if (norm === 'under 3.5' || norm === 'under 3.5 gols') return 'Under 3.5';
+  if (norm === 'under 4.5' || norm === 'under 4.5 gols') return 'Under 4.5';
+  if (norm === 'over 0.5 ht') return 'Over 0.5 HT';
+  if (norm === 'esc 7.5' || norm === 'over 7.5 cantos' || norm === 'over 7.5 escanteios') return 'Esc 7.5';
+  if (norm === 'esc 8.5' || norm === 'over 8.5 cantos' || norm === 'over 8.5 escanteios') return 'Esc 8.5';
+  if (norm === 'cart 2.5' || norm === 'over 2.5 cartao' || norm === 'over 2.5 cartao') return 'Cart 2.5';
+  if (norm === 'cart 3.5' || norm === 'over 3.5 cartao' || norm === 'over 3.5 cartao') return 'Cart 3.5';
+  return name;
+}
+
+function canonicalMarketKey(market) {
+  const label = displayMarket(market).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (label === 'over 1.5') return 'over15';
+  if (label === 'over 2.5') return 'over25';
+  if (label === 'under 3.5') return 'under35';
+  if (label === 'under 4.5') return 'under45';
+  if (label === 'btts') return 'btts';
+  if (label === 'over 0.5 ht') return 'over05ht';
+  if (label === 'esc 7.5') return 'esc75';
+  if (label === 'esc 8.5') return 'esc85';
+  if (label === 'cart 2.5') return 'cards25';
+  if (label === 'cart 3.5') return 'cards35';
+  return label;
+}
+
+function isAllowedOfficialSnapshotMarket(market) {
+  if (!market || isBlockedMarket(market)) return false;
+  return OFFICIAL_SNAPSHOT_MARKET_KEYS.has(canonicalMarketKey(market));
+}
 
 async function fetchMarkets() {
   let q = supabaseClient
@@ -2898,12 +2965,12 @@ const WORLD_CUP_MAX_SUGGESTIONS = 4;
 function smartMarketKey(market) {
   const label = displayMarket(market).toLowerCase();
   if (label === 'over 0.5 gols') return 'over05';
-  if (label === 'over 1.5 gols') return 'over15';
-  if (label === 'over 2.5 gols') return 'over25';
+  if (label === 'over 1.5' || label === 'over 1.5 gols') return 'over15';
+  if (label === 'over 2.5' || label === 'over 2.5 gols') return 'over25';
   if (label === 'over 3.5 gols') return 'over35';
-  if (label === 'under 3.5 gols') return 'under35';
-  if (label === 'under 4.5 gols') return 'under45';
-  if (label === 'ambas marcam') return 'btts';
+  if (label === 'under 3.5' || label === 'under 3.5 gols') return 'under35';
+  if (label === 'under 4.5' || label === 'under 4.5 gols') return 'under45';
+  if (label === 'btts' || label === 'ambas marcam') return 'btts';
   if (label === 'over 0.5 ht') return 'over05ht';
   if (label === 'over 0.5 gols casa') return 'homeOver05';
   if (label === 'over 0.5 gols visitante') return 'awayOver05';
@@ -2911,11 +2978,13 @@ function smartMarketKey(market) {
   if (label === 'dupla chance 2x') return 'double2x';
   if (label === 'vitória da casa' || label === 'vitoria da casa') return 'homeWin';
   if (label === 'vitória do visitante' || label === 'vitoria do visitante') return 'awayWin';
-  if (label === 'over 7.5 escanteios') return 'esc75';
-  if (label === 'over 8.5 escanteios') return 'esc85';
+  if (label === 'esc 7.5' || label === 'over 7.5 escanteios') return 'esc75';
+  if (label === 'esc 8.5' || label === 'over 8.5 escanteios') return 'esc85';
   if (label === 'over 2.5 cartão' || label === 'over 2.5 cartao') return 'cart25';
   if (label === 'over 3.5 cartão' || label === 'over 3.5 cartao') return 'cart35';
   if (label === 'over 5.5 cartão' || label === 'over 5.5 cartao') return 'cart55';
+  if (label === 'cart 2.5') return 'cart25';
+  if (label === 'cart 3.5') return 'cart35';
   return '';
 }
 
@@ -3562,16 +3631,17 @@ async function loadPrevisoes() {
     if (error) { renderError(error.message); return; }
 
     totalCount = count || 0;
-    if (!snapshots || snapshots.length === 0) { renderEmpty(); renderPagination(0, 1); return; }
+    const officialSnapshots = (snapshots || []).filter(s => isAllowedOfficialSnapshotMarket(s.market));
+    if (officialSnapshots.length === 0) { renderEmpty(); renderPagination(0, 1); return; }
 
-    const fixtureIds     = [...new Set(snapshots.map(s => s.fixture_id))];
+    const fixtureIds     = [...new Set(officialSnapshots.map(s => s.fixture_id))];
     const [predictionsMap, fixturesMap, snapshotsMap] = await Promise.all([
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
       fetchAllSnapshotsByFixtureIds(fixtureIds),
     ]);
     const seenFixtures = new Set();
-    const dedupedSnapshots = snapshots.filter(s => {
+    const dedupedSnapshots = officialSnapshots.filter(s => {
       if (seenFixtures.has(s.fixture_id)) return false;
       seenFixtures.add(s.fixture_id);
       return true;
