@@ -1298,6 +1298,22 @@ const PredictionEngine = (function () {
     return valueSum / weightSum;
   }
 
+  function pyRound(value, digits = 0) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const factor = 10 ** digits;
+    const scaled = n * factor;
+    const sign = Math.sign(scaled) || 1;
+    const abs = Math.abs(scaled);
+    const floor = Math.floor(abs);
+    const diff = abs - floor;
+    const eps = 1e-10;
+    let rounded;
+    if (Math.abs(diff - 0.5) < eps) rounded = (floor % 2 === 0) ? floor : floor + 1;
+    else rounded = Math.round(abs);
+    return (sign * rounded) / factor;
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // 3. Poisson  §3.2
@@ -2077,7 +2093,7 @@ const PredictionEngine = (function () {
     const main_markets = buildMainMarkets(scores, grades, odds, evs, filters);
 
     const best_mkt        = best ? best.market     : null;
-    const best_score      = best ? best.score      : null;
+    const best_score      = best ? pyRound(best.score, 1) : null;
     const best_grade      = best ? best.grade      : 'D';
     const best_confidence = getConfidence(best_grade);
     const best_odd        = best ? (odds[_mktKey(best.market)] ?? null) : null;
@@ -2322,21 +2338,70 @@ function getMainPalpites(snap, predictionsMap) {
   ).slice(0, 1);
 }
 
-function getCurrentBestPrediction(fixtureId, predictionsMap) {
-  const preds = predictionsMap[String(fixtureId)] || predictionsMap[fixtureId] || [];
-  const best = preds
-    .filter(p => p.is_best_market && isAllowedOfficialSnapshotMarket(p.market))
-    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0];
-  if (!best) return null;
-  return {
-    market: displayMarket(best.market),
-    score: Number(best.score ?? 0),
-    grade: best.grade || suggestionGrade(Number(best.score ?? 0)),
+function getEngineBestFromMetrics(metrics, base = {}) {
+  if (!metrics) return null;
+  const raw = {
+    fixture_id:     base.fixture_id ?? metrics.fixture_id,
+    home_team:      base.home_team ?? null,
+    away_team:      base.away_team ?? null,
+    league_name:    base.league_name ?? null,
+    match_date:     base.match_date ?? null,
+    hour:           base.hour ?? null,
+    over15_g:       metrics.over15_g ?? null,
+    over25_g:       metrics.over25_g ?? null,
+    over15_h:       metrics.over15_h ?? null,
+    over15_a:       metrics.over15_a ?? null,
+    over25_h:       metrics.over25_h ?? null,
+    over25_a:       metrics.over25_a ?? null,
+    exg_h:          metrics.exg_h ?? null,
+    exg_a:          metrics.exg_a ?? null,
+    ppg_h:          metrics.ppg_h ?? null,
+    ppg_a:          metrics.ppg_a ?? null,
+    h2h_goals:      metrics.h2h_goals ?? null,
+    avg_sc_h:       metrics.avg_sc_h ?? null,
+    avg_sc_a:       metrics.avg_sc_a ?? null,
+    btts_h:         metrics.btts_h ?? null,
+    btts_a:         metrics.btts_a ?? null,
+    over05_ht:      metrics.over05_ht ?? null,
+    over15_ht:      metrics.over15_ht ?? null,
+    avg_corners:    metrics.avg_corners ?? null,
+    over65_c:       metrics.over65_c ?? null,
+    over75_c:       metrics.over75_c ?? null,
+    over85_c:       metrics.over85_c ?? null,
+    avg_cards:      metrics.avg_cards ?? null,
+    over25_cards:   metrics.over25_cards ?? null,
+    over35_cards:   metrics.over35_cards ?? null,
+    avg_shots:      metrics.avg_shots ?? null,
+    avg_sot:        metrics.avg_sot ?? null,
+    under25_h:      metrics.under25_h ?? null,
+    under25_a:      metrics.under25_a ?? null,
+    odd_o15:        base.odd_o15 ?? null,
+    odd_o25:        base.odd_o25 ?? null,
+    odd_btts:       base.odd_btts ?? null,
+    odd_05ht:       base.odd_05ht ?? null,
+    odd_u35:        base.odd_u35 ?? null,
+    odd_u45:        base.odd_u45 ?? null,
+    odd_esc75:      base.odd_esc75 ?? null,
+    odd_esc85:      base.odd_esc85 ?? null,
+    odd_c25:        base.odd_c25 ?? null,
+    odd_c35:        base.odd_c35 ?? null,
   };
+  try {
+    const result = PredictionEngine.processFixture(raw);
+    if (!isAllowedOfficialSnapshotMarket(result.best_mkt)) return null;
+    return {
+      market: displayMarket(result.best_mkt),
+      score: Number(result.best_score ?? 0),
+      grade: result.best_grade || suggestionGrade(Number(result.best_score ?? 0)),
+    };
+  } catch (err) {
+    return null;
+  }
 }
 
-function syncSnapshotWithCurrentBest(snap, predictionsMap) {
-  const best = getCurrentBestPrediction(snap.fixture_id, predictionsMap);
+function syncSnapshotWithEngineBest(snap, metricsMap = {}) {
+  const metrics = metricsMap[String(snap.fixture_id)] || metricsMap[snap.fixture_id] || null;
+  const best = getEngineBestFromMetrics(metrics, snap);
   if (!best) return snap;
   return {
     ...snap,
@@ -3627,7 +3692,7 @@ async function loadPrevisoes() {
       ]);
 
       const rows = pageFixtures.map(f => {
-        const official = syncSnapshotWithCurrentBest(officialMap[f.fixture_id] || {}, predictionsMap);
+        const official = syncSnapshotWithEngineBest(officialMap[f.fixture_id] || { fixture_id: f.fixture_id, ...f }, metricsMap);
         return {
           ...f,
           ...official,
@@ -3659,10 +3724,11 @@ async function loadPrevisoes() {
     if (officialSnapshots.length === 0) { renderEmpty(); renderPagination(0, 1); return; }
 
     const fixtureIds     = [...new Set(officialSnapshots.map(s => s.fixture_id))];
-    const [predictionsMap, fixturesMap, snapshotsMap] = await Promise.all([
+    const [predictionsMap, fixturesMap, snapshotsMap, metricsMap] = await Promise.all([
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
       fetchAllSnapshotsByFixtureIds(fixtureIds),
+      fetchWorldCupMetrics(fixtureIds),
     ]);
     const seenFixtures = new Set();
     const dedupedSnapshots = officialSnapshots.filter(s => {
@@ -3671,7 +3737,7 @@ async function loadPrevisoes() {
       return true;
     });
     const rows = dedupedSnapshots.map(s0 => {
-      const s = syncSnapshotWithCurrentBest(s0, predictionsMap);
+      const s = syncSnapshotWithEngineBest(s0, metricsMap);
       const f = fixturesMap[String(s.fixture_id)] || {};
       const merged = { ...f, ...s };
       // Fixture fields that must NOT be overwritten by snapshot
