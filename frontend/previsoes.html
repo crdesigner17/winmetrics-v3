@@ -441,9 +441,8 @@
 
   /* section */
   .winscore-ring {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 30px;
+    display: flex; align-items: flex-end; justify-content: center;
     font-size: 12px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
     position: relative; margin: 0 auto; flex-shrink: 0;
   }
@@ -2902,15 +2901,17 @@ function badgeAlt() {
 }
 
 function ringHtml(val, color) {
-  const r = 15, c = 2 * Math.PI * r;
-  const dash = (val / 100) * c;
+  const R = 16, sw = 3;
+  const cx = 22, cy = 22;
+  const angle = (val / 100) * Math.PI;
+  const ex = cx - R * Math.cos(angle);
+  const ey = cy - R * Math.sin(angle);
   return `<div class="winscore-ring">
-    <svg width="36" height="36" viewBox="0 0 36 36" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">
-      <circle cx="18" cy="18" r="${r}" fill="none" stroke="#2a2f44" stroke-width="3"/>
-      <circle cx="18" cy="18" r="${r}" fill="none" stroke="${color}" stroke-width="3"
-        stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" stroke-linecap="round"/>
+    <svg width="44" height="26" viewBox="0 0 44 26" style="position:absolute;top:0;left:0;overflow:visible">
+      <path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}" fill="none" stroke="#2a2f44" stroke-width="${sw}" stroke-linecap="round"/>
+      <path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${ex.toFixed(2)} ${ey.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>
     </svg>
-    <span style="position:relative;z-index:1;font-size:12px;font-weight:700;color:${color}">${val}</span>
+    <span style="position:relative;z-index:1;font-size:12px;font-weight:700;color:${color};line-height:1">${val}</span>
   </div>`;
 }
 
