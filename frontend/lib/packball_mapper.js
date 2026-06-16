@@ -888,7 +888,6 @@ const PackBallMapper = (function () {
       win_draw:    predictionSignals.win_draw,
       win_away:    predictionSignals.win_away,
 
-      // Variáveis §RF — Resultado Final (Vitória Casa/Fora)
       home_form_score,
       away_form_score,
       home_home_perf,

@@ -132,7 +132,7 @@ async function _buscarEventos(sportKey, log) {
 
   try {
     const url = `${ODDS_API_BASE}/sports/${sportKey}/odds` +
-      `?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&oddsFormat=decimal`;
+      `?apiKey=${ODDS_API_KEY}&regions=eu&markets=totals,btts&oddsFormat=decimal`;
 
     const res = await fetch(url);
 
@@ -187,11 +187,9 @@ function _encontrarEvento(eventos, homeTeam, awayTeam) {
  *   odd_btts
  *   odd_esc75, odd_esc85
  *   odd_c25, odd_c35
- *   odds_h, odds_d, odds_a
  */
 function _extrairOdds(evento) {
   const result = {
-    odds_h: null, odds_d: null, odds_a: null,
     odd_o15: null, odd_o25: null,
     odd_u35: null, odd_u45: null,
     odd_btts: null,
@@ -208,16 +206,6 @@ function _extrairOdds(evento) {
 
   for (const market of (bookie?.markets || [])) {
     const key = market.key;
-
-    // 1X2 (h2h)
-    if (key === 'h2h') {
-      for (const o of market.outcomes) {
-        const nome = o.name?.toLowerCase();
-        if (nome === evento.home_team?.toLowerCase()) result.odds_h = parseFloat(o.price);
-        else if (nome === evento.away_team?.toLowerCase()) result.odds_a = parseFloat(o.price);
-        else if (nome === 'draw') result.odds_d = parseFloat(o.price);
-      }
-    }
 
     // Over/Under Gols (totals)
     if (key === 'totals') {
@@ -301,9 +289,6 @@ async function enrichOddsExternas(raw, LOG = {}) {
   };
 
   // Preenche odds no raw — só campos ausentes
-  fill('odds_h',   odds.odds_h);
-  fill('odds_d',   odds.odds_d);
-  fill('odds_a',   odds.odds_a);
   fill('odd_o15',  odds.odd_o15);
   fill('odd_o25',  odds.odd_o25);
   fill('odd_u35',  odds.odd_u35);
@@ -314,7 +299,7 @@ async function enrichOddsExternas(raw, LOG = {}) {
   raw.odds_fonte = 'externa';
 
   // Log do que foi preenchido
-  const preenchidos = ['odds_h','odds_d','odds_a','odd_o15','odd_o25','odd_u35','odd_u45','odd_btts']
+  const preenchidos = ['odd_o15','odd_o25','odd_u35','odd_u45','odd_btts']
     .filter(f => raw[f] !== null && raw[f] !== undefined)
     .map(f => `${f}=${raw[f]}`);
 
