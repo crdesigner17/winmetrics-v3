@@ -914,7 +914,7 @@ async function upsertPredictions(result, raw = {}) {
 /**
  * upsertSnapshot(result, raw)
  * Cria/atualiza registro em prediction_snapshots.
- * Apenas para grade A+ ou A (GRADES_OFICIAIS).
+ * Igual ao V1: salva o best_mkt do jogo em qualquer grade.
  *
  * O snapshot usa o best_mkt — mercado oficial congelado (§7.1).
  * Preserva resultado se jogo já confirmado (FORCE=false).
@@ -923,10 +923,6 @@ async function upsertPredictions(result, raw = {}) {
  */
 async function upsertSnapshot(result, raw) {
   if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
-  // [NOVO] Opção B: aceita também jogos onde o grade ENRIQUECIDO atingiu A/A+
-  // mesmo que o grade original PackBall seja B/C
-  const _gradeParaValidar = result.best_grade_enriquecido ?? result.best_grade;
-  if (!result.is_official || !GRADES_OFICIAIS.has(_gradeParaValidar)) return 0;
 
   const _altForCanonical = (result.altLines || []).find(
     a => a.final_market === result.best_mkt || a.original_market === result.best_mkt
@@ -954,12 +950,6 @@ async function upsertSnapshot(result, raw) {
   // Isso permite que jogos antes em B/C subam para A/A+ quando o mercado confirma
   const scoreFinal = result.best_score_enriquecido ?? result.best_score;
   const gradeFinal = result.best_grade_enriquecido ?? result.best_grade;
-
-  // Revalida elegibilidade com o grade enriquecido
-  if (!GRADES_OFICIAIS.has(gradeFinal)) {
-    LOG.dim(`    Snapshot ${result.fixture_id}: grade enriquecido ${gradeFinal} < A — não gera snapshot.`);
-    return 0;
-  }
 
   const row = {
     fixture_id:        result.fixture_id,
@@ -1080,11 +1070,11 @@ function printFixtureLog(raw, result, savedSnapshot, validation) {
   }
 
   // Snapshot
-  if (result.is_official) {
+  if (result.best_mkt) {
     const snap = savedSnapshot ? '\x1b[32m✓ snapshot salvo\x1b[0m' : '\x1b[33m⟳ snapshot preservado\x1b[0m';
     console.log(`     ${snap}  (grade ${result.best_grade} — palpite oficial)`);
   } else {
-    console.log(`     \x1b[90mNão gera snapshot (grade ${result.best_grade} < A)\x1b[0m`);
+    console.log(`     \x1b[90mNão gera snapshot (sem best_mkt)\x1b[0m`);
   }
 
   console.log(hr);
@@ -1436,7 +1426,7 @@ async function runExample() {
   }
 
   // ── FASE 5: Log completo ─────────────────────────────────────
-  printFixtureLog(raw, result, result.is_official, validation);
+  printFixtureLog(raw, result, Boolean(result.best_mkt), validation);
 
   // ── FASE 6: Registro Supabase (simulado) ─────────────────────
   console.log('\n💾  FASE 5 — Registros que seriam salvos no Supabase:');
@@ -1465,14 +1455,14 @@ async function runExample() {
     console.log(`    ${(isBest ? '★ ' : '  ')}${market.padEnd(14)} score=${sc.toFixed(1).padStart(5)}  grade=${gr}  is_best=${isBest}`);
   });
 
-  if (result.is_official) {
+  if (result.best_mkt) {
     console.log('\n  prediction_snapshots:');
     console.log(`    fixture_id=${result.fixture_id}  match_name="${result.jogo}"`);
     console.log(`    market="${result.best_mkt}"  score=${result.best_score?.toFixed(1)}  grade=${result.best_grade}`);
     console.log(`    confidence="${result.best_confidence}"  odd=${result.best_odd}  ev=${result.best_ev}`);
     console.log(`    result_status=null  (aguardando confirmar.js)`);
   } else {
-    console.log(`\n  prediction_snapshots: não gerado (grade ${result.best_grade} < A)`);
+    console.log('\n  prediction_snapshots: não gerado (sem best_mkt)');
   }
 
   console.log('\n' + '═'.repeat(64));
@@ -1805,7 +1795,7 @@ async function runMockToSupabase() {
   }
 
   // ── 3e. prediction_snapshots ──────────────────────────────────
-  if (result.is_official) {
+  if (result.best_mkt) {
     LOG.info('Fase 3e — UPSERT prediction_snapshots...');
     console.log('  Colunas: fixture_id, match_name, home_team, away_team, league_name,');
     console.log('           match_date, market, score, grade, confidence, odd, odd_justa,');
@@ -1840,7 +1830,7 @@ async function runMockToSupabase() {
       process.exit(1);
     }
   } else {
-    LOG.dim(`  prediction_snapshots: pulado (grade ${result.best_grade} não é A+/A)`);
+    LOG.dim('  prediction_snapshots: pulado (sem best_mkt)');
   }
 
   // ── Verificação pós-gravação (SELECT de confirmação) ──────────
@@ -1894,7 +1884,7 @@ async function runMockToSupabase() {
       console.log(`     id=${s.id}  market="${s.market}"  score=${s.score}  grade=${s.grade}`)
     );
   } else {
-    console.log(`     (nenhum — grade < A ou já confirmado)`);
+    console.log(`     (nenhum — sem best_mkt ou já confirmado)`);
   }
 
   printMockSummary(inserted);
