@@ -441,8 +441,8 @@
   }
 
   .winscore-ring {
-    width: 44px; height: 30px;
-    display: flex; align-items: flex-end; justify-content: center;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 700; font-family: 'Rajdhani', sans-serif;
     position: relative; margin: 0 auto; flex-shrink: 0;
   }
@@ -1205,12 +1205,199 @@ async function getCurrentProfile() {
  *   const result = PredictionEngine.processFixture(rawData);
  */
 
+/**
+ * WinMetrics Analytics — Prediction Engine v1
+ * ─────────────────────────────────────────────
+ * Motor matemático puro do PackBall v3.0.
+ * Implementação fiel à Documentação Técnica Completa — Junho 2026.
+ *
+ * Seções de referência:
+ *   3.1  Variáveis brutas
+ *   3.2  Variáveis derivadas + Poisson
+ *   3.3  Normalizações (escala 0–100)
+ *   4.1–4.10  Score Engine por mercado
+ *   5.1  Sistema de grades (thresholds coletar.py / modo API)
+ *   5.2  Seleção de best_mkt
+ *   6    Filtro 3 Vias — Over 1.5 (modo API — inclui Via 4)
+ *   4.6  Filtro específico Under 3.5
+ *
+ * Sem dependências externas. Sem acesso à rede.
+ * Entrada: objeto raw com variáveis brutas por fixture.
+ * Saída:   objeto processado com scores, grades, filtros, best_mkt e EV.
+ *
+ * Uso:
+ *   const result = PredictionEngine.processFixture(rawData);
+ */
+
+/**
+ * WinMetrics Analytics — Prediction Engine v1
+ * ─────────────────────────────────────────────
+ * Motor matemático puro do PackBall v3.0.
+ * Implementação fiel à Documentação Técnica Completa — Junho 2026.
+ *
+ * Seções de referência:
+ *   3.1  Variáveis brutas
+ *   3.2  Variáveis derivadas + Poisson
+ *   3.3  Normalizações (escala 0–100)
+ *   4.1–4.10  Score Engine por mercado
+ *   5.1  Sistema de grades (thresholds coletar.py / modo API)
+ *   5.2  Seleção de best_mkt
+ *   6    Filtro 3 Vias — Over 1.5 (modo API — inclui Via 4)
+ *   4.6  Filtro específico Under 3.5
+ *
+ * Sem dependências externas. Sem acesso à rede.
+ * Entrada: objeto raw com variáveis brutas por fixture.
+ * Saída:   objeto processado com scores, grades, filtros, best_mkt e EV.
+ *
+ * Uso:
+ *   const result = PredictionEngine.processFixture(rawData);
+ */
+
+/**
+ * WinMetrics Analytics — Prediction Engine v1
+ * ─────────────────────────────────────────────
+ * Motor matemático puro do PackBall v3.0.
+ * Implementação fiel à Documentação Técnica Completa — Junho 2026.
+ *
+ * Seções de referência:
+ *   3.1  Variáveis brutas
+ *   3.2  Variáveis derivadas + Poisson
+ *   3.3  Normalizações (escala 0–100)
+ *   4.1–4.10  Score Engine por mercado
+ *   5.1  Sistema de grades (thresholds coletar.py / modo API)
+ *   5.2  Seleção de best_mkt
+ *   6    Filtro 3 Vias — Over 1.5 (modo API — inclui Via 4)
+ *   4.6  Filtro específico Under 3.5
+ *
+ * Sem dependências externas. Sem acesso à rede.
+ * Entrada: objeto raw com variáveis brutas por fixture.
+ * Saída:   objeto processado com scores, grades, filtros, best_mkt e EV.
+ *
+ * Uso:
+ *   const result = PredictionEngine.processFixture(rawData);
+ */
+
 const PredictionEngine = (function () {
   'use strict';
 
   // ═══════════════════════════════════════════════════════════════
   // CONSTANTES — Thresholds modo API (coletar.py)  §5.1
   // ═══════════════════════════════════════════════════════════════
+
+  // ── PESOS POR LIGA ──────────────────────────────────────────────────────────
+  // Derivados dos dados reais do PackBall (CSVs de 16-06-2026).
+  // Cada peso multiplica o score do mercado antes da comparação em selectBestMkt.
+  // Peso > 1.0 → favorece o mercado nessa liga.
+  // Peso < 1.0 → penaliza o mercado nessa liga.
+  // Peso = 1.0 → comportamento neutro (padrão para ligas sem perfil definido).
+  //
+  // Cálculo: peso = frequência_histórica_da_liga / frequência_média_global
+  // Exemplo: Cart 2.5 no Brasileirão = 87% vs média global ~76% → 87/76 = 1.14
+  //
+  // Frequências globais de referência (média das 8 ligas nos CSVs):
+  //   Over 1.5  = 76%  | Over 2.5  = 53%  | Under 4.5 = 87%  | Under 3.5 = 72%
+  //   Esc 7.5   = 73%  | Cart 2.5  = 80%  | Cart 3.5  = 65%
+  const LEAGUE_WEIGHTS = {
+    // Pesos calculados automaticamente dos CSVs PackBall (16-06-2026)
+    // Fórmula: peso = frequência_liga / média_global_de_todas_as_ligas
+    // Médias globais: O1.5=74.1% | O2.5=48.7% | U4.5=87.0% | U3.5=73.1%
+    //                 Esc7.5=71.3% | Esc8.5=60.0% | Cart2.5=79.7% | Cart3.5=64.0%
+
+    // ── Argentina ─────────────────────────────────────────
+    'Argentina Liga Profesional': { over15: 0.864, over25: 0.677, under45: 1.081, under35: 1.19, esc75: 0.855, esc85: 0.85, cart25: 1.142, cart35: 1.203 },
+
+    // ── Brazil ────────────────────────────────────────────
+    'Brazil Carioca Serie A': { over15: 0.986, over25: 0.903, under45: 1.023, under35: 1.081, esc75: 1.038, esc85: 1.084, cart25: 1.117, cart35: 1.156 },
+    'Brazil Copa do Brasil': { over15: 0.864, over25: 0.739, under45: 1.046, under35: 1.135, esc75: 0.996, esc85: 0.984, cart25: 1.104, cart35: 1.125 },
+    'Brazil Copa do Nordeste': { over15: 1.053, over25: 1.026, under45: 0.954, under35: 0.958, esc75: 0.996, esc85: 1.05, cart25: 1.167, cart35: 1.375 },
+    'Brazil Mineiro 1': { over15: 0.864, over25: 0.76, under45: 1.035, under35: 1.108, esc75: 0.954, esc85: 0.934, cart25: 1.104, cart35: 1.219 },
+    'Brazil Paulista A1': { over15: 0.905, over25: 0.821, under45: 1.069, under35: 1.135, esc75: 1.192, esc85: 1.151, cart25: 1.204, cart35: 1.281 },
+    'Brazil Serie A': { over15: 1.04, over25: 1.026, under45: 1.012, under35: 1.026, esc75: 1.08, esc85: 1.134, cart25: 1.091, cart35: 1.172 },
+    'Brazil Serie B': { over15: 0.905, over25: 0.903, under45: 1.046, under35: 1.122, esc75: 1.052, esc85: 1.067, cart25: 1.104, cart35: 1.266 },
+    'Brazil Serie C': { over15: 0.905, over25: 0.944, under45: 1.035, under35: 1.122, esc75: 1.136, esc85: 1.134, cart25: 1.179, cart35: 1.281 },
+
+    // ── Croatia ───────────────────────────────────────────
+    'Croatia 1. HNL': { over15: 1.067, over25: 1.006, under45: 1.035, under35: 0.985, esc75: 0.996, esc85: 0.95, cart25: 0.979, cart35: 0.922 },
+
+    // ── England ───────────────────────────────────────────
+    'England Championship': { over15: 1.026, over25: 1.026, under45: 1.046, under35: 1.026, esc75: 1.108, esc85: 1.134, cart25: 0.916, cart35: 0.812 },
+    'England Premier League': { over15: 1.067, over25: 1.129, under45: 1.0, under35: 0.985, esc75: 1.052, esc85: 1.1, cart25: 0.903, cart35: 0.891 },
+
+    // ── Europe ────────────────────────────────────────────
+    'Europe Champions League': { over15: 1.067, over25: 1.191, under45: 0.862, under35: 0.848, esc75: 0.968, esc85: 1.0, cart25: 0.878, cart35: 0.812 },
+    'Europe Euro Qualification': { over15: 1.107, over25: 1.109, under45: 0.977, under35: 0.958, esc75: 0.883, esc85: 0.817, cart25: 0.941, cart35: 0.938 },
+    'Europe Europa Conference League': { over15: 1.013, over25: 1.068, under45: 0.989, under35: 0.971, esc75: 0.982, esc85: 1.0, cart25: 1.029, cart35: 1.047 },
+    'Europe Europa League': { over15: 0.972, over25: 1.068, under45: 1.012, under35: 0.985, esc75: 0.939, esc85: 0.95, cart25: 0.979, cart35: 0.922 },
+
+    // ── France ────────────────────────────────────────────
+    'France Ligue 1': { over15: 0.986, over25: 1.088, under45: 0.954, under35: 0.916, esc75: 0.968, esc85: 0.984, cart25: 0.953, cart35: 0.875 },
+    'France Ligue 2': { over15: 0.918, over25: 0.985, under45: 1.012, under35: 0.999, esc75: 0.996, esc85: 0.95, cart25: 1.004, cart35: 0.922 },
+
+    // ── Germany ───────────────────────────────────────────
+    'Germany 2. Bundesliga': { over15: 1.08, over25: 1.191, under45: 0.954, under35: 0.944, esc75: 1.066, esc85: 1.084, cart25: 1.054, cart35: 1.094 },
+    'Germany Bundesliga': { over15: 1.134, over25: 1.314, under45: 0.908, under35: 0.78, esc75: 1.024, esc85: 1.034, cart25: 0.903, cart35: 0.828 },
+
+    // ── Greece ────────────────────────────────────────────
+    'Greece Super League': { over15: 1.013, over25: 1.026, under45: 1.012, under35: 1.026, esc75: 0.869, esc85: 0.834, cart25: 1.104, cart35: 1.203 },
+
+    // ── Italy ─────────────────────────────────────────────
+    'Italy Serie A': { over15: 0.945, over25: 0.944, under45: 1.035, under35: 1.067, esc75: 0.911, esc85: 0.85, cart25: 0.953, cart35: 0.844 },
+    'Italy Serie B': { over15: 1.013, over25: 0.985, under45: 1.046, under35: 1.026, esc75: 1.01, esc85: 0.984, cart25: 1.054, cart35: 1.062 },
+
+    // ── Netherlands ───────────────────────────────────────
+    'Netherlands Eerste Divisie': { over15: 1.107, over25: 1.293, under45: 0.897, under35: 0.793, esc75: 1.178, esc85: 1.234, cart25: 0.79, cart35: 0.672 },
+
+    // ── Norway ────────────────────────────────────────────
+    'Norway Eliteserien': { over15: 1.148, over25: 1.129, under45: 0.954, under35: 0.903, esc75: 1.108, esc85: 1.167, cart25: 0.841, cart35: 0.734 },
+
+    // ── Portugal ──────────────────────────────────────────
+    'Portugal Liga Portugal': { over15: 1.013, over25: 1.109, under45: 1.035, under35: 0.958, esc75: 0.968, esc85: 0.984, cart25: 1.066, cart35: 1.109 },
+
+    // ── Romania ───────────────────────────────────────────
+    'Romania Superliga': { over15: 0.959, over25: 0.944, under45: 1.012, under35: 0.999, esc75: 1.038, esc85: 1.05, cart25: 0.979, cart35: 0.938 },
+
+    // ── Saudi ─────────────────────────────────────────────
+    'Saudi Arabia Pro League': { over15: 1.08, over25: 1.15, under45: 0.92, under35: 0.862, esc75: 1.108, esc85: 1.1, cart25: 0.966, cart35: 0.953 },
+
+    // ── South ─────────────────────────────────────────────
+    'South America Copa America': { over15: 0.837, over25: 0.842, under45: 1.046, under35: 1.067, esc75: 0.785, esc85: 0.784, cart25: 1.016, cart35: 0.969 },
+    'South America Copa Libertadores': { over15: 0.864, over25: 0.739, under45: 1.046, under35: 1.149, esc75: 0.897, esc85: 0.834, cart25: 1.079, cart35: 1.156 },
+    'South America Copa Sudamericana': { over15: 0.972, over25: 0.76, under45: 1.081, under35: 1.135, esc75: 0.996, esc85: 0.984, cart25: 1.117, cart35: 1.172 },
+
+    // ── Spain ─────────────────────────────────────────────
+    'Spain La Liga': { over15: 1.053, over25: 1.026, under45: 1.0, under35: 1.012, esc75: 1.01, esc85: 1.017, cart25: 1.016, cart35: 0.969 },
+    'Spain La Liga 2': { over15: 0.959, over25: 1.026, under45: 0.989, under35: 0.999, esc75: 0.982, esc85: 0.967, cart25: 1.117, cart35: 1.203 },
+
+    // ── Turkey ────────────────────────────────────────────
+    'Turkey Super Lig': { over15: 1.026, over25: 1.088, under45: 1.012, under35: 0.999, esc75: 0.968, esc85: 0.95, cart25: 1.029, cart35: 1.016 },
+
+    // ── World ─────────────────────────────────────────────
+    'World FIFA Club World Cup': { over15: 1.053, over25: 1.109, under45: 0.954, under35: 0.889, esc75: 0.954, esc85: 0.934, cart25: 0.878, cart35: 0.797 },
+    'World FIFA World Cup': { over15: 1.094, over25: 0.78, under45: 0.931, under35: 0.944, esc75: 0.968, esc85: 0.934, cart25: 0.627, cart35: 0.594 },
+    'World Friendlies': { over15: 1.013, over25: 1.068, under45: 0.977, under35: 0.903, esc75: 0.897, esc85: 0.917, cart25: 0.703, cart35: 0.641 },
+
+  };
+
+  // Normaliza o league_name para buscar em LEAGUE_WEIGHTS
+  function getLeagueKey(leagueName, country) {
+    const l = String(leagueName || '').trim();
+    const c = String(country   || '').trim();
+    const key = `${c} ${l}`;
+    if (LEAGUE_WEIGHTS[key]) return key;
+    // Fallback: busca parcial
+    for (const k of Object.keys(LEAGUE_WEIGHTS)) {
+      if (l.toLowerCase().includes(k.split(' ').slice(1).join(' ').toLowerCase())) return k;
+    }
+    return null;
+  }
+
+  // Aplica os pesos da liga no score de um mercado
+  function applyLeagueWeight(score, marketKey, leagueKey) {
+    if (score === null || score === undefined) return score;
+    if (!leagueKey || !LEAGUE_WEIGHTS[leagueKey]) return score;
+    const w = LEAGUE_WEIGHTS[leagueKey][marketKey] ?? 1.0;
+    return Math.min(100, score * w);
+  }
 
   const GRADE_THRESHOLDS = {
     'A+': 85,
@@ -1268,7 +1455,7 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
   // 2. ws(pairs) — Média ponderada ignorando nulos  §4.0
   //    ws([(v1,p1), (v2,p2), ...]) ignora pares com valor null/undefined.
-  //    Se TODOS forem nulos, retorna null.
+  //    Se TODOS forem nulos, retorna 0 (igual ao coletar.py).
   // ═══════════════════════════════════════════════════════════════
 
   /**
@@ -1278,7 +1465,7 @@ const PredictionEngine = (function () {
    * Os pesos dos pares válidos são re-normalizados automaticamente.
    *
    * @param {Array<[number|null, number]>} pairs
-   * @returns {number|null}
+   * @returns {number}
    */
   function ws(pairs) {
     let weightSum = 0;
@@ -1858,29 +2045,79 @@ const PredictionEngine = (function () {
    * @param {object}  filters  — { over15_passed, under35_passed }
    * @returns {{ market:string, score:number, grade:string, confidence:string }|null}
    */
-  function selectBestMkt(scores, filters) {
+  // ── FRENTE 2 — Thresholds mínimos de publicação por mercado ──────────────
+  // Score mínimo para que o mercado possa ser best_mkt.
+  // Derivado da análise de resultados reais (10-22/06/2026):
+  // todos os erros tinham score < 68. Over 0.5 HT e Cart 3.5 removidos
+  // como best_mkt (performance fraca; continuam disponíveis como alternativas).
+  const MIN_SCORE_FOR_BEST = {
+    'over15':  65,   // Over 1.5  — filtro próprio já garante qualidade
+    'over25':  65,   // Over 2.5
+    'btts':    65,   // BTTS
+    'under45': 68,   // Under 4.5 — erros concentrados abaixo de 68
+    'under35': 70,   // Under 3.5 — filtro próprio já é rigoroso
+    'esc75':   68,   // Esc 7.5   — erros abaixo de 65
+    'cards25': 68,   // Cart 2.5
+    // Over 0.5 HT e Cart 3.5: removidos de best_mkt (0% e 60% no período)
+  };
+
+  // ── FRENTE 3 — Boost de odds: odd de mercado como sinal adicional ─────────
+  // Se a odd está disponível, converte para probabilidade implícita e usa
+  // como fator de boost no score efetivo (apenas para comparação, não salvo).
+  // Uma odd de 1.20 implica 83% → boost positivo. Odd de 2.00 → 50% → neutro.
+  // Limita entre 0.90 e 1.12 para não distorcer demais.
+  function oddBoost(odd) {
+    if (odd === null || odd === undefined || odd <= 1) return 1.0;
+    const impliedProb = 1 / odd;              // ex: 1/1.20 = 0.833
+    const boost = 0.5 + impliedProb;          // escala: 0.5 + 0.833 = 1.333
+    return Math.min(1.12, Math.max(0.90, boost));
+  }
+
+  function selectBestMkt(scores, filters, leagueKey, odds) {
+    // ── Pesos da liga (Frente anterior) ──────────────────────────────────────
+    const ws = {
+      over15:   applyLeagueWeight(scores.over15,   'over15',  leagueKey),
+      over25:   applyLeagueWeight(scores.over25,   'over25',  leagueKey),
+      btts:     scores.btts,
+      under45:  applyLeagueWeight(scores.under45,  'under45', leagueKey),
+      under35:  applyLeagueWeight(scores.under35,  'under35', leagueKey),
+      esc75:    applyLeagueWeight(scores.esc75,    'esc75',   leagueKey),
+      cards25:  applyLeagueWeight(scores.cards25,  'cart25',  leagueKey),
+    };
+
+    // ── Candidatos ───────────────────────────────────────────────────────────
+    // Over 0.5 HT e Cart 3.5 removidos (Frente 1)
     const candidatos = [
-      { market: 'Over 1.5',   score: scores.over15,   eligible: filters.over15_passed  },
-      { market: 'Over 2.5',   score: scores.over25,   eligible: true                   },
-      { market: 'BTTS',       score: scores.btts,     eligible: true                   },
-      { market: 'Over 0.5 HT',score: scores.over05ht, eligible: true                   },
-      { market: 'Under 4.5',  score: scores.under45,  eligible: true                   },
-      { market: 'Under 3.5',  score: scores.under35,  eligible: filters.under35_passed },
-      { market: 'Esc 7.5',    score: scores.esc75,    eligible: true                   },
-      { market: 'Cart 2.5',   score: scores.cards25,  eligible: true                   },
+      { market: 'Over 1.5',  key: 'over15',  score: scores.over15,  ws: ws.over15,  odd: odds?.over15,  eligible: filters.over15_passed  },
+      { market: 'Over 2.5',  key: 'over25',  score: scores.over25,  ws: ws.over25,  odd: odds?.over25,  eligible: true                   },
+      { market: 'BTTS',      key: 'btts',    score: scores.btts,    ws: scores.btts,odd: odds?.btts,    eligible: true                   },
+      { market: 'Under 4.5', key: 'under45', score: scores.under45, ws: ws.under45, odd: odds?.under45, eligible: true                   },
+      { market: 'Under 3.5', key: 'under35', score: scores.under35, ws: ws.under35, odd: odds?.under35, eligible: filters.under35_passed },
+      { market: 'Esc 7.5',   key: 'esc75',   score: scores.esc75,   ws: ws.esc75,   odd: odds?.esc75,   eligible: true                   },
+      { market: 'Cart 2.5',  key: 'cards25', score: scores.cards25, ws: ws.cards25, odd: odds?.cards25, eligible: true                   },
     ];
 
     let best = null;
 
     for (const c of candidatos) {
-      if (c.score === null) continue;
-      const effectiveScore = c.eligible ? c.score : 0;
+      if (c.score === null || c.score === undefined) continue;
+
+      // Frente 2 — threshold mínimo de score original
+      const minScore = MIN_SCORE_FOR_BEST[c.key] ?? 65;
+      if (c.score < minScore) continue;
+
+      if (!c.eligible) continue;
+
+      // Frente 3 — score efetivo = weighted × odd boost
+      const boost = oddBoost(c.odd);
+      const effectiveScore = (c.ws ?? c.score) * boost;
+
       if (best === null || effectiveScore > best.effectiveScore) {
         best = {
-          market:         c.market,
-          score:          c.score,
-          effectiveScore: effectiveScore,
-          eligible:       c.eligible,
+          market:        c.market,
+          score:         c.score,         // score original — exibido na UI
+          effectiveScore,                  // score ponderado — apenas para seleção
+          eligible:      c.eligible,
         };
       }
     }
@@ -1893,8 +2130,8 @@ const PredictionEngine = (function () {
     return {
       market:     best.market,
       score:      best.score,
-      grade:      grade,
-      confidence: confidence,
+      grade,
+      confidence,
       eligible:   best.eligible,
     };
   }
@@ -2085,7 +2322,8 @@ const PredictionEngine = (function () {
       under35_passed: under35_ok,
     };
 
-    const best = selectBestMkt(scores, filters);
+    const leagueKey = getLeagueKey(raw.league_name, raw.country);
+    const best = selectBestMkt(scores, filters, leagueKey, odds);
     const main_markets = buildMainMarkets(scores, grades, odds, evs, filters);
 
     const best_mkt        = best ? best.market     : null;
@@ -2210,6 +2448,30 @@ const PredictionEngine = (function () {
 
 })();
 
+
+// ─────────────────────────────────────────────────────────────────
+// Compatibilidade: expõe como módulo ES6 E como global
+// ─────────────────────────────────────────────────────────────────
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = PredictionEngine;  // Node.js / Jest
+}
+// Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
+
+// ─────────────────────────────────────────────────────────────────
+// Compatibilidade: expõe como módulo ES6 E como global
+// ─────────────────────────────────────────────────────────────────
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = PredictionEngine;  // Node.js / Jest
+}
+// Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
+
+// ─────────────────────────────────────────────────────────────────
+// Compatibilidade: expõe como módulo ES6 E como global
+// ─────────────────────────────────────────────────────────────────
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = PredictionEngine;  // Node.js / Jest
+}
+// Browsers e Deno já têm acesso via window.PredictionEngine (IIFE)
 
 // ─────────────────────────────────────────────────────────────────
 // Compatibilidade: expõe como módulo ES6 E como global
@@ -2902,17 +3164,17 @@ function badgeAlt() {
 }
 
 function ringHtml(val, color) {
-  const R = 16, sw = 3;
-  const cx = 22, cy = 22;
+  const R = 15, sw = 3;
+  const cx = 22, cy = 19;
   const angle = (val / 100) * Math.PI;
   const ex = cx - R * Math.cos(angle);
   const ey = cy - R * Math.sin(angle);
   return `<div class="winscore-ring">
-    <svg width="44" height="26" viewBox="0 0 44 26" style="position:absolute;top:0;left:0;overflow:visible">
+    <svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;top:0;left:0">
       <path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}" fill="none" stroke="#2a2f44" stroke-width="${sw}" stroke-linecap="round"/>
       <path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${ex.toFixed(2)} ${ey.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>
+      <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="12" font-weight="700" fill="${color}" font-family="Rajdhani, sans-serif">${val}</text>
     </svg>
-    <span style="position:relative;z-index:1;font-size:12px;font-weight:700;color:${color};line-height:1">${val}</span>
   </div>`;
 }
 
