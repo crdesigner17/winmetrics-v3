@@ -22,6 +22,10 @@ on:
         required: false
         default: 'true'
         type: boolean
+      dias:
+        description: 'Quantos dias reprocessar (force_confirmar e reprocess_engine)'
+        required: false
+        default: '7'
 
 concurrency:
   group: pipeline-v3
@@ -73,7 +77,7 @@ jobs:
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
           echo "▶ Reconfirmando últimos 21 dias"
-          node scripts/confirmar.js --days=21 --force
+          node scripts/confirmar.js --days="${{ github.event.inputs.dias || '7' }}" --force
 
       - name: Reprocessar engine
         if: github.event.inputs.modo == 'reprocess_engine'
@@ -84,6 +88,6 @@ jobs:
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
           echo "▶ Reprocessando engine nos últimos 21 dias"
-          node frontend/jobs/generate_predictions.js --days=21 --force --reprocess-engine
+          node frontend/jobs/generate_predictions.js --days="${{ github.event.inputs.dias || '7' }}" --force --reprocess-engine
           FUTURE=$(TZ="America/Sao_Paulo" date -d "+1 day" +%Y-%m-%d)
           node frontend/jobs/generate_predictions.js --date=$FUTURE --days=7 --force --reprocess-engine
