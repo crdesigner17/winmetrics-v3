@@ -85,7 +85,7 @@ const PredictionEngine = (function () {
   // ═══════════════════════════════════════════════════════════════
   // 2. ws(pairs) — Média ponderada ignorando nulos  §4.0
   //    ws([(v1,p1), (v2,p2), ...]) ignora pares com valor null/undefined.
-  //    Se TODOS forem nulos, retorna null.
+  //    Se TODOS forem nulos, retorna 0 (igual ao coletar.py).
   // ═══════════════════════════════════════════════════════════════
 
   /**
@@ -95,7 +95,7 @@ const PredictionEngine = (function () {
    * Os pesos dos pares válidos são re-normalizados automaticamente.
    *
    * @param {Array<[number|null, number]>} pairs
-   * @returns {number|null}
+   * @returns {number}
    */
   function ws(pairs) {
     let weightSum = 0;
@@ -107,7 +107,7 @@ const PredictionEngine = (function () {
       valueSum  += v * w;
     }
 
-    if (weightSum === 0) return null;
+    if (weightSum === 0) return 0;
     return valueSum / weightSum;
   }
 
@@ -248,6 +248,10 @@ const PredictionEngine = (function () {
     return (v !== null && v !== undefined) ? v : fallback;
   }
 
+  function _or(v, fallback) {
+    return v ? v : fallback;
+  }
+
   /**
    * _o15cf(raw, derivadas)
    * Calcula o15cf — confidence fator Over 1.5.
@@ -298,7 +302,7 @@ const PredictionEngine = (function () {
     return ws([
       [norm.ppg_n,          50],
       [norm.af_n,           30],
-      [_v(norm.exg_n, 50),  20],
+      [_or(norm.exg_n, 50),  20],
     ]);
   }
 
@@ -349,7 +353,7 @@ const PredictionEngine = (function () {
       [norm.ppg_n,               15],
       [norm.af_n,                15],
       [raw.over15_g,             10],
-      [_v(norm.exg_n, 50),        5],
+      [_or(norm.exg_n, 50),        5],
     ]);
   }
 
@@ -364,20 +368,20 @@ const PredictionEngine = (function () {
    *   ws([(ppg_n,40),(af_n,30),(over15_g|50,20),(sot_n|50,10)])
    */
   function scoreOver05HT(raw, d, norm) {
-    if (raw.over05_ht != null) {
+    if (raw.over05_ht) {
       return ws([
         [raw.over05_ht,             45],
-        [_v(raw.over15_ht, 50),     15],
+        [_or(raw.over15_ht, 50),     15],
         [norm.ppg_n,                15],
         [norm.af_n,                 15],
-        [_v(norm.sot_n, 50),        10],
+        [_or(norm.sot_n, 50),        10],
       ]);
     } else {
       return ws([
         [norm.ppg_n,                40],
         [norm.af_n,                 30],
-        [_v(raw.over15_g, 50),      20],
-        [_v(norm.sot_n, 50),        10],
+        [_or(raw.over15_g, 50),      20],
+        [_or(norm.sot_n, 50),        10],
       ]);
     }
   }
@@ -394,14 +398,14 @@ const PredictionEngine = (function () {
     if (poiss !== null) {
       return ws([
         [poiss.u45,                     35],
-        [_v(d.u25cf, 50),               25],
-        [100 - _v(norm.exg_n, 50),      20],
+        [_or(d.u25cf, 50),               25],
+        [100 - _or(norm.exg_n, 50),      20],
         [50,                            20],
       ]);
     } else {
       return ws([
-        [_v(d.u25cf, 50),               40],
-        [100 - _v(norm.ppg_n, 50),      30],
+        [_or(d.u25cf, 50),               40],
+        [100 - _or(norm.ppg_n, 50),      30],
         [50,                            30],
       ]);
     }
@@ -421,14 +425,14 @@ const PredictionEngine = (function () {
     if (poiss !== null) {
       return ws([
         [poiss.u35,                     45],
-        [_v(d.u25cf, 50),               20],
-        [100 - _v(norm.exg_n, 50),      25],
+        [_or(d.u25cf, 50),               20],
+        [100 - _or(norm.exg_n, 50),      25],
         [50,                            10],
       ]);
     } else {
       return ws([
-        [_v(d.u25cf, 50),               50],
-        [100 - _v(norm.ppg_n, 50),      30],
+        [_or(d.u25cf, 50),               50],
+        [100 - _or(norm.ppg_n, 50),      30],
         [50,                            20],
       ]);
     }
@@ -445,7 +449,7 @@ const PredictionEngine = (function () {
       [norm.cant_n,               40],
       [raw.over75_c,              30],
       [norm.shots_n,              15],
-      [_v(raw.over65_c, 50),      10],
+      [_or(raw.over65_c, 50),      10],
       [norm.ppg_n,                 5],
     ]);
   }
