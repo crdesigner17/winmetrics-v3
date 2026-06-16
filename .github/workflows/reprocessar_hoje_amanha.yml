@@ -1,0 +1,76 @@
+name: WinMetrics V3 — Reprocessar Hoje e Amanhã
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forçar reprocessamento mesmo se já existir?'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+concurrency:
+  group: pipeline-v3
+  cancel-in-progress: false
+
+jobs:
+  reprocessar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Reprocessar hoje e amanhã
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          TODAY=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
+          TOMORROW=$(TZ="America/Sao_Paulo" date -d "+1 day" +%Y-%m-%d)
+
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+
+          echo "▶ Reprocessando HOJE: $TODAY"
+          node frontend/jobs/pipeline_v1.js \
+            --date="$TODAY" \
+            --days=1 \
+            $FORCE_FLAG
+
+          EXIT=$?
+          if [ $EXIT -eq 2 ]; then
+            echo "⛔ Quota esgotada no processamento de hoje."
+            exit 0
+          fi
+
+          echo ""
+          echo "▶ Reprocessando AMANHÃ: $TOMORROW"
+          node frontend/jobs/pipeline_v1.js \
+            --date="$TOMORROW" \
+            --days=1 \
+            $FORCE_FLAG
+
+          EXIT=$?
+          if [ $EXIT -eq 2 ]; then
+            echo "⛔ Quota esgotada no processamento de amanhã."
+            exit 0
+          fi
+
+          exit $EXIT
