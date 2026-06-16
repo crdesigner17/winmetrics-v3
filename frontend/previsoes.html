@@ -2322,6 +2322,30 @@ function getMainPalpites(snap, predictionsMap) {
   ).slice(0, 1);
 }
 
+function getCurrentBestPrediction(fixtureId, predictionsMap) {
+  const preds = predictionsMap[String(fixtureId)] || predictionsMap[fixtureId] || [];
+  const best = preds
+    .filter(p => p.is_best_market && isAllowedOfficialSnapshotMarket(p.market))
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0];
+  if (!best) return null;
+  return {
+    market: displayMarket(best.market),
+    score: Number(best.score ?? 0),
+    grade: best.grade || suggestionGrade(Number(best.score ?? 0)),
+  };
+}
+
+function syncSnapshotWithCurrentBest(snap, predictionsMap) {
+  const best = getCurrentBestPrediction(snap.fixture_id, predictionsMap);
+  if (!best) return snap;
+  return {
+    ...snap,
+    market: best.market,
+    score: best.score,
+    grade: best.grade,
+  };
+}
+
 function renderMainPalpites(items) {
   if (!items.length) return `<span style="color:var(--text-muted);font-size:11px">Sem palpite oficial</span>`;
   return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;">${items.map(item =>
@@ -3603,7 +3627,7 @@ async function loadPrevisoes() {
       ]);
 
       const rows = pageFixtures.map(f => {
-        const official = officialMap[f.fixture_id] || {};
+        const official = syncSnapshotWithCurrentBest(officialMap[f.fixture_id] || {}, predictionsMap);
         return {
           ...f,
           ...official,
@@ -3646,7 +3670,8 @@ async function loadPrevisoes() {
       seenFixtures.add(s.fixture_id);
       return true;
     });
-    const rows = dedupedSnapshots.map(s => {
+    const rows = dedupedSnapshots.map(s0 => {
+      const s = syncSnapshotWithCurrentBest(s0, predictionsMap);
       const f = fixturesMap[String(s.fixture_id)] || {};
       const merged = { ...f, ...s };
       // Fixture fields that must NOT be overwritten by snapshot
