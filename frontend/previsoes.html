@@ -440,6 +440,29 @@
   }
 
   /* section */
+  .data-level-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: #6b7280;
+    border: 1px solid rgba(107,114,128,.25);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-top: 4px;
+    opacity: .7;
+    white-space: nowrap;
+  }
+  .data-level-badge.level-3 {
+    color: #f59e0b;
+    border-color: rgba(245,158,11,.3);
+  }
+  .data-level-badge.level-4 {
+    color: #6b7280;
+    border-color: rgba(107,114,128,.25);
+  }
+
   .winscore-ring {
     width: 44px; height: 30px;
     display: flex; align-items: flex-end; justify-content: center;
@@ -2653,7 +2676,8 @@ async function fetchWorldCupMetrics(fixtureIds) {
       'avg_corners, over65_c, over75_c, over85_c, avg_cards, over25_cards, over35_cards, ' +
       'avg_shots, avg_sot, under25_h, under25_a, u25cf, ' +
       'ppg_n, af_n, exg_n, h2h_nv, cant_n, shots_n, cards_n, sot_n, ' +
-      'prob_o15_poisson, prob_o25_poisson, prob_u35_poisson, prob_u45_poisson'
+      'prob_o15_poisson, prob_o25_poisson, prob_u35_poisson, prob_u45_poisson, ' +
+      'historic_data_level, historic_data_source'
     )
     .in('fixture_id', fixtureIds);
 
@@ -3640,7 +3664,16 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
       : `<td class="col-alts" style="padding:10px 12px;text-align:left;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>`
     }
-    <td class="col-score">${ringHtml(score, gradeToRingColor(conf))}</td>
+    <td class="col-score">${(() => {
+      const metrics = metricsMap ? (metricsMap[String(snap.fixture_id)] || metricsMap[snap.fixture_id] || null) : null;
+      const dataLevel = metrics?.historic_data_level ?? null;
+      const badge = dataLevel === 3
+        ? `<div class="data-level-badge level-3" title="Dados históricos de outras competições">estimado</div>`
+        : dataLevel === 4
+        ? `<div class="data-level-badge level-4" title="Sem dados históricos suficientes">sem dados</div>`
+        : '';
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">${ringHtml(score, gradeToRingColor(conf))}${badge}</div>`;
+    })()}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
     <td class="col-scoreboard">${formatPlacar(snap)}</td>
     <td class="col-result">${formatResult(snap)}</td>
