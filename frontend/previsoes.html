@@ -2400,6 +2400,12 @@ function getEngineBestFromMetrics(metrics, base = {}) {
 }
 
 function syncSnapshotWithEngineBest(snap, metricsMap = {}) {
+  // Se já existe snapshot oficial (market + score gravados pelo pipeline),
+  // respeita e não sobrescreve — o palpite oficial é a fonte de verdade.
+  // Só recalcula via engine quando não há snapshot (ex: jogos da Copa ainda
+  // sem pipeline rodado, que entram só pela tabela fixtures).
+  if (snap.market && snap.score != null) return snap;
+
   const metrics = metricsMap[String(snap.fixture_id)] || metricsMap[snap.fixture_id] || null;
   const best = getEngineBestFromMetrics(metrics, snap);
   if (!best) return snap;
