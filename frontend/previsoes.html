@@ -2214,34 +2214,32 @@ if (typeof module !== 'undefined' && module.exports) {
 // section
 
 // section
+// MKT_MIN — thresholds mínimos para exibir como alternativa (igual ao V1 gerar_site.py)
 const MKT_MIN = {
-  'Over 1.5':    { min: 85, needFilter: 'passed_filter'  },
-  'Over 2.5':    { min: 75, needFilter: null              },
-  'BTTS':        { min: 70, needFilter: null              },
-  'Over 0.5 HT': { min: 75, needFilter: null              },
-  'Under 4.5':   { min: 75, needFilter: null              },
-  'Under 3.5':   { min: 75, needFilter: 'under35_passed'  },
-  'Esc 7.5':     { min: 75, needFilter: null              },
-  'Esc 8.5':     { min: 75, needFilter: null              },
-  'Cart 2.5':    { min: 75, needFilter: null              },
-  'Cart 3.5':    { min: 75, needFilter: null              },
-  'Over 1.5 gols':   { min: 85, needFilter: 'passed_filter' },
-  'Over 2.5 gols':   { min: 75, needFilter: null            },
-  'Under 3.5 gols':  { min: 75, needFilter: 'under35_passed' },
-  'Under 4.5 gols':  { min: 75, needFilter: null            },
-  'Over 7.5 cantos': { min: 75, needFilter: null            },
-  'Over 8.5 cantos': { min: 75, needFilter: null            },
-  'Over 2.5 cartão': { min: 75, needFilter: null            },
-  'Over 3.5 cartão': { min: 75, needFilter: null            },
-  'Over 1.5 Gols':   { min: 85, needFilter: 'passed_filter' },
-  'Over 2.5 Gols':   { min: 75, needFilter: null            },
-  'Ambas marcam':    { min: 70, needFilter: null            },
-  'Under 3.5 Gols':  { min: 75, needFilter: 'under35_passed' },
-  'Under 4.5 Gols':  { min: 75, needFilter: null            },
-  'Over 7.5 Escanteios': { min: 75, needFilter: null        },
-  'Over 8.5 Escanteios': { min: 75, needFilter: null        },
-  'Over 2.5 Cartão': { min: 75, needFilter: null            },
-  'Over 3.5 Cartão': { min: 75, needFilter: null            },
+  'Over 1.5':          { min: 85, needFilter: 'passed_filter'  },
+  'Over 2.5':          { min: 75, needFilter: null              },
+  'BTTS':              { min: 70, needFilter: null              },
+  'Ambas marcam':      { min: 70, needFilter: null              },
+  'Over 0.5 HT':       { min: 75, needFilter: null              },
+  'Under 4.5':         { min: 75, needFilter: null              },
+  'Under 3.5':         { min: 75, needFilter: 'under35_passed'  },
+  'Esc 7.5':           { min: 75, needFilter: null              },
+  'Esc 8.5':           { min: 75, needFilter: null              },
+  'Cart 2.5':          { min: 75, needFilter: null              },
+  'Cart 3.5':          { min: 75, needFilter: null              },
+  // Aliases de nomes antigos (compatibilidade com dados do banco)
+  'Over 1.5 Gols':     { min: 85, needFilter: 'passed_filter'  },
+  'Over 2.5 Gols':     { min: 75, needFilter: null              },
+  'Under 3.5 Gols':    { min: 75, needFilter: 'under35_passed'  },
+  'Under 4.5 Gols':    { min: 75, needFilter: null              },
+  'Over 7.5 Escanteios': { min: 75, needFilter: null            },
+  'Over 8.5 Escanteios': { min: 75, needFilter: null            },
+  'Over 2.5 Cartão':   { min: 75, needFilter: null              },
+  'Over 3.5 Cartão':   { min: 75, needFilter: null              },
+  // Mercados RF/DNB/DC removidos do engine — não geram mais palpites
+  // 'Resultado Final (1X2)': { min: 75, needFilter: null },
+  // 'Casa empate anula':     { min: 75, needFilter: null },
+  // 'Dupla Chance 1X':       { min: 75, needFilter: null },
 };
 
 function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, snap) {
@@ -2413,9 +2411,13 @@ async function fetchSnapshots(page) {
     .order('match_date', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
-  q = activeFilter === 'todos'
-    ? q.in('grade', ['A+', 'A', 'B', 'C', 'D'])
-    : q.in('grade', ['A+', 'A', 'B', 'C']);
+  // Melhores Previsões: exibe apenas A+ e A (igual ao V1 coletar.py)
+  // Para futura implementação de filtro todos os mercados (B/C/D),
+  // descomentar abaixo e restaurar botão 'todos':
+  // q = activeFilter === 'todos'
+  //   ? q.in('grade', ['A+', 'A', 'B', 'C', 'D'])
+  //   : q.in('grade', ['A+', 'A']);
+  q = q.in('grade', ['A+', 'A']);
 
   if (start) q = q.gte('match_date', start);
   if (end)   q = q.lte('match_date', end);
@@ -2482,7 +2484,7 @@ async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
     .from('prediction_snapshots')
     .select('fixture_id, match_name, home_team, away_team, home_team_logo, away_team_logo, league_name, market, score, grade, odd, result_status, confirmed_at, match_date, hour, dc_market, dc_score, dc_label, dc_odd, dnb_market, dnb_score, dnb_label, dnb_odd')
     .in('fixture_id', fixtureIds)
-    .in('grade', ['A+', 'A', 'B', 'C']);
+    .in('grade', ['A+', 'A']);
 
   if (error || !data) return {};
   return data.reduce((acc, snap) => {
@@ -2571,7 +2573,7 @@ async function fetchLeagues() {
 
 // section
 const MARKET_ORDER = [
-  'Resultado Final (1X2)',
+  // 'Resultado Final (1X2)', // removido do engine
   'Over 1.5 gols',
   'Over 1.5',
   'Over 2.5 gols',
@@ -2595,7 +2597,8 @@ function marketRank(market) {
   // section
   let idx = MARKET_ORDER.findIndex(m => m === name);
   // section
-  if (idx === -1 && name.startsWith('Resultado Final (1X2)')) idx = 0;
+  // RF removido do engine — comentado para referência
+  // if (idx === -1 && name.startsWith('Resultado Final (1X2)')) idx = 0;
   return idx === -1 ? MARKET_ORDER.length : idx;
 }
 
@@ -2632,13 +2635,7 @@ function displayMarket(market) {
   if (norm.includes('over 3.5 cart')) return 'Over 3.5 Cartão';
   if (norm === 'cart 2.5') return 'Over 2.5 Cartão';
   if (norm === 'cart 3.5') return 'Over 3.5 Cartão';
-  if (name === 'Resultado Final (1X2) - Casa DNB') return 'Casa empate anula';
-  if (name === 'Resultado Final (1X2) - Visitante DNB') return 'Visitante empate anula';
-  if (name === 'Resultado Final (1X2) - Dupla Chance 1X') return 'Dupla Chance 1X';
-  if (name === 'Resultado Final (1X2) - Dupla Chance X2') return 'Dupla Chance X2';
-  if (name === 'Resultado Final (1X2) - Dupla Chance 2X') return 'Dupla Chance X2';
-  if (name === 'Resultado Final (1X2) - Vitória Casa') return 'Vitória da Casa';
-  if (name === 'Resultado Final (1X2) - Vitória Visitante') return 'Vitória do Visitante';
+  // Resultado Final / DNB / Dupla Chance removidos do engine — não gerar mais
   if (name === 'BTTS') return 'Ambas marcam';
   if (name === 'Over 1.5' || name === 'Over 1.5 gols' || name === 'Over 1.5 Gols') return 'Over 1.5 Gols';
   if (name === 'Over 2.5' || name === 'Over 2.5 gols' || name === 'Over 2.5 Gols') return 'Over 2.5 Gols';
@@ -2657,12 +2654,10 @@ function canonicalMarketKey(market) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/ã£/g, 'a')
     .replace(/ã³/g, 'o');
-  if (label.includes('dupla chance 1x')) return 'dc1x';
-  if (label.includes('dupla chance x2') || label.includes('dupla chance 2x')) return 'dcx2';
-  if (label.includes('casa empate anula')) return 'home_dnb';
-  if (label.includes('visitante empate anula')) return 'away_dnb';
-  if (label.includes('vitoria da casa')) return 'home_win';
-  if (label.includes('vitoria do visitante')) return 'away_win';
+  // RF/DNB/DC removidos do engine
+  // if (label.includes('dupla chance 1x')) return 'dc1x';
+  // if (label.includes('casa empate anula')) return 'home_dnb';
+  // if (label.includes('vitoria da casa')) return 'home_win';
   if (label.includes('over 1.5 gols')) return 'over15';
   if (label.includes('over 2.5 gols')) return 'over25';
   if (label.includes('under 3.5 gols')) return 'under35';
@@ -2680,13 +2675,10 @@ const FUNCTIONAL_MARKETS = new Set([
   'Over 1.5', 'Over 2.5', 'Under 3.5', 'Under 4.5',
   'BTTS', 'Over 0.5 HT', 'Esc 7.5', 'Esc 8.5',
   'Cart 2.5', 'Cart 3.5',
-  'Resultado Final (1X2) - Casa DNB',
-  'Resultado Final (1X2) - Visitante DNB',
-  'Resultado Final (1X2) - Dupla Chance 1X',
-  'Resultado Final (1X2) - Dupla Chance X2',
-  'Resultado Final (1X2) - Dupla Chance 2X',
-  'Resultado Final (1X2) - Vitória Casa',
-  'Resultado Final (1X2) - Vitória Visitante',
+  // RF/DNB/DC removidos do engine:
+  // 'Resultado Final (1X2) - Casa DNB',
+  // 'Resultado Final (1X2) - Dupla Chance 1X',
+  // 'Resultado Final (1X2) - Vitória Casa',
 ]);
 
 async function fetchMarkets() {
@@ -2738,11 +2730,11 @@ function ringHtml(val, color) {
 }
 
 function confBadge(conf) {
-  // section
   if (!conf) return `<span class="conf-badge conf-media">-</span>`;
   const c = conf.toLowerCase();
-  if (c === 'elite' || c === 'a+' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
-  if (c === 'alta' || c === 'a' || c === 'confiança alta' || c === 'baixo') return `<span class="conf-badge conf-alta">Baixo</span>`;
+  // Grade direto do banco (A+/A) ou label de confiança
+  if (c === 'a+' || c === 'elite' || c === 'muito baixo') return `<span class="conf-badge conf-elite">Elite</span>`;
+  if (c === 'a'  || c === 'alta'  || c === 'baixo' || c === 'confiança alta') return `<span class="conf-badge conf-alta">Alta</span>`;
   if (c === 'confiança média' || c === 'moderado' || c === 'médio') return `<span class="conf-badge conf-media">Médio</span>`;
   return `<span class="conf-badge conf-media">-</span>`;
 }
@@ -2769,7 +2761,8 @@ function confBadge(conf) {
 }
 
 function getConf(snap) {
-  return snap.confidence || snap.best_confidence || snap.conf || snap.grade || null;
+  // Usa grade do banco (A+/A) — confBadge converte para label de exibição
+  return snap.grade || snap.confidence || snap.best_confidence || snap.conf || null;
 }
 
 function pickConfidenceClass(conf) {
