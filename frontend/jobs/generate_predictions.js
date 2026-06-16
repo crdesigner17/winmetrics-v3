@@ -856,7 +856,6 @@ async function upsertPredictions(result, raw = {}) {
     };
   }
 
-  const mainMarketSet = new Set((result.main_markets || []).map(m => m.market));
   const rows = Object.entries(MKT_TO_LABEL).map(([key, marketDefault]) => {
     const score = result.scores[key];
     if (score === null || score === undefined) return null;
@@ -869,7 +868,7 @@ async function upsertPredictions(result, raw = {}) {
     // Metadados de linha alternativa ficam em original_market / final_market (colunas separadas).
     const altInfo    = altLabelByKey[key];
     const market     = marketDefault;   // canônico V1: 'Esc 7.5', não 'Esc 9.5'
-    const isBest     = mainMarketSet.has(market) || marketDefault === result.best_mkt;
+    const isBest     = marketDefault === result.best_mkt;
 
     // Filtros específicos
     let passedFilter   = false;
@@ -904,9 +903,15 @@ async function upsertPredictions(result, raw = {}) {
 
   if (rows.length === 0) return;
 
+  const { error: deletePredictionsError } = await supabase
+    .from('predictions')
+    .delete()
+    .eq('fixture_id', result.fixture_id);
+  if (deletePredictionsError) throw new Error(`upsertPredictions/delete: ${deletePredictionsError.message}`);
+
   const { error } = await supabase
     .from('predictions')
-    .upsert(rows, { onConflict: 'fixture_id,market' });
+    .insert(rows);
 
   if (error) throw new Error(`upsertPredictions: ${error.message}`);
 }
@@ -928,6 +933,13 @@ async function upsertSnapshot(result, raw) {
     a => a.final_market === result.best_mkt || a.original_market === result.best_mkt
   );
   const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
+
+  const { error: deleteOldSnapshotsError } = await supabase
+    .from('prediction_snapshots')
+    .delete()
+    .eq('fixture_id', result.fixture_id)
+    .neq('market', canonicalMarket);
+  if (deleteOldSnapshotsError) throw new Error(`upsertSnapshot/cleanup: ${deleteOldSnapshotsError.message}`);
 
   // Snapshots confirmados (green/red) sao imutaveis.
   const { data: existing } = await supabase
