@@ -1,0 +1,89 @@
+name: WinMetrics V3 — Reprocessar
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'O que reprocessar?'
+        required: true
+        default: 'hoje'
+        type: choice
+        options:
+          - hoje            # Hoje + próximos 7 dias
+          - data_especifica # Uma data específica
+          - force_confirmar # Reconfirmar resultados já existentes
+          - reprocess_engine # Reprocessar engine sem apagar resultados
+      data:
+        description: '[data_especifica] Data no formato YYYY-MM-DD'
+        required: false
+        default: ''
+      force:
+        description: 'Forçar mesmo se já existir?'
+        required: false
+        default: 'true'
+        type: boolean
+
+concurrency:
+  group: pipeline-v3
+  cancel-in-progress: false
+
+jobs:
+  reprocessar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm install
+
+      - name: Hoje + próximos 7 dias
+        if: github.event.inputs.modo == 'hoje'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          TODAY=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
+          FORCE=$([[ "${{ github.event.inputs.force }}" == "true" ]] && echo "--force" || echo "")
+          echo "▶ Hoje: $TODAY"
+          node frontend/jobs/pipeline_v1.js --date="$TODAY" --days=7 $FORCE
+
+      - name: Data específica
+        if: github.event.inputs.modo == 'data_especifica'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          DATA="${{ github.event.inputs.data }}"
+          if [ -z "$DATA" ]; then echo "Erro: informe a data." && exit 1; fi
+          echo "▶ Data específica: $DATA"
+          node frontend/jobs/pipeline_v1.js --date="$DATA" --force
+
+      - name: Reconfirmar resultados
+        if: github.event.inputs.modo == 'force_confirmar'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          echo "▶ Reconfirmando últimos 21 dias"
+          node scripts/confirmar.js --days=21 --force
+
+      - name: Reprocessar engine
+        if: github.event.inputs.modo == 'reprocess_engine'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          echo "▶ Reprocessando engine nos últimos 21 dias"
+          node frontend/jobs/generate_predictions.js --days=21 --force --reprocess-engine
+          FUTURE=$(TZ="America/Sao_Paulo" date -d "+1 day" +%Y-%m-%d)
+          node frontend/jobs/generate_predictions.js --date=$FUTURE --days=7 --force --reprocess-engine

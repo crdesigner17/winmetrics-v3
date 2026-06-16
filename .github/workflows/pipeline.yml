@@ -2,14 +2,12 @@ name: WinMetrics V3 — Pipeline
 
 on:
   schedule:
-    # Pipeline de coleta — roda a cada 6h
-    - cron: '55 3  * * *'   # 03:55 UTC = 00:55 BRT
-    - cron: '55 9  * * *'   # 09:55 UTC = 06:55 BRT
-    - cron: '55 15 * * *'   # 15:55 UTC = 12:55 BRT
-    - cron: '55 21 * * *'   # 21:55 UTC = 18:55 BRT
-    # Confirmar resultados — dois horários para cobrir jogos tardios
-    - cron: '0 3  * * *'    # 03:00 UTC = 00:00 BRT (jogos tardios do dia anterior)
-    - cron: '0 9  * * *'    # 09:00 UTC = 06:00 BRT (jogos europeus já finalizados)
+    - cron: '55 3  * * *'   # 00:55 BRT
+    - cron: '55 9  * * *'   # 06:55 BRT
+    - cron: '55 15 * * *'   # 12:55 BRT
+    - cron: '55 21 * * *'   # 18:55 BRT
+    - cron: '0  3  * * *'   # 00:00 BRT — confirmar resultados
+    - cron: '0  9  * * *'   # 06:00 BRT — confirmar resultados
 
   push:
     branches: [main]
@@ -21,164 +19,43 @@ on:
       - 'scripts/backfill.js'
       - '.github/workflows/pipeline.yml'
 
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: 'Modo de execução'
-        required: true
-        default: 'backfill'
-        type: choice
-        options:
-          - backfill        # Histórico + futuro (uso normal)
-          - hoje            # Hoje + próximos 7 dias
-          - data_especifica # Uma data específica
-          - so_confirmar          # Só confirmar resultados (não roda backfill)
-          - so_confirmar_force    # Reconfirmar forçado (sobrescreve resultados existentes)
-          - reprocess_engine      # Reprocessa RF/DC/engine em datas passadas E futuras (preserva result_status)
-      date:
-        description: '[data_especifica] Data YYYY-MM-DD'
-        required: false
-        default: ''
-      future_days:
-        description: '[backfill] Dias no futuro (default: 10)'
-        required: false
-        default: '10'
-      from_date:
-        description: '[backfill] Data início (default: 2026-05-24)'
-        required: false
-        default: '2026-05-24'
-      force:
-        description: 'Reprocessar datas já existentes?'
-        required: false
-        default: 'false'
-        type: boolean
-      days_confirmar:
-        description: '[so_confirmar_force] Quantos dias reprocessar (default: 21)'
-        required: false
-        default: '21'
-      days_reprocess:
-        description: '[reprocess_engine] Quantos dias reprocessar (default: 21)'
-        required: false
-        default: '21'
-
 concurrency:
   group: pipeline-v3
-  cancel-in-progress: false   # não cancela — deixa terminar o que está rodando
+  cancel-in-progress: false
 
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 180       # 3h máximo por execução
+    timeout-minutes: 180
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm install
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Instalar dependências
-        run: npm install
-
-      # ── MODO: backfill (schedule + push + dispatch backfill) ─────
       - name: Backfill automático
-        if: |
-          github.event_name == 'schedule' ||
-          github.event_name == 'push'     ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'backfill')
-        # so_confirmar não entra aqui — backfill é ignorado
         env:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
-          FROM="${{ github.event.inputs.from_date || '2026-05-24' }}"
-          FUTURE="${{ github.event.inputs.future_days || '10' }}"
-          FORCE_FLAG=""
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            FORCE_FLAG="--force"
-          fi
-
-          echo "▶ Backfill: from=$FROM future=$FUTURE dias"
-          node scripts/backfill.js \
-            --from="$FROM" \
-            --future="$FUTURE" \
-            --delay=2000 \
-            $FORCE_FLAG
-
-          # Exit code 2 = quota esgotada = encerra limpo (não é falha)
+          echo "▶ Backfill automático"
+          node scripts/backfill.js --from="2026-05-24" --future="10" --delay=2000
           EXIT=$?
-          if [ $EXIT -eq 2 ]; then
-            echo "⛔ Quota esgotada. Pipeline encerrado limpo."
-            exit 0
-          fi
+          [ $EXIT -eq 2 ] && echo "⛔ Quota esgotada." && exit 0
           exit $EXIT
-
-      # ── MODO: hoje ───────────────────────────────────────────────
-      - name: Processar hoje + próximos 7 dias
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'hoje'
-        env:
-          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
-        run: |
-          TODAY=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
-          FORCE_FLAG=""
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            FORCE_FLAG="--force"
-          fi
-          echo "▶ Hoje + próximos 7 dias: $TODAY"
-          node frontend/jobs/pipeline_v1.js \
-            --date="$TODAY" \
-            --days=7 \
-            $FORCE_FLAG
-
-      # ── MODO: data_especifica ────────────────────────────────────
-      - name: Processar data específica
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'data_especifica'
-        env:
-          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
-        run: |
-          DATE="${{ github.event.inputs.date }}"
-          if [ -z "$DATE" ]; then
-            echo "Erro: informe a data no campo 'date'"
-            exit 1
-          fi
-          FORCE_FLAG="--force"   # data específica sempre força
-          echo "▶ Data: $DATE"
-          node frontend/jobs/pipeline_v1.js \
-            --date="$DATE" \
-            $FORCE_FLAG
 
   confirmar:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # Roda todo dia às 06:00 UTC = 03:00 BRT (após jogos terminarem)
-    # e pode ser disparado manualmente
-    if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'so_confirmar_force') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'reprocess_engine')
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Instalar dependências
-        run: npm install
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm install
 
       - name: Confirmar resultados
         env:
@@ -187,32 +64,8 @@ jobs:
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
-          if [ "${{ github.event.inputs.mode }}" = "reprocess_engine" ]; then
-            DAYS="${{ github.event.inputs.days_reprocess || '21' }}"
-            echo "▶ Reprocessando engine (RF/DC) nos últimos $DAYS dias + próximos 7 dias"
-            # Passado: --reprocess-engine --force
-            node frontend/jobs/generate_predictions.js --days=$DAYS --force --reprocess-engine
-            # Futuro: próximos 7 dias (fixtures ainda sem resultado)
-            FUTURE_DATE=$(date -d "+1 day" +%Y-%m-%d)
-            node frontend/jobs/generate_predictions.js --date=$FUTURE_DATE --days=7 --force --reprocess-engine
-            exit 0
-          fi
-
-          FORCE_FLAG=""
-          DAYS="7"
-
-          if [ "${{ github.event.inputs.mode }}" = "so_confirmar_force" ]; then
-            FORCE_FLAG="--force"
-            DAYS="${{ github.event.inputs.days_confirmar || '21' }}"
-            echo "▶ Reconfirmando com --force, últimos $DAYS dias"
-          else
-            echo "▶ Confirmando resultados pendentes, últimos $DAYS dias"
-          fi
-
-          node scripts/confirmar.js --days=$DAYS $FORCE_FLAG
+          echo "▶ Confirmando resultados"
+          node scripts/confirmar.js --days=7
           EXIT=$?
-          if [ $EXIT -eq 2 ]; then
-            echo "⛔ Quota esgotada no confirmar."
-            exit 0
-          fi
+          [ $EXIT -eq 2 ] && echo "⛔ Quota esgotada." && exit 0
           exit $EXIT
