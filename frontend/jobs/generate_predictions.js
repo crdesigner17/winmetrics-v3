@@ -946,8 +946,7 @@ async function upsertSnapshot(result, raw) {
       LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} ja confirmado (${existing.result_status}) - preservado.`);
       return 0;
     }
-    // --reprocess-engine: atualiza RF/DC mas preserva result_status
-    LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} confirmado mas reprocessando engine (RF/DC)...`);
+    LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} confirmado mas reprocessando engine...`);
   }
 
   // [NOVO] Opção B: usa score/grade enriquecidos se disponíveis
@@ -982,14 +981,6 @@ async function upsertSnapshot(result, raw) {
     score_enriquecido: result.best_score_enriquecido !== null ? Math.round(Number(result.best_score_enriquecido) * 100) / 100 : null,
     grade_enriquecido: result.best_grade_enriquecido ?? null,
     odds_fonte:        raw.odds_fonte || 'packball',
-    dnb_market:        null,
-    dnb_score:         null,
-    dnb_label:         null,
-    dnb_odd:           null,
-    dc_market:         null,
-    dc_score:          null,
-    dc_label:          null,
-    dc_odd:            null,
     created_at:        new Date().toISOString(),
     // Ao reprocessar engine: preservar result_status existente
     ...(REPROCESS_ENGINE && existing?.result_status ? { result_status: existing.result_status } : {}),
@@ -1949,4 +1940,3 @@ if (MOCK_TO_SUPABASE) {
     process.exit(1);
   });
 }
-
