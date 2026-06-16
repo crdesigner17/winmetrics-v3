@@ -324,10 +324,10 @@
   th.col-pick, td.col-pick { min-width: 100px; width: auto; text-align: left; white-space: normal; }
   th.col-alts, td.col-alts { min-width: 120px; width: auto; text-align: left; }
   /* World Cup mode — colunas específicas por mercado */
-  th.col-wc-result, td.col-wc-result { min-width: 100px; text-align: center; white-space: normal; }
-  th.col-wc-goals,  td.col-wc-goals  { min-width: 110px; text-align: center; }
-  th.col-wc-corners,td.col-wc-corners{ min-width: 90px; text-align: center; }
-  th.col-wc-cards,  td.col-wc-cards  { min-width: 90px; text-align: center; }
+
+
+
+
   th.col-score, td.col-score { width: 76px; text-align: center; white-space: nowrap; }
   th.col-odd, td.col-odd { min-width: 80px; text-align: center; white-space: nowrap; }
   th.col-scoreboard, td.col-scoreboard { min-width: 60px; text-align: center; white-space: nowrap; }
@@ -397,30 +397,7 @@
   .smart-icon { width: 14px; height: 14px; margin-top: 1px; color: var(--purple); }
   .smart-label { display: block; color: var(--text-secondary); margin-bottom: 1px; }
   .smart-item strong { display: block; color: var(--text-primary); font-weight: 600; white-space: normal; }
-  #world-cup-btn {
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    border: 1.5px solid transparent;
-    background-clip: padding-box;
-    position: relative;
-  }
-  #world-cup-btn::before {
-    content: '';
-    position: absolute; inset: -1.5px;
-    border-radius: 9px;
-    background: linear-gradient(90deg, #6c63ff, #a78bfa);
-    z-index: -1;
-    opacity: 0.45;
-    transition: opacity .15s;
-  }
-  #world-cup-btn:hover::before { opacity: 1; }
-  #world-cup-btn:hover { color: var(--text-primary); }
-  #world-cup-btn.active {
-    background: linear-gradient(90deg, #6c63ff, #a78bfa);
-    color: #fff;
-    border-color: transparent;
-  }
-  #world-cup-btn.active::before { display: none; }
+
 
   /* section */
   .prob-cell { min-width: 90px; }
@@ -582,8 +559,7 @@
 
   /* Esconde colunas menos importantes em mobile */
   th.col-alts, td.col-alts,
-  th.col-wc-corners, td.col-wc-corners,
-  th.col-wc-cards, td.col-wc-cards,
+
   th.col-scoreboard, td.col-scoreboard,
   th.col-result, td.col-result { display: none; }
 
@@ -1033,9 +1009,7 @@ async function getCurrentProfile() {
           </div>
         </div>
 
-        <div class="filter-btn" id="world-cup-btn" style="cursor:pointer;">
-          &#127463;&#127479; World Cup &#127463;&#127479;
-        </div>
+
       </div>
 
       <div style="display:flex;align-items:center;gap:12px;">
@@ -2456,7 +2430,7 @@ let filterMarket    = '';
 let filterDateStart = null;  // section
 let filterDateEnd   = null;
 let searchQuery      = '';
-let worldCupOnly     = false;
+const worldCupOnly = false; // modo WC desativado
 const WORLD_CUP_LEAGUES = ['World: World Cup', 'FIFA World Cup', 'World Cup'];
 
 // section
@@ -3486,28 +3460,14 @@ const THEAD_NORMAL = `
 `;
 
 // Thead World Cup — substitui col-alts por 4 colunas específicas
-const THEAD_WC = `
-  <th class="col-star"></th>
-  <th class="col-game">JOGO</th>
-  <th class="col-date center">DATA</th>
-  <th class="col-pick">MELHOR PALPITE</th>
-  <th class="col-wc-result center">RESULTADO FINAL</th>
-  <th class="col-wc-goals center">GOLS</th>
-  <th class="col-wc-corners center">ESCANTEIOS</th>
-  <th class="col-wc-cards center">CARTÕES</th>
-  <th class="col-score center">WIN SCORE</th>
-  <th class="col-odd center">ODD</th>
-  <th class="col-scoreboard center">PLACAR</th>
-  <th class="col-result center">RESULTADO</th>
-  <th class="col-confidence center">CONFIANÇA</th>
-`;
+
 
 function applyWcThead() {
   const thead = document.querySelector('thead tr');
-  if (thead) thead.innerHTML = worldCupOnly ? THEAD_WC : THEAD_NORMAL;
+  if (thead) thead.innerHTML = THEAD_NORMAL;
   // Ajusta min-width da tabela para acomodar as colunas extras
   const table = document.querySelector('.table-wrap table');
-  if (table) table.style.minWidth = worldCupOnly ? '1280px' : '1040px';
+  if (table) table.style.minWidth = '1040px';
 }
 
 function renderSmartSuggestions(suggestions, hasOfficialPick) {
@@ -3595,7 +3555,7 @@ function renderEmpty() {
     filterDateStart           ? `no intervalo selecionado` : 'no período selecionado';
 
   document.getElementById('tableBody').innerHTML = `
-    <tr><td colspan="${worldCupOnly ? 13 : 10}" style="text-align:center;padding:48px;color:var(--text-muted)">
+    <tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
       <div style="font-size:32px;margin-bottom:10px">&#128237;</div>
       <div style="font-size:14px;margin-bottom:8px">Nenhuma previsão encontrada ${filterLabel}.</div>
       <div style="font-size:12px;color:var(--text-muted);max-width:360px;margin:0 auto;line-height:1.6">
@@ -3609,7 +3569,7 @@ function renderEmpty() {
 
 function renderError(msg) {
   document.getElementById('tableBody').innerHTML = `
-    <tr><td colspan="${worldCupOnly ? 13 : 10}" style="text-align:center;padding:48px;color:#ff5e6a">
+    <tr><td colspan="10" style="text-align:center;padding:48px;color:#ff5e6a">
       <div style="font-size:14px">&#9888; Erro ao carregar dados: ${msg}</div>
     </td></tr>`;
 }
@@ -3635,7 +3595,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     const alts      = getAlternativas(snap.fixture_id, label, predictionsMap, snapshotsMap, snap);
     const hasOfficialPick  = Boolean(snap.market);
     const officialLabel    = mainPicks.length ? mainPicks[0].market : (hasOfficialPick ? label : null);
-    const smartSuggestions = worldCupOnly ? pickSmartSuggestions(snap.fixture_id, predictionsMap, metricsMap, oddsMap, officialLabel) : [];
+    const smartSuggestions = [];
     const leagueName = snap.league_name || '';
     const matchName = cleanMatchName(snap.match_name);
     return `
@@ -3654,16 +3614,10 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
     <td class="col-pick mercado-cell" style="text-align:left;">
-      ${worldCupOnly && hasOfficialPick ? '<div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:5px">&check; Palpite Oficial</div>' : ''}
+      
       ${renderMainPalpites(mainPicks)}${altBadge}
     </td>
-    ${worldCupOnly
-      ? `<td class="col-wc-result" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['winnerFav','winnerOther'], snap)}</td>
-    <td class="col-wc-goals" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['goalsft','goalsht','btts'], snap)}</td>
-    <td class="col-wc-corners" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['corners'], snap)}</td>
-    <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
-      : `<td class="col-alts" style="padding:10px 12px;text-align:left;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>`
-    }
+    <td class="col-alts" style="padding:10px 12px;text-align:left;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>
     <td class="col-score">${(() => {
       const metrics = metricsMap ? (metricsMap[String(snap.fixture_id)] || metricsMap[snap.fixture_id] || null) : null;
       const dataLevel = metrics?.historic_data_level ?? null;
@@ -3726,48 +3680,10 @@ function renderPagination(total, page) {
 // section
 async function loadPrevisoes() {
   const tbody = document.getElementById('tableBody');
-  tbody.innerHTML = `<tr><td colspan="${worldCupOnly ? 13 : 10}" style="text-align:center;padding:48px;color:var(--text-muted)">
+  tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
     <div style="font-size:14px">Carregando previsões...</div></td></tr>`;
 
   try {
-    if (worldCupOnly) {
-      const fixtures = await fetchWorldCupFixtures();
-      totalCount = fixtures.length;
-      if (!fixtures.length) { renderEmpty(); renderPagination(0, 1); return; }
-
-      const startIdx = (currentPage - 1) * PAGE_SIZE;
-      const pageFixtures = fixtures.slice(startIdx, startIdx + PAGE_SIZE);
-      const fixtureIds = pageFixtures.map(f => f.fixture_id);
-      const [officialMap, predictionsMap, metricsMap, oddsMap] = await Promise.all([
-        fetchOfficialSnapshotsByFixtureIds(fixtureIds),
-        fetchPredictions(fixtureIds),
-        fetchWorldCupMetrics(fixtureIds),
-      ]);
-
-      const rows = pageFixtures.map(f => {
-        const official = syncSnapshotWithEngineBest(officialMap[String(f.fixture_id)] || { fixture_id: f.fixture_id, ...f }, metricsMap);
-        return {
-          ...f,
-          ...official,
-          fixture_id: f.fixture_id,
-          league_name: f.league_name,
-          match_date: official.match_date || f.match_date,
-          fixture_match_date: f.match_date,
-          match_name: official.match_name || `${f.home_team || ''} x ${f.away_team || ''}`,
-          home_team: official.home_team || f.home_team,
-          away_team: official.away_team || f.away_team,
-          home_team_logo: official.home_team_logo || f.home_team_logo,
-          away_team_logo: official.away_team_logo || f.away_team_logo,
-          goals_home: f.goals_home,
-          goals_away: f.goals_away,
-          status: f.status,
-        };
-      });
-
-      renderRows(rows, predictionsMap, metricsMap, oddsMap);
-      renderPagination(totalCount, currentPage);
-      return;
-    }
 
     const { data: snapshots, error, count } = await fetchSnapshots(currentPage);
     if (error) { renderError(error.message); return; }
@@ -4000,18 +3916,7 @@ function initDropdowns() {
   });
 }
 
-// section
-function initWorldCupButton() {
-  const btn = document.getElementById('world-cup-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    worldCupOnly = !worldCupOnly;
-    btn.classList.toggle('active', worldCupOnly);
-    applyWcThead();
-    currentPage = 1;
-    loadPrevisoes();
-  });
-}
+// initWorldCupButton removido
 function initFilterModal() {
   const overlay   = document.getElementById('filter-modal-overlay');
   const openBtn   = document.getElementById('filter-date-btn');
