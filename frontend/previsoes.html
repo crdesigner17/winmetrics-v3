@@ -2967,6 +2967,16 @@ function getOdd(snap) {
 
 const ringColor = v => v >= 90 ? '#a78bfa' : v >= 85 ? '#6c63ff' : '#00d2a0';
 
+function gradeToRingColor(conf) {
+  const c = String(conf || '').toLowerCase();
+  if (c === 'a+' || c === 'elite' || c.includes('maxima') || c.includes('maxima')) return '#00d2a0';
+  if (c === 'a'  || c.includes('alta') || c.includes('excelente'))                 return '#f59e0b';
+  if (c === 'b'  || c.includes('moderado') || c.includes('boa oportunidade'))      return '#60a5fa';
+  if (c === 'c'  || c.includes('arriscado') || c.includes('aceit'))                return '#a78bfa';
+  if (c === 'd'  || c.includes('evitar') || c.includes('pouca'))                   return '#ff5e6a';
+  return '#00d2a0';
+}
+
 function cleanMatchName(name) {
   return String(name || '')
     .replace(/^\s*\d{1,2}[:h]\d{2}\s*[---|·]*\s*/i, '')
@@ -3626,7 +3636,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     <td class="col-wc-cards" style="padding:8px 10px;">${renderWcCell(smartSuggestions, ['cards'], snap)}</td>`
       : `<td class="col-alts" style="padding:10px 12px;text-align:left;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>`
     }
-    <td class="col-score">${ringHtml(score, ringColor(score))}</td>
+    <td class="col-score">${ringHtml(score, gradeToRingColor(conf))}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
     <td class="col-scoreboard">${formatPlacar(snap)}</td>
     <td class="col-result">${formatResult(snap)}</td>
