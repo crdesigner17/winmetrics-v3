@@ -69,7 +69,8 @@ const dateArg   = args.find(a => a.startsWith('--date='))?.split('=')[1];
 const daysArg   = args.find(a => a.startsWith('--days='))?.split('=')[1];
 const limitArg  = args.find(a => a.startsWith('--limit='))?.split('=')[1];
 const TODAY     = dateArg || new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
-const DAYS      = Math.max(1, Math.min(14, parseInt(daysArg || '1', 10) || 1));
+const DEFAULT_DAYS = dateArg ? 1 : 7;
+const DAYS      = Math.max(1, Math.min(14, parseInt(daysArg || String(DEFAULT_DAYS), 10) || DEFAULT_DAYS));
 const LIMIT     = limitArg ? Math.max(1, parseInt(limitArg, 10) || 1) : null;
 
 // ─────────────────────────────────────────────────────────────────
@@ -259,6 +260,22 @@ async function apiFetch(endpoint, params = {}, retries = 3) {
 }
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
+
+function pyRound(value, digits = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const factor = 10 ** digits;
+  const scaled = n * factor;
+  const sign = Math.sign(scaled) || 1;
+  const abs = Math.abs(scaled);
+  const floor = Math.floor(abs);
+  const diff = abs - floor;
+  const eps = 1e-10;
+  let rounded;
+  if (Math.abs(diff - 0.5) < eps) rounded = (floor % 2 === 0) ? floor : floor + 1;
+  else rounded = Math.round(abs);
+  return (sign * rounded) / factor;
+}
 
 function addDaysISO(dateISO, days) {
   const d = new Date(dateISO + 'T00:00:00Z');
@@ -887,14 +904,14 @@ async function upsertPredictions(result, raw = {}) {
     return {
       fixture_id:         result.fixture_id,
       market,
-      score:              Math.round(score * 100) / 100,
+      score:              pyRound(score, 1),
       grade,
       passed_filter:      passedFilter,
       under35_passed:     under35Passed,
       is_best_market:     isBest,
       odd,
       // [NOVO] campos enriquecidos — null se não houver odd externa
-      score_enriquecido:  scoreEnriq !== null ? Math.round(scoreEnriq * 100) / 100 : null,
+      score_enriquecido:  scoreEnriq !== null ? pyRound(scoreEnriq, 1) : null,
       grade_enriquecido:  gradeEnriq,
       odds_fonte:         raw.odds_fonte || 'packball',
       created_at:         new Date().toISOString(),
@@ -974,13 +991,13 @@ async function upsertSnapshot(result, raw) {
     match_date:        result.match_date,
     hour:              result.hour         ?? null,
     market:            canonicalMarket,
-    score:             Math.round(Number(scoreFinal) * 100) / 100,
+    score:             pyRound(scoreFinal, 1),
     grade:             gradeFinal,
     odd:               result.best_odd  ?? null,
     result_status:     null,
     source:            'generate_predictions',
     // auditoria: score original PackBall + fonte das odds
-    score_enriquecido: result.best_score_enriquecido !== null ? Math.round(Number(result.best_score_enriquecido) * 100) / 100 : null,
+    score_enriquecido: result.best_score_enriquecido !== null ? pyRound(result.best_score_enriquecido, 1) : null,
     grade_enriquecido: result.best_grade_enriquecido ?? null,
     odds_fonte:        raw.odds_fonte || 'packball',
     created_at:        new Date().toISOString(),
