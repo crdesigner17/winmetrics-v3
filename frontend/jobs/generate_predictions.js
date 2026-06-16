@@ -506,10 +506,10 @@ async function fetchAllData({ fixture, liga }) {
     apiFetch('/teams/statistics', { team: homeId, league: leagueId, season }),
     // /teams/statistics (away)
     apiFetch('/teams/statistics', { team: awayId, league: leagueId, season }),
-    // /fixtures?team=home&last=10
-    apiFetch('/fixtures', { team: homeId, last: 10, status: 'FT' }),
-    // /fixtures?team=away&last=10
-    apiFetch('/fixtures', { team: awayId, last: 10, status: 'FT' }),
+    // /fixtures?team=home&last=10 — filtra por liga+season igual ao V1 coletar.py
+    apiFetch('/fixtures', { team: homeId, league: leagueId, season, last: 10, status: 'FT' }),
+    // /fixtures?team=away&last=10 — filtra por liga+season igual ao V1 coletar.py
+    apiFetch('/fixtures', { team: awayId, league: leagueId, season, last: 10, status: 'FT' }),
     // /fixtures/headtohead
     apiFetch('/fixtures/headtohead', { h2h: `${homeId}-${awayId}`, last: 10 }),
     // /predictions
