@@ -3723,7 +3723,7 @@ async function loadPrevisoes() {
       return merged;
     });
 
-    renderRows(rows, predictionsMap, null, null, snapshotsMap);
+    renderRows(rows, predictionsMap, metricsMap, null, snapshotsMap);
     renderPagination(totalCount, currentPage);
 
   } catch (err) {
@@ -3987,7 +3987,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initTabs();
   initDropdowns();
-  initWorldCupButton();
   initFilterModal();
   initSearch();
   initPageSize();
