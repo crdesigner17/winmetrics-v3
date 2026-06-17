@@ -772,23 +772,22 @@ function statusToResultado(status, mkt) {
 // ─── Normaliza nome do mercado vindo do Supabase → nome interno do dashboard ─
 function normalizarMercado(market) {
   if (!market) return 'Over 1.5';
-  const m = market.trim();
-  const n = m.toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/ã/g, 'a').replace(/õ/g, 'o');
-  if (n.includes('over 1.5'))   return 'Over 1.5';
-  if (n.includes('over 2.5'))   return 'Over 2.5';
-  if (n.includes('under 3.5'))  return 'Under 3.5';
-  if (n.includes('under 4.5'))  return 'Under 4.5';
-  if (n.includes('btts') || n.includes('ambas'))  return 'BTTS';
+  const n = market.trim().toLowerCase()
+    .replace(/\u00e3/g,'a').replace(/\u00f5/g,'o')
+    .replace(/\u00e7/g,'c').replace(/\u00e9/g,'e')
+    .replace(/\u00ea/g,'e').replace(/\u00f3/g,'o');
+  if (n.includes('over 1.5'))  return 'Over 1.5';
+  if (n.includes('over 2.5'))  return 'Over 2.5';
+  if (n.includes('under 3.5')) return 'Under 3.5';
+  if (n.includes('under 4.5')) return 'Under 4.5';
+  if (n.includes('btts') || n.includes('ambas')) return 'BTTS';
   if (n.includes('0.5 ht') || n.includes('0.5ht')) return 'Over 0.5 HT';
-  if (n.includes('8.5') && (n.includes('esc') || n.includes('cant'))) return 'Esc 8.5';
-  if (n.includes('7.5') && (n.includes('esc') || n.includes('cant'))) return 'Esc 7.5';
+  if (n.includes('8.5') && (n.includes('esc') || n.includes('cant') || n.includes('corn'))) return 'Esc 8.5';
+  if (n.includes('7.5') && (n.includes('esc') || n.includes('cant') || n.includes('corn'))) return 'Esc 7.5';
   if (n.includes('3.5') && (n.includes('cart') || n.includes('card'))) return 'Cart 3.5';
   if (n.includes('2.5') && (n.includes('cart') || n.includes('card'))) return 'Cart 2.5';
-  return 'Over 1.5'; // fallback seguro
+  return 'Over 1.5';
 }
-
 // ─── Inicialização com dados reais do Supabase ────────────────────────────────
 async function initDashboard(isoStart, isoEnd, filtrado) {
   console.log('[WinMetrics] Carregando dados reais do Supabase...');
@@ -824,6 +823,25 @@ async function initDashboard(isoStart, isoEnd, filtrado) {
   if (error) {
     console.error('[WinMetrics] Erro ao carregar snapshots:', error);
     return;
+  }
+
+  console.log('[WinMetrics] Snaps recebidos:', (snaps||[]).length);
+  if (snaps && snaps.length > 0) {
+    // Log primeiros 3 snaps completos
+    snaps.slice(0,3).forEach((s,i) => {
+      console.log('[WinMetrics] Snap #'+i+':', JSON.stringify({
+        market: s.market, grade: s.grade, result_status: s.result_status,
+        match_date: s.match_date, score: s.score, odd: s.odd,
+        normalizado: normalizarMercado(s.market)
+      }));
+    });
+    const statuses = [...new Set((snaps||[]).map(s => s.result_status))];
+    const grades   = [...new Set((snaps||[]).map(s => s.grade))];
+    const markets  = [...new Set((snaps||[]).map(s => s.market))].slice(0,10);
+    console.log('[WinMetrics] Statuses distintos:', statuses);
+    console.log('[WinMetrics] Grades distintos:', grades);
+    console.log('[WinMetrics] Mercados distintos (primeiros 10):', markets);
+    console.log('[WinMetrics] Com result_status green/red:', snaps.filter(s=>s.result_status==='green'||s.result_status==='red').length);
   }
 
   // Agrupa por data (DD-MM-YYYY) → { jogos: [], temResultadoConfirmado: bool }
@@ -873,7 +891,9 @@ async function initDashboard(isoStart, isoEnd, filtrado) {
     };
   }
 
-  console.log(`[WinMetrics] ${Object.keys(ALL_DATA).length} dias carregados, ${(snaps||[]).length} snapshots.`);
+  const diasConf = Object.values(ALL_DATA).filter(d=>d.resultado_confirmado).length;
+  console.log('[WinMetrics] Dias carregados:', Object.keys(ALL_DATA).length, '| Confirmados:', diasConf, '| Snaps:', (snaps||[]).length);
+  if (diasConf === 0) console.warn('[WinMetrics] ATENÇÃO: nenhum dia confirmado — verifique result_status no Supabase');
   calcAndRender(ALL_DATA);
 }
 
