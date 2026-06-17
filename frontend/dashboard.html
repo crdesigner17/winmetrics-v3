@@ -72,7 +72,8 @@
   .header-right { display:flex;align-items:center;gap:10px; }
   .date-btn { display:flex;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--text-secondary);cursor:pointer; }
   .date-btn svg { width:14px;height:14px; }
-  .filter-btn { display:flex;align-items:center;gap:7px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--text-secondary);cursor:pointer; }
+  .dp-preset { padding:8px 12px;border-radius:7px;font-size:13px;color:var(--text-secondary);cursor:pointer;transition:background .12s; }
+  .dp-preset:hover, #dp-preset-active { background:rgba(108,99,255,.15);color:var(--text-primary); }
 
   /* KPI CARDS */
   .kpi-row { display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px; }
@@ -90,15 +91,14 @@
 
   /* MIDDLE ROW */
   .mid-row { display:grid;grid-template-columns:1fr 320px 280px;gap:14px;margin-bottom:18px; }
+  .mid-row > .mini-table-card { min-height:200px; }
 
   /* Chart card */
-  .chart-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px; }
   .card-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
   .card-title { font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);display:flex;align-items:center;gap:6px; }
   .card-title svg { width:13px;height:13px; }
   .select-sm { background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:6px; }
   .select-sm svg { width:12px;height:12px; }
-  canvas#lucroChart { width:100%!important;height:160px!important; }
 
   /* Donut card */
   .donut-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px; }
@@ -429,15 +429,32 @@ async function getCurrentProfile() {
         <h1>Visão Geral</h1>
         <p>Resumo completo do seu desempenho e principais métricas.</p>
       </div>
-      <div class="header-right">
-        <div class="date-btn">
+      <div class="header-right" style="position:relative">
+        <!-- Date range picker -->
+        <div id="date-picker-btn" class="date-btn" onclick="toggleDatePicker()" style="cursor:pointer;user-select:none;min-width:200px;justify-content:space-between">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          01/05/2024 - 06/06/2024
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px"><polyline points="6 9 12 15 18 9"/></svg>
+          <span id="date-range-label">Últimos 30 dias</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div class="filter-btn">
-          <svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
-          Filtros
+        <!-- Dropdown -->
+        <div id="date-picker-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:200;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:8px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+          <!-- Presets -->
+          <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:10px">
+            <div class="dp-preset" onclick="applyPreset(7)">Últimos 7 dias</div>
+            <div class="dp-preset" onclick="applyPreset(15)">Últimos 15 dias</div>
+            <div class="dp-preset" onclick="applyPreset(30)" id="dp-preset-active">Últimos 30 dias</div>
+            <div class="dp-preset" onclick="applyPreset(60)">Últimos 60 dias</div>
+            <div class="dp-preset" onclick="applyPreset(90)">Últimos 90 dias</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:11px;color:var(--text-muted);font-weight:600;letter-spacing:.5px">PERÍODO PERSONALIZADO</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="date" id="dp-start" style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:12px;font-family:'DM Sans',sans-serif;outline:none">
+              <span style="color:var(--text-muted);font-size:12px">até</span>
+              <input type="date" id="dp-end" style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:12px;font-family:'DM Sans',sans-serif;outline:none">
+            </div>
+            <button onclick="applyCustomRange()" style="width:100%;padding:8px;background:linear-gradient(135deg,#6c63ff,#a78bfa);border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Aplicar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -485,15 +502,20 @@ async function getCurrentProfile() {
     <!-- Mid row: chart + donut + mercado -->
     <div class="mid-row">
       <!-- Line chart -->
-      <div class="chart-card">
-        <div class="card-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            EVOLUÇÃO DO LUCRO (UNIDADES)
+      <div class="mini-table-card">
+        <div class="mini-table-header">
+          <div class="mini-table-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
+            DESEMPENHO POR MERCADO
           </div>
-          <div class="select-sm">Todos os mercados <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
         </div>
-        <canvas id="lucroChart"></canvas>
+        <table class="mini">
+          <thead><tr>
+            <th>MERCADO</th><th>ASSERTIVIDADE</th><th>ROI</th><th>LUCRO (U)</th><th>PALPITES</th>
+          </tr></thead>
+          <tbody id="tbody-mercado-mid">
+          </tbody>
+        </table>
       </div>
 
       <!-- Donut -->
@@ -559,22 +581,18 @@ async function getCurrentProfile() {
           <div class="mini-table-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
             PALPITES DO DIA
+            <span style="font-size:9px;font-weight:700;letter-spacing:.6px;background:rgba(108,99,255,.18);color:var(--purple);border:1px solid rgba(108,99,255,.35);padding:2px 7px;border-radius:4px;margin-left:6px">BETA</span>
           </div>
-          <span class="ver-link">Ver todos</span>
+          <a href="previsoes.html" class="ver-link" style="text-decoration:none">Ver todos</a>
         </div>
         <table class="mini">
           <thead><tr>
             <th>HORÁRIO</th><th>JOGO</th><th>MERCADO</th><th>PROB. IA</th><th>ODD</th><th>CONFIANÇA</th>
           </tr></thead>
           <tbody id="tbody-palpites">
-            <tr><td>19:00</td><td>🇧🇷 Brasil vs Argentina</td><td>Over 1.5 Gols</td><td style="color:var(--green);font-weight:700">94%</td><td style="color:var(--purple);font-weight:600">1.35</td><td><span class="cb cb-elite">Elite</span></td></tr>
-            <tr><td>20:00</td><td>🔴 Flamengo vs Grêmio</td><td>BTTS - Sim</td><td style="color:var(--green);font-weight:700">91%</td><td style="color:var(--purple);font-weight:600">1.72</td><td><span class="cb cb-alta">Alta</span></td></tr>
-            <tr><td>21:00</td><td>🔵 Man City vs Man Utd</td><td>Over 2.5 Gols</td><td style="color:var(--green);font-weight:700">88%</td><td style="color:var(--purple);font-weight:600">1.60</td><td><span class="cb cb-alta">Alta</span></td></tr>
-            <tr><td>21:30</td><td>🟢 Palmeiras vs São Paulo</td><td>Over 1.5 Gols</td><td style="color:var(--green);font-weight:700">87%</td><td style="color:var(--purple);font-weight:600">1.40</td><td><span class="cb cb-alta">Alta</span></td></tr>
-            <tr><td>23:00</td><td>⚪ Real Madrid vs Betis</td><td>Over 2.5 Gols</td><td style="color:var(--green);font-weight:700">86%</td><td style="color:var(--purple);font-weight:600">1.55</td><td><span class="cb cb-alta">Alta</span></td></tr>
           </tbody>
         </table>
-        <div class="ver-todos-row">Ver todos os palpites do dia</div>
+        <a href="previsoes.html" class="ver-todos-row" style="text-decoration:none;display:block">Ver todos os palpites do dia</a>
       </div>
 
       <!-- Últimos Resultados -->
@@ -584,21 +602,15 @@ async function getCurrentProfile() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
             ÚLTIMOS RESULTADOS
           </div>
-          <span class="ver-link">Ver histórico</span>
         </div>
         <table class="mini">
           <thead><tr>
             <th>DATA</th><th>JOGO</th><th>MERCADO</th><th>ODD</th><th>RESULTADO</th><th>SCORE IA</th>
           </tr></thead>
           <tbody id="tbody-resultados">
-            <tr><td style="color:var(--text-muted);font-size:11px">06/06 19:00</td><td>🇧🇷 Brasil vs Egito</td><td>Over 1.5 Gols</td><td style="color:var(--purple);font-weight:600">1.32</td><td><span class="result-green">GREEN</span></td><td style="font-weight:700;font-family:'Rajdhani',sans-serif">93</td></tr>
-            <tr><td style="color:var(--text-muted);font-size:11px">06/06 16:00</td><td>🔴 Flamengo vs Grêmio</td><td>BTTS - Sim</td><td style="color:var(--purple);font-weight:600">1.70</td><td><span class="result-green">GREEN</span></td><td style="font-weight:700;font-family:'Rajdhani',sans-serif">91</td></tr>
-            <tr><td style="color:var(--text-muted);font-size:11px">05/06 21:30</td><td>🔵 Man City vs Man Utd</td><td>Over 2.5 Gols</td><td style="color:var(--purple);font-weight:600">1.58</td><td><span class="result-green">GREEN</span></td><td style="font-weight:700;font-family:'Rajdhani',sans-serif">88</td></tr>
-            <tr><td style="color:var(--text-muted);font-size:11px">05/06 19:00</td><td>🟢 Palmeiras vs São Paulo</td><td>Over 1.5 Gols</td><td style="color:var(--purple);font-weight:600">1.38</td><td><span class="result-green">GREEN</span></td><td style="font-weight:700;font-family:'Rajdhani',sans-serif">87</td></tr>
-            <tr><td style="color:var(--text-muted);font-size:11px">04/06 17:15</td><td>⚪ Real Madrid vs Betis</td><td>Over 2.5 Gols</td><td style="color:var(--purple);font-weight:600">1.50</td><td><span class="result-red">RED</span></td><td style="font-weight:700;font-family:'Rajdhani',sans-serif">69</td></tr>
           </tbody>
         </table>
-        <div class="ver-todos-row">Ver histórico completo</div>
+        <div class="ver-todos-row" style="cursor:default">Ver histórico completo</div>
       </div>
     </div>
 
@@ -678,7 +690,6 @@ async function getCurrentProfile() {
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 // ─── Constantes reutilizadas do gerar_site.py ───────────────────────────────
 const MERCADOS = ['Over 1.5','Over 2.5','BTTS','Over 0.5 HT','Under 4.5','Under 3.5','Esc 7.5','Esc 8.5','Cart 2.5','Cart 3.5'];
@@ -742,7 +753,6 @@ function dateObj(d) {
   return new Date(yyyy, mm - 1, dd);
 }
 
-let lucroChart = null; // instância do Chart.js
 
 // ─── Converte ISO date → chave DD-MM-YYYY ────────────────────────────────────
 function isoToKey(iso) {
@@ -763,7 +773,7 @@ function statusToResultado(status, mkt) {
 }
 
 // ─── Inicialização com dados reais do Supabase ────────────────────────────────
-async function initDashboard() {
+async function initDashboard(isoStart, isoEnd) {
   console.log('[WinMetrics] Carregando dados reais do Supabase...');
 
   const sbClient = (typeof supabaseClient !== 'undefined')
@@ -773,18 +783,26 @@ async function initDashboard() {
         'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
       );
 
-  // Busca snapshots dos últimos 30 dias com todos os campos necessários
-  const dataLimite = new Date();
-  dataLimite.setDate(dataLimite.getDate() - 30);
-  const isoLimite = dataLimite.toISOString().split('T')[0];
+  // Intervalo padrão: últimos 30 dias
+  if (!isoStart) {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    isoStart = d.toISOString().split('T')[0];
+  }
+  if (!isoEnd) {
+    isoEnd = new Date().toISOString().split('T')[0];
+  }
 
-  const { data: snaps, error } = await sbClient
+  let q = sbClient
     .from('prediction_snapshots')
     .select('fixture_id, match_name, home_team, away_team, league_name, market, score, grade, odd, result_status, match_date, hour')
-    .eq('grade', 'A+')
-    .gte('match_date', isoLimite)
+    .in('grade', ['A+', 'A', 'B', 'C'])
+    .gte('match_date', isoStart)
+    .lte('match_date', isoEnd)
     .order('match_date', { ascending: true })
     .order('score', { ascending: false });
+
+  const { data: snaps, error } = await q;
 
   if (error) {
     console.error('[WinMetrics] Erro ao carregar snapshots:', error);
@@ -871,6 +889,12 @@ function calcAndRender(ALL_DATA) {
   const ultimosResultados = [];
 
   // Palpites do dia (data mais recente com jogos)
+  // Chave do dia atual no formato DD-MM-YYYY
+  const hoje = new Date();
+  const hojeKey = String(hoje.getDate()).padStart(2,'0') + '-'
+                + String(hoje.getMonth()+1).padStart(2,'0') + '-'
+                + hoje.getFullYear();
+
   let palpitesDoDia = [];
   let palpitesDoDiaDate = null;
 
@@ -880,8 +904,8 @@ function calcAndRender(ALL_DATA) {
     const jogos   = dayData.jogos || [];
     const conf    = !!dayData.resultado_confirmado;
 
-    // Palpites do dia = data mais recente com jogos (confirmada ou não)
-    if (jogos.length > 0) {
+    // Palpites do dia = somente hoje
+    if (date === hojeKey && jogos.length > 0) {
       palpitesDoDia     = jogos;
       palpitesDoDiaDate = date;
     }
@@ -1129,96 +1153,86 @@ function calcAndRender(ALL_DATA) {
       `${totalVoid} <span style="color:var(--text-muted);font-size:11px;font-weight:400">(${pV}%)</span>`;
   }
 
-  // ── Mercado mais lucrativo ────────────────────────────────────────────────
+  // ── Mercado com maior assertividade ──────────────────────────────────────
   {
-    const ranked = MERCADOS.map(m => ({ m, ...mktStats[m] }))
-      .filter(x => x.palpites > 0)
-      .sort((a, b) => b.lucro - a.lucro);
+    const ranked = MERCADOS.map(m => {
+      const s = mktStats[m];
+      const aud = s.acertos + s.erros;
+      const assertividade = aud > 0 ? s.acertos / aud : 0;
+      return { m, ...s, aud, assertividade };
+    })
+      .filter(x => x.aud >= 1)
+      .sort((a, b) => b.assertividade - a.assertividade);
 
     if (ranked.length > 0) {
-      const best = ranked[0];
-      const lucBest  = Math.round(best.lucro * 10) / 10;
-      const roiBest  = best.palpites > 0 ? Math.round((best.lucro / best.palpites) * 1000) / 10 : 0;
+      const best    = ranked[0];
+      const pct     = Math.round(best.assertividade * 1000) / 10;
+      const lucBest = Math.round(best.lucro * 10) / 10;
       document.getElementById('mercado-nome').textContent  = best.m;
-      document.getElementById('mercado-lucro').textContent = (lucBest >= 0 ? '+' : '') + lucBest + 'u';
-      document.getElementById('mercado-roi').textContent   = 'ROI: ' + (roiBest >= 0 ? '+' : '') + roiBest + '%';
+      document.getElementById('mercado-lucro').textContent = pct + '% assertividade';
+      document.getElementById('mercado-roi').textContent   = 'Lucro: ' + (lucBest >= 0 ? '+' : '') + lucBest + 'u';
     }
   }
 
-  // ── Evolução do Lucro (gráfico Chart.js) ─────────────────────────────────
+  // ── Desempenho por Mercado (mid-row) ─────────────────────────────────────
   {
-    const ctx = document.getElementById('lucroChart').getContext('2d');
-    const gradient = ctx.createLinearGradient(0, 0, 0, 160);
-    gradient.addColorStop(0, 'rgba(0,210,160,0.2)');
-    gradient.addColorStop(1, 'rgba(0,210,160,0)');
+    const tbody = document.getElementById('tbody-mercado-mid');
+    const rows = MERCADOS
+      .map(m => {
+        const s = mktStats[m];
+        const aud = s.acertos + s.erros;
+        const assert = aud > 0 ? Math.round((s.acertos / aud) * 1000) / 10 : null;
+        const roi    = aud > 0 ? Math.round((s.lucro / aud) * 1000) / 10 : null;
+        const lucro  = Math.round(s.lucro * 10) / 10;
+        return { m, ...s, aud, assert, roi, lucro };
+      })
+      .filter(x => x.aud >= 1)
+      .sort((a, b) => (b.assert ?? -999) - (a.assert ?? -999));
 
-    const allVals = evolucaoDias.length ? evolucaoDias : [0];
-    const minVal  = Math.floor(Math.min(...allVals, 0) - 5);
-    const maxVal  = Math.ceil(Math.max(...allVals, 0) + 10);
-
-    if (lucroChart) lucroChart.destroy();
-    lucroChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: evolucaoLabels.length ? evolucaoLabels : ['—'],
-        datasets: [{
-          data: evolucaoDias.length ? evolucaoDias : [0],
-          borderColor: '#00d2a0',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          fill: true,
-          backgroundColor: gradient,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#1e2232',
-            borderColor: '#252a3a',
-            borderWidth: 1,
-            titleColor: '#8b90a8',
-            bodyColor: '#00d2a0',
-            callbacks: { label: c => `${c.parsed.y.toFixed(1)}u` }
-          }
-        },
-        scales: {
-          x: {
-            grid: { color: '#1e2232', drawBorder: false },
-            ticks: { color: '#525870', font: { size: 10 }, maxTicksLimit: 8 }
-          },
-          y: {
-            grid: { color: '#1e2232', drawBorder: false },
-            ticks: { color: '#525870', font: { size: 10 }, callback: v => v + 'u' },
-            min: minVal, max: maxVal
-          }
-        }
-      }
-    });
+    if (rows.length > 0) {
+      tbody.innerHTML = rows.map(s => {
+        const assertStr = s.assert !== null ? `<span style="color:var(--green);font-weight:600">${s.assert}%</span>` : '—';
+        const roiStr    = s.roi    !== null ? `<span style="color:var(--green);font-weight:600">${s.roi >= 0 ? '+' : ''}${s.roi}%</span>` : '—';
+        const lucroStr  = `<span style="color:var(--green);font-weight:700">${s.lucro >= 0 ? '+' : ''}${s.lucro}u</span>`;
+        return `<tr>
+          <td>${s.m}</td>
+          <td>${assertStr}</td>
+          <td>${roiStr}</td>
+          <td>${lucroStr}</td>
+          <td>${s.palpites}</td>
+        </tr>`;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">Sem dados confirmados</td></tr>';
+    }
   }
 
-  // ── Palpites do dia ───────────────────────────────────────────────────────
+  // ── Palpites do dia (A+ prioritário, completa com A, B, C até 5) ─────────
   {
     const tbody = document.getElementById('tbody-palpites');
-    const top5  = [...palpitesDoDia]
-      .sort((a, b) => getPalpiteScore(b) - getPalpiteScore(a))
-      .slice(0, 5);
 
-    if (top5.length > 0) {
-      tbody.innerHTML = top5.map(j => {
-        const grade = getPalpiteGrade(j);
-        const score = getPalpiteScore(j);
-        const mkt   = getPalpiteMkt(j);
-        const odd   = oddForJogo(j);
+    const gradeOrder = ['A+', 'A', 'B', 'C'];
+    const gradeConf  = { 'A+': 'cb-elite', 'A': 'cb-alta', 'B': 'cb-media', 'C': 'cb-media' };
+    const gradeLabel = { 'A+': 'Elite',    'A': 'Alta',    'B': 'Média',    'C': 'Média'    };
+
+    let selecionados = [];
+    for (const g of gradeOrder) {
+      if (selecionados.length >= 5) break;
+      const deste = [...palpitesDoDia]
+        .filter(j => getPalpiteGrade(j) === g)
+        .sort((a, b) => getPalpiteScore(b) - getPalpiteScore(a));
+      selecionados = selecionados.concat(deste).slice(0, 5);
+    }
+
+    if (selecionados.length > 0) {
+      tbody.innerHTML = selecionados.map(j => {
+        const grade  = getPalpiteGrade(j);
+        const score  = getPalpiteScore(j);
+        const mkt    = getPalpiteMkt(j);
+        const odd    = oddForJogo(j);
         const oddStr = odd ? odd.toFixed(2) : '—';
-
-        let confClass = 'cb-media', confLabel = 'Média';
-        if (score >= 95)     { confClass = 'cb-elite'; confLabel = 'Elite'; }
-        else if (score >= 90) { confClass = 'cb-alta';  confLabel = 'Alta'; }
+        const confClass = gradeConf[grade] || 'cb-media';
+        const confLabel = gradeLabel[grade] || grade;
 
         return `<tr>
           <td>${j.hora || '—'}</td>
@@ -1232,10 +1246,11 @@ function calcAndRender(ALL_DATA) {
     }
   }
 
-  // ── Últimos Resultados ────────────────────────────────────────────────────
+  // ── Últimos Resultados (apenas green e red, mais recentes) ──────────────
   {
     const tbody = document.getElementById('tbody-resultados');
     const recentes = ultimosResultados
+      .filter(r => r.status === 'green' || r.status === 'red')
       .sort((a, b) => dateObj(b.date) - dateObj(a.date))
       .slice(0, 8);
 
@@ -1441,5 +1456,85 @@ window.toggleSidebar = function () {
   }
 })();
 </script>
+
+<script>
+// ── Date Range Picker ─────────────────────────────────────────────────────
+let _dpOpen = false;
+let _activePreset = 30;
+
+function toggleDatePicker() {
+  _dpOpen = !_dpOpen;
+  document.getElementById('date-picker-dropdown').style.display = _dpOpen ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const btn = document.getElementById('date-picker-btn');
+  const dd  = document.getElementById('date-picker-dropdown');
+  if (!btn || !dd) return;
+  if (!btn.contains(e.target) && !dd.contains(e.target)) {
+    _dpOpen = false;
+    dd.style.display = 'none';
+  }
+});
+
+function applyPreset(days) {
+  _activePreset = days;
+
+  // Highlight preset ativo
+  document.querySelectorAll('.dp-preset').forEach(el => el.removeAttribute('id'));
+  event.target.id = 'dp-preset-active';
+
+  const end   = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - days);
+
+  const isoStart = start.toISOString().split('T')[0];
+  const isoEnd   = end.toISOString().split('T')[0];
+
+  // Atualiza label
+  const label = days === 7  ? 'Últimos 7 dias'
+              : days === 15 ? 'Últimos 15 dias'
+              : days === 30 ? 'Últimos 30 dias'
+              : days === 60 ? 'Últimos 60 dias'
+              :               'Últimos 90 dias';
+  document.getElementById('date-range-label').textContent = label;
+
+  // Fecha dropdown e recarrega
+  _dpOpen = false;
+  document.getElementById('date-picker-dropdown').style.display = 'none';
+  initDashboard(isoStart, isoEnd);
+}
+
+function applyCustomRange() {
+  const startVal = document.getElementById('dp-start').value;
+  const endVal   = document.getElementById('dp-end').value;
+  if (!startVal || !endVal) return;
+  if (startVal > endVal) { alert('A data inicial deve ser anterior à data final.'); return; }
+
+  // Remove highlight dos presets
+  document.querySelectorAll('.dp-preset').forEach(el => el.removeAttribute('id'));
+
+  // Formata label DD/MM/YYYY
+  const fmt = iso => iso.split('-').reverse().join('/');
+  document.getElementById('date-range-label').textContent = `${fmt(startVal)} – ${fmt(endVal)}`;
+
+  _dpOpen = false;
+  document.getElementById('date-picker-dropdown').style.display = 'none';
+  initDashboard(startVal, endVal);
+}
+
+// Preenche inputs com datas padrão ao abrir
+(function() {
+  const end   = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 30);
+  const fmt = d => d.toISOString().split('T')[0];
+  const dpStart = document.getElementById('dp-start');
+  const dpEnd   = document.getElementById('dp-end');
+  if (dpStart) dpStart.value = fmt(start);
+  if (dpEnd)   dpEnd.value   = fmt(end);
+})();
+</script>
+
 </body>
 </html>
