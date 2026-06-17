@@ -1,0 +1,48 @@
+name: WinMetrics V3 — Confirmar Resultados
+
+on:
+  schedule:
+    - cron: '0  * * * *'   # :00 de cada hora (UTC) — equivale a :00 BRT
+    - cron: '30 * * * *'   # :30 de cada hora (UTC) — equivale a :30 BRT
+
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Quantos dias confirmar (padrão: 4 = hoje + 3 anteriores)'
+        required: false
+        default: '4'
+      force:
+        description: 'Reconfirmar mesmo snapshots já confirmados?'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: confirmar-v3
+  cancel-in-progress: true   # se já está rodando, cancela e roda o mais recente
+
+jobs:
+  confirmar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm install
+
+      - name: Confirmar resultados
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '4' }}"
+          FORCE=$([[ "${{ github.event.inputs.force }}" == "true" ]] && echo "--force" || echo "")
+          TODAY=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
+          echo "▶ Confirmando resultados — $TODAY | últimos ${DAYS} dias $FORCE"
+          node scripts/confirmar.js --date="$TODAY" --days="$DAYS" $FORCE
+          EXIT=$?
+          [ $EXIT -eq 2 ] && echo "⛔ Quota esgotada." && exit 0
+          exit $EXIT

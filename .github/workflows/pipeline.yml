@@ -6,8 +6,6 @@ on:
     - cron: '55 9  * * *'   # 06:55 BRT
     - cron: '55 15 * * *'   # 12:55 BRT
     - cron: '55 21 * * *'   # 18:55 BRT
-    - cron: '0  3  * * *'   # 00:00 BRT — confirmar resultados
-    - cron: '0  9  * * *'   # 06:00 BRT — confirmar resultados
 
   push:
     branches: [main]
@@ -44,29 +42,6 @@ jobs:
           FROM=$(TZ="America/Sao_Paulo" date -d "-2 days" +%Y-%m-%d)
           echo "▶ Backfill automático: $FROM → hoje + 7 dias"
           node scripts/backfill.js --from="$FROM" --future="5" --delay=2000
-          EXIT=$?
-          [ $EXIT -eq 2 ] && echo "⛔ Quota esgotada." && exit 0
-          exit $EXIT
-
-  confirmar:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '22' }
-      - run: npm install
-
-      - name: Confirmar resultados
-        env:
-          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
-          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
-        run: |
-          echo "▶ Confirmando resultados"
-          node scripts/confirmar.js --days=7
           EXIT=$?
           [ $EXIT -eq 2 ] && echo "⛔ Quota esgotada." && exit 0
           exit $EXIT
