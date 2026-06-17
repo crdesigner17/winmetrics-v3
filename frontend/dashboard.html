@@ -894,11 +894,11 @@ async function initDashboard(isoStart, isoEnd, filtrado) {
   const diasConf = Object.values(ALL_DATA).filter(d=>d.resultado_confirmado).length;
   console.log('[WinMetrics] Dias carregados:', Object.keys(ALL_DATA).length, '| Confirmados:', diasConf, '| Snaps:', (snaps||[]).length);
   if (diasConf === 0) console.warn('[WinMetrics] ATENÇÃO: nenhum dia confirmado — verifique result_status no Supabase');
-  calcAndRender(ALL_DATA);
+  calcAndRender(ALL_DATA, !!filtrado);
 }
 
 // ─── Cálculo central e renderização ────────────────────────────────────────
-function calcAndRender(ALL_DATA) {
+function calcAndRender(ALL_DATA, filtrado = false) {
   const dates = Object.keys(ALL_DATA).sort((a, b) => dateObj(a) - dateObj(b));
 
   // ── Estruturas acumuladas ──
