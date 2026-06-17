@@ -94,7 +94,7 @@ jobs:
           current="$FROM"
           total=0
           erros=0
-          while [[ "$current" <= "$TO" ]]; do
+          while [ "$(date -d "$current" +%s)" -le "$(date -d "$TO" +%s)" ]; do
             echo ""
             echo "📅 Processando $current..."
             if node frontend/jobs/pipeline_v1.js --date="$current" --force; then
@@ -130,25 +130,25 @@ jobs:
           echo "▶ Confirmando resultados: $FROM → $TO"
           echo "════════════════════════════════════════════════════════════"
           current="$FROM"
-          total_green=0
-          total_red=0
-          total_erros=0
-          while [[ "$current" <= "$TO" ]]; do
+          total=0
+          erros=0
+          while [ "$(date -d "$current" +%s)" -le "$(date -d "$TO" +%s)" ]; do
             echo ""
             echo "📅 Confirmando $current..."
             if node scripts/confirmar.js --date="$current" --force; then
-              total_green=$((total_green + 1))
+              echo "✓ $current concluído"
+              total=$((total + 1))
             else
               echo "✗ $current falhou"
-              total_erros=$((total_erros + 1))
+              erros=$((erros + 1))
             fi
             current=$(date -d "$current + 1 day" +%Y-%m-%d)
           done
           echo ""
           echo "════════════════════════════════════════════════════════════"
           echo " Confirmação concluída: $FROM → $TO"
-          echo " ✓ Dias processados: $total_green"
-          echo " ✗ Erros:            $total_erros"
+          echo " ✓ Dias processados: $total"
+          echo " ✗ Erros:            $erros"
           echo "════════════════════════════════════════════════════════════"
 
       - name: Reconfirmar resultados
