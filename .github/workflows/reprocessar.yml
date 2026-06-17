@@ -11,11 +11,13 @@ on:
         options:
           - hoje             # Hoje + próximos 7 dias
           - data_especifica  # Uma data específica
-          - force_confirmar  # Reconfirmar resultados já existentes
+          - force_confirmar  # Reconfirmar resultados (data específica ou N dias)
           - reprocess_engine # Reprocessar engine sem apagar resultados
           - reprocess_historico # Reprocessar período passado com engine atual
+          - intervalo        # Gerar palpites para um intervalo de datas (dia a dia)
+          - confirmar_intervalo # Confirmar resultados para um intervalo de datas
       data:
-        description: '[data_especifica] Data no formato YYYY-MM-DD'
+        description: '[data_especifica / intervalo / confirmar_intervalo] Data início YYYY-MM-DD'
         required: false
         default: ''
       force:
@@ -28,7 +30,7 @@ on:
         required: false
         default: '7'
       data_fim:
-        description: '[reprocess_historico] Data fim YYYY-MM-DD (data início usa o campo data acima)'
+        description: '[reprocess_historico / intervalo / confirmar_intervalo] Data fim YYYY-MM-DD'
         required: false
         default: ''
 
@@ -72,6 +74,82 @@ jobs:
           if [ -z "$DATA" ]; then echo "Erro: informe a data." && exit 1; fi
           echo "▶ Data específica: $DATA"
           node frontend/jobs/pipeline_v1.js --date="$DATA" --force
+
+      - name: Gerar palpites — intervalo de datas
+        if: github.event.inputs.modo == 'intervalo'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          FROM="${{ github.event.inputs.data }}"
+          TO="${{ github.event.inputs.data_fim }}"
+          if [ -z "$FROM" ] || [ -z "$TO" ]; then
+            echo "Erro: preencha 'data' (início) e 'data_fim' (fim)."
+            exit 1
+          fi
+          echo "▶ Gerando palpites: $FROM → $TO"
+          echo "════════════════════════════════════════════════════════════"
+          current="$FROM"
+          total=0
+          erros=0
+          while [[ "$current" <= "$TO" ]]; do
+            echo ""
+            echo "📅 Processando $current..."
+            if node frontend/jobs/pipeline_v1.js --date="$current" --force; then
+              echo "✓ $current concluído"
+              total=$((total + 1))
+            else
+              echo "✗ $current falhou"
+              erros=$((erros + 1))
+            fi
+            current=$(date -d "$current + 1 day" +%Y-%m-%d)
+          done
+          echo ""
+          echo "════════════════════════════════════════════════════════════"
+          echo " Intervalo concluído: $FROM → $TO"
+          echo " ✓ Sucesso: $total dias"
+          echo " ✗ Erros:   $erros dias"
+          echo "════════════════════════════════════════════════════════════"
+
+      - name: Confirmar resultados — intervalo de datas
+        if: github.event.inputs.modo == 'confirmar_intervalo'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+          ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+        run: |
+          FROM="${{ github.event.inputs.data }}"
+          TO="${{ github.event.inputs.data_fim }}"
+          if [ -z "$FROM" ] || [ -z "$TO" ]; then
+            echo "Erro: preencha 'data' (início) e 'data_fim' (fim)."
+            exit 1
+          fi
+          echo "▶ Confirmando resultados: $FROM → $TO"
+          echo "════════════════════════════════════════════════════════════"
+          current="$FROM"
+          total_green=0
+          total_red=0
+          total_erros=0
+          while [[ "$current" <= "$TO" ]]; do
+            echo ""
+            echo "📅 Confirmando $current..."
+            if node scripts/confirmar.js --date="$current" --force; then
+              total_green=$((total_green + 1))
+            else
+              echo "✗ $current falhou"
+              total_erros=$((total_erros + 1))
+            fi
+            current=$(date -d "$current + 1 day" +%Y-%m-%d)
+          done
+          echo ""
+          echo "════════════════════════════════════════════════════════════"
+          echo " Confirmação concluída: $FROM → $TO"
+          echo " ✓ Dias processados: $total_green"
+          echo " ✗ Erros:            $total_erros"
+          echo "════════════════════════════════════════════════════════════"
 
       - name: Reconfirmar resultados
         if: github.event.inputs.modo == 'force_confirmar'
