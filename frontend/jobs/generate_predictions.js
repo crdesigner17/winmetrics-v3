@@ -128,7 +128,10 @@ const LIGAS = [
   { id: 477, season: 2026, name: 'Paulista A1',               tier: 'normal' },
   { id: 478, season: 2026, name: 'Mineiro 1',                 tier: 'normal' },
   { id: 128, season: 2026, name: 'Liga Profesional de Fútbol', tier: 'normal' },
+  { id: 129, season: 2026, name: 'Primera B Nacional',         tier: 'normal' },  // Argentina
   { id: 136, season: 2025, name: 'Serie B',                   tier: 'normal' },
+  { id: 244, season: 2026, name: 'Veikkausliiga',              tier: 'normal' },  // Finland
+  { id: 597, season: 2026, name: 'Division 2 - Södra Götaland', tier: 'normal' },  // Sweden
   // ── Tier normal — Mundial / Amistosos ─────────────────────────
   { id: 10,  season: 2026, name: 'Friendlies',                tier: 'normal' },
   { id: 960, season: 2025, name: 'UEFA Nations League',       tier: 'normal' },
@@ -385,6 +388,12 @@ async function fetchTodayFixtures() {
 
   for (const targetDate of targetDates) {
     LOG.info(`Data ${targetDate}: consultando ${LIGAS.length} ligas...`);
+
+    // ── Carrega CSVs do PackBall para esta data ────────────────
+    csvEnricher.index.clear();
+    csvEnricher.stats = { files: 0, rows: 0, indexed: 0, types: {} };
+    csvEnricher.loaded = false;
+    await csvEnricher.loadDate(targetDate);
 
     for (let i = 0; i < LIGAS.length; i += BATCH) {
       const batch = LIGAS.slice(i, i + BATCH);
@@ -1189,9 +1198,8 @@ async function run() {
   console.log(` Data inicial: ${TODAY}  |  days: ${DAYS}  |  dry-run: ${DRY_RUN}  |  force: ${FORCE}  |  only-new: ${ONLY_NEW}  |  reprocess-engine: ${REPROCESS_ENGINE}  |  limit: ${LIMIT || 'sem limite'}`);
   console.log('═'.repeat(64) + '\n');
 
-  // ── Carrega CSVs do PackBall ──────────────────────────────────
-  await csvEnricher.load();
-  LOG.info(`[CSVEnricher] ${csvEnricher.index.size} jogos indexados dos CSVs do PackBall`);
+  // ── CSVs do PackBall são carregados por data no loop abaixo ──
+  // (ver loadDate por targetDate)
 
   // Validação de ambiente
   if (!API_KEY) {
@@ -1347,12 +1355,13 @@ async function run() {
             { market: 'Esc 7.5',     score: null,                    eligible: false },  // bloqueado
             { market: 'Cart 2.5',    score: null,                    eligible: false },  // bloqueado
           ];
+          const MIN_CASCATA = 65;
           const best = candidates
-            .filter(c => c.eligible && c.score !== null && c.score !== undefined)
+            .filter(c => c.eligible && c.score !== null && c.score !== undefined && c.score >= MIN_CASCATA)
             .sort((a, b) => b.score - a.score)[0];
 
           if (best) {
-            LOG.dim(`  Cascata nível 3: best_mkt "${result.best_mkt}" → "${best.market}" (cantos/cartões bloqueados, dados multi-liga)`);
+            LOG.dim(`  Cascata nível 3: best_mkt "${result.best_mkt}" → "${best.market}" score=${best.score} (cantos/cartões bloqueados, dados multi-liga)`);
             result.best_mkt    = best.market;
             result.best_score  = best.score;
             result.best_grade  = result.grades?.[best.market.toLowerCase().replace(/[^a-z0-9]/g,'')] ?? result.best_grade;
