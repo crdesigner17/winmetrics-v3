@@ -71,25 +71,48 @@ async function main() {
   console.log(`  Modo: ${DRY_RUN ? '🔍 DRY-RUN (nada será salvo)' : '✏️  ESCRITA REAL'}`);
   console.log('═══════════════════════════════════════════════════════════════\n');
 
-  // 1. Buscar match_metrics do período (dados brutos do engine)
+  // 1. Buscar fixtures do período (match_date fica na tabela fixtures)
   const startISO = new Date(FROM + 'T00:00:00.000Z').toISOString();
   const endISO   = new Date(TO   + 'T23:59:59.999Z').toISOString();
 
-  const { data: metrics, error: meErr } = await supabase
-    .from('match_metrics')
-    .select('*')
+  const { data: fixtures, error: fxErr } = await supabase
+    .from('fixtures')
+    .select('fixture_id, home_team, away_team, league_name, match_date')
     .gte('match_date', startISO)
     .lte('match_date', endISO)
     .order('match_date', { ascending: true })
     .limit(LIMIT);
 
-  if (meErr) { console.error('ERRO ao buscar match_metrics:', meErr.message); process.exit(1); }
-  if (!metrics?.length) { console.log('Nenhum fixture encontrado no período.'); return; }
+  if (fxErr) { console.error('ERRO ao buscar fixtures:', fxErr.message); process.exit(1); }
+  if (!fixtures?.length) { console.log('Nenhum fixture encontrado no período.'); return; }
 
-  console.log(`Fixtures encontrados: ${metrics.length}\n`);
+  // Buscar match_metrics para esses fixture_ids
+  const fixtureIds0 = fixtures.map(f => f.fixture_id);
+  const { data: metricsRaw, error: meErr } = await supabase
+    .from('match_metrics')
+    .select('*')
+    .in('fixture_id', fixtureIds0);
+
+  if (meErr) { console.error('ERRO ao buscar match_metrics:', meErr.message); process.exit(1); }
+
+  // Indexar match_metrics por fixture_id e combinar com dados do fixture
+  const metricsIndex = {};
+  for (const m of (metricsRaw || [])) metricsIndex[m.fixture_id] = m;
+
+  const metrics = fixtures
+    .filter(f => metricsIndex[f.fixture_id])
+    .map(f => ({
+      ...metricsIndex[f.fixture_id],
+      match_date:  f.match_date,
+      home_team:   f.home_team,
+      away_team:   f.away_team,
+      league_name: f.league_name,
+    }));
+
+  console.log(`Fixtures no período: ${fixtures.length} | Com métricas: ${metrics.length}\n`);
 
   // 2. Buscar snapshots confirmados do período (para preservar result_status)
-  const fixtureIds = metrics.map(m => m.fixture_id);
+  const fixtureIds = metrics.map(m => m.fixture_id);  // fixtures com métricas
   const { data: snapshots } = await supabase
     .from('prediction_snapshots')
     .select('fixture_id, market, result_status, goals_home, goals_away')
