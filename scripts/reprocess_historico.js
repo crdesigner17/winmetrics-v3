@@ -172,7 +172,9 @@ async function main() {
     }
 
     if (!result?.best_mkt) {
-      console.log(`  ⚠️  ${m.home_team} x ${m.away_team} — sem best_mkt`);
+      const lvl = m.historic_data_level ?? 1;
+      const motivo = lvl >= 3 ? `dados nível ${lvl} — todos os mercados abaixo do threshold` : 'sem dados suficientes';
+      console.log(`  ⚠️  ${m.home_team} x ${m.away_team} [${m.league_name}] — sem best_mkt (${motivo})`);
       continue;
     }
 
@@ -222,7 +224,6 @@ async function main() {
       goals_home:    existingConfirmed?.goals_home    ?? null,
       goals_away:    existingConfirmed?.goals_away    ?? null,
       source:        'reprocess_historico',
-      updated_at:    new Date().toISOString(),
     };
 
     const { error: upErr } = await supabase
