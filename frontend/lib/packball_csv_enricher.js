@@ -109,32 +109,26 @@ function _parseCSV(filepath) {
  */
 function _detectCSVType(rows) {
   if (!rows || rows.length < 2) return 'unknown';
-  const header = (rows[0] || []).join(';').toLowerCase();
-  const row1   = (rows[1] || []);
-  const ncols  = row1.length;
+  const row1  = (rows[1] || []);
+  const ncols = row1.length;
 
-  // Over Gols CR Designer — tem ~24 colunas, col[11] é over15 (valor 90 para Brazil)
+  // ── Novos CSVs compactos (exportação atual do PackBall) ──────────
+  // Cartões — 21 colunas exatas
+  if (ncols >= 19 && ncols <= 22) return 'cart_novo';
+
+  // Escanteios — 27 colunas exatas
+  if (ncols >= 25 && ncols <= 27) return 'esc_novo';
+
+  // Gols — 29 colunas exatas (maior que ESC para evitar overlap)
+  if (ncols >= 28 && ncols <= 31) return 'gols_novo';
+
+  // ── CSVs legados (formatos anteriores) ───────────────────────────
   if (ncols >= 24 && ncols <= 26) return 'over_cr';
-
-  // Filtro 01 — ~28 colunas
-  if (ncols >= 27 && ncols <= 29) return 'filtro01';
-
-  // Cartões — ~55 colunas
   if (ncols >= 53 && ncols <= 57) return 'cartoes';
-
-  // Escanteios — ~73 colunas
   if (ncols >= 70 && ncols <= 76) return 'escanteios';
-
-  // Over Gols 02 — ~46 colunas
   if (ncols >= 44 && ncols <= 48) return 'over02';
-
-  // Over Gols 01 — ~70 colunas
   if (ncols >= 68 && ncols <= 72) return 'over01';
-
-  // Resultado Final — ~72 colunas
   if (ncols >= 70 && ncols <= 74) return 'resultado';
-
-  // Geral — ~66 colunas
   if (ncols >= 64 && ncols <= 68) return 'geral';
 
   return 'unknown';
@@ -316,6 +310,103 @@ function _extractResultado(row) {
 }
 
 /**
+ * CSV: Gols novo — 29 colunas (exportação atual PackBall)
+ * Mapeamento confirmado com dados reais 17-06-2026:
+ *   col[9]  = PPG Casa | Fora
+ *   col[10] = avg_sc marcados Casa | Fora
+ *   col[11] = avg_sc sofridos Casa | Fora
+ *   col[12] = Over 1.5 % Global
+ *   col[13] = Over 2.5 % Global
+ *   col[14] = Over 0.5 HT % Global
+ *   col[15] = Under 3.5 % Global
+ *   col[16] = Under 2.5 % Global
+ *   col[17] = H2H avg gols Global
+ *   col[18] = H2H total jogos
+ *   col[19] = BTTS % Casa | Fora
+ *   col[26] = avg shots Global
+ *   col[27] = Shots Casa | Fora
+ *   col[28] = SOT Casa | Fora
+ */
+function _extractGolsNovo(row) {
+  const splitH = (v) => { const p = String(v||'').split('|'); return _n(p[0]); };
+  const splitA = (v) => { const p = String(v||'').split('|'); return _n(p[1]); };
+  return {
+    ppg_h:      splitH(row[9]),
+    ppg_a:      splitA(row[9]),
+    avg_sc_h:   splitH(row[10]),
+    avg_sc_a:   splitA(row[10]),
+    over15_g:   _n(row[12]),
+    over25_g:   _n(row[13]),
+    over05_ht:  _n(row[14]),
+    h2h_goals:  _n(row[17]),
+    btts_h:     splitH(row[19]),
+    btts_a:     splitA(row[19]),
+    avg_shots:  _n(row[26]),
+    avg_sot:    (() => {
+      const h = splitH(row[28]), a = splitA(row[28]);
+      return (h !== null && a !== null) ? Math.round((h+a)/2*10)/10 : null;
+    })(),
+  };
+}
+
+/**
+ * CSV: Escanteios novo — 27 colunas (exportação atual PackBall)
+ * Mapeamento confirmado com dados reais 17-06-2026:
+ *   col[9]  = avg_corners Casa | Fora
+ *   col[10] = xG cantos Casa | Fora
+ *   col[11] = avg_corners Global
+ *   col[12] = Over 7.5 % Global
+ *   col[13] = Over 8.5 % Global
+ *   col[14] = Over 9.5 % Global
+ *   col[15] = Over 10.5 % Global
+ *   col[16] = Over 11.5 % Global
+ *   col[17] = Shots Casa | Fora
+ *   col[18] = SOT Casa | Fora
+ *   col[23] = Over 7.5 % Casa | Fora
+ *   col[24] = Over 8.5 % Casa | Fora
+ */
+function _extractEscNovo(row) {
+  const splitH = (v) => { const p = String(v||'').split('|'); return _n(p[0]); };
+  const splitA = (v) => { const p = String(v||'').split('|'); return _n(p[1]); };
+  const avgSplit = (v) => {
+    const h = splitH(v), a = splitA(v);
+    return (h !== null && a !== null) ? Math.round((h+a)/2*10)/10 : null;
+  };
+  return {
+    avg_corners:  _n(row[11]),
+    over75_c:     _n(row[12]),
+    over85_c:     _n(row[13]),
+    avg_shots:    avgSplit(row[17]),
+    avg_sot:      avgSplit(row[18]),
+  };
+}
+
+/**
+ * CSV: Cartões novo — 21 colunas (exportação atual PackBall)
+ * Mapeamento confirmado com dados reais 17-06-2026:
+ *   col[9]  = avg_cards recebidos Casa | Fora
+ *   col[10] = avg_cards sofridos Casa | Fora
+ *   col[11] = avg_cards Global
+ *   col[13] = Over 2.5 % Global
+ *   col[14] = Over 3.5 % Global
+ *   col[15] = Over 4.5 % Global
+ *   col[16] = Over 1.5 % Global
+ *   col[18] = avg_cards H2H Global
+ *   col[19] = avg_cards H2H Casa | Fora
+ *   col[20] = Over 2.5 % Casa | Fora
+ */
+function _extractCartNovo(row) {
+  const splitH = (v) => { const p = String(v||'').split('|'); return _n(p[0]); };
+  const splitA = (v) => { const p = String(v||'').split('|'); return _n(p[1]); };
+  return {
+    avg_cards:      _n(row[11]),
+    over25_cards:   _n(row[13]),
+    over35_cards:   _n(row[14]),
+    over45_cards:   _n(row[15]),
+  };
+}
+
+/**
  * CSV: Geral (~66 cols)
  * Usado como complemento — tem xG, PPG e médias gerais
  * Colunas relevantes:
@@ -334,6 +425,19 @@ function _extractGeral(row) {
 // ─────────────────────────────────────────────────────────────────
 // HELPERS DE ARQUIVO
 // ─────────────────────────────────────────────────────────────────
+
+/**
+ * Retorna true se o nome do arquivo CSV corresponde a uma data específica.
+ * Aceita formatos como "PackBall Custom CARTÕES  17-06-2026.csv"
+ * Se nenhuma data for passada, aceita qualquer CSV.
+ */
+function _fileMatchesDate(filename, ddmm) {
+  if (!ddmm) return true;
+  // ddmm = "17-06", filename pode ter "17-06-2026"
+  const [day, month] = ddmm.split('-');
+  const pattern = `${day}-${month}`;
+  return filename.includes(pattern);
+}
 
 /** Encontra todos os CSVs recursivamente em uma pasta */
 function _findCSVsRecursive(dir) {
@@ -358,7 +462,9 @@ function _findCSVsRecursive(dir) {
 
 class PackBallCSVEnricher {
   /**
-   * @param {string} csvDir — diretório com os CSVs do PackBall
+   * @param {string} csvDir — diretório base com os CSVs do PackBall
+   *   Estrutura esperada: csvDir/DD-MM/ com arquivos de qualquer nome
+   *   Ex: csvDir/17-06/PackBall Custom CARTÕES  17-06-2026.csv
    *   Aceita também um array de caminhos de arquivo: [path1, path2, ...]
    */
   constructor(csvDir) {
@@ -366,6 +472,55 @@ class PackBallCSVEnricher {
     this.index   = new Map(); // chave: "home_norm|away_norm|date" → dados mesclados
     this.loaded  = false;
     this.stats   = { files: 0, rows: 0, indexed: 0, types: {} };
+  }
+
+  /**
+   * Carrega CSVs para uma data específica (DD-MM ou YYYY-MM-DD).
+   * Busca na subpasta DD-MM dentro de csvDir.
+   * Ex: loadDate('2026-06-17') → lê de csvDir/17-06/
+   */
+  async loadDate(matchDate) {
+    const [year, month, day] = matchDate.split('-');
+    const folder = `${day}-${month}`;
+    const dateDir = path.join(this.csvDir, folder);
+
+    if (!fs.existsSync(dateDir)) {
+      // Fallback: busca arquivos com a data no nome na pasta raiz
+      if (fs.existsSync(this.csvDir)) {
+        const entries = fs.readdirSync(this.csvDir);
+        const matched = entries
+          .filter(f => f.toLowerCase().endsWith('.csv') && _fileMatchesDate(f, `${day}-${month}`))
+          .map(f => path.join(this.csvDir, f));
+        if (matched.length > 0) {
+          for (const fp of matched) {
+            try { this._loadFile(fp); this.stats.files++; } catch(e) {}
+          }
+          this.loaded = true;
+          return;
+        }
+      }
+      this.loaded = true;
+      return;
+    }
+
+    // Lê todos os CSVs da subpasta DD-MM (qualquer nome de arquivo)
+    const entries = fs.readdirSync(dateDir);
+    const csvFiles = entries
+      .filter(f => f.toLowerCase().endsWith('.csv'))
+      .map(f => path.join(dateDir, f));
+
+    for (const fp of csvFiles) {
+      try { this._loadFile(fp); this.stats.files++; } catch(e) {
+        console.error(`[CSVEnricher] Erro ao carregar ${path.basename(fp)}:`, e.message);
+      }
+    }
+    this.loaded = true;
+    if (this.stats.files > 0) {
+      console.log(
+        `[CSVEnricher] ${folder}: ${this.stats.files} CSVs → ` +
+        `${this.stats.indexed} jogos (${Object.entries(this.stats.types).map(([k,v])=>`${k}:${v}`).join(', ')})`
+      );
+    }
   }
 
   /**
@@ -422,7 +577,8 @@ class PackBallCSVEnricher {
           }
         }
 
-        // CSVs diretos na pasta
+        // CSVs diretos na pasta — aceita qualquer nome de arquivo CSV
+        // Ex: "PackBall Custom CARTÕES  17-06-2026.csv"
         const directCSVs = entries
           .filter(f => f.toLowerCase().endsWith('.csv'))
           .map(f => path.join(this.csvDir, f));
@@ -497,6 +653,9 @@ class PackBallCSVEnricher {
       // Extrair dados conforme tipo
       let data = {};
       switch (type) {
+        case 'gols_novo': data = _extractGolsNovo(row); break;
+        case 'esc_novo':  data = _extractEscNovo(row);  break;
+        case 'cart_novo': data = _extractCartNovo(row); break;
         case 'over_cr':   data = _extractOverCR(row);   break;
         case 'filtro01':  data = _extractFiltro01(row);  break;
         case 'over01':    data = _extractOver01(row);    break;
