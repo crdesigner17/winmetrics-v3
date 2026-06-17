@@ -742,75 +742,103 @@ function dateObj(d) {
   return new Date(yyyy, mm - 1, dd);
 }
 
-// TODO: substituir mock por dados reais do Supabase após importar algoritmo V1
-
 let lucroChart = null; // instância do Chart.js
 
-// ─── Dados mockados temporários ──────────────────────────────────────────────
-// Estrutura espelha o formato do algoritmo V1 (gerar_site.py / docs/data/*.json)
-// Cada entrada representa um dia com lista de jogos e resultado confirmado.
-function getMockData() {
-  const hoje = new Date();
-  const fmtDate = d => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-  const d0 = new Date(hoje); d0.setDate(hoje.getDate() - 0);
-  const d1 = new Date(hoje); d1.setDate(hoje.getDate() - 1);
-  const d2 = new Date(hoje); d2.setDate(hoje.getDate() - 2);
-  const d3 = new Date(hoje); d3.setDate(hoje.getDate() - 3);
-  const d4 = new Date(hoje); d4.setDate(hoje.getDate() - 4);
-
-  const jogo = (jogo, hora, liga, mkt, score, ok, odd) => ({
-    jogo, hora, liga,
-    palpite_mkt: mkt, palpite_score: score, palpite_grade: score >= 95 ? 'A+' : score >= 90 ? 'A' : 'B',
-    resultado: ok !== null ? { [MKT_RESULT[mkt] || 'over15_ok']: ok } : null,
-    odds_o15: mkt === 'Over 1.5' ? odd : null,
-    odds_o25: mkt === 'Over 2.5' ? odd : null,
-    odds_cards_25: mkt === 'Cart 2.5' ? odd : null,
-    odds_corners_75: mkt === 'Esc 7.5' ? odd : null,
-  });
-
-  return {
-    [fmtDate(d4)]: { date: fmtDate(d4), resultado_confirmado: true, jogos: [
-      jogo('Arsenal x Chelsea',       '15:00', 'Premier League', 'Over 1.5', 97, true,  1.22),
-      jogo('Bayern x Dortmund',       '17:30', 'Bundesliga',     'Over 1.5', 94, true,  1.18),
-      jogo('PSG x Lyon',              '20:00', 'Ligue 1',        'Over 2.5', 91, true,  1.65),
-      jogo('Real Madrid x Sevilla',   '21:00', 'La Liga',        'Over 1.5', 96, true,  1.20),
-      jogo('Inter x Napoli',          '20:45', 'Serie A',        'Cart 2.5', 88, false, 1.80),
-    ]},
-    [fmtDate(d3)]: { date: fmtDate(d3), resultado_confirmado: true, jogos: [
-      jogo('Liverpool x Man City',    '16:30', 'Premier League', 'Over 1.5', 98, true,  1.19),
-      jogo('Atlético x Barcelona',    '21:00', 'La Liga',        'Over 2.5', 93, true,  1.72),
-      jogo('Juventus x Milan',        '20:45', 'Serie A',        'Over 1.5', 90, false, 1.25),
-      jogo('Ajax x PSV',              '18:45', 'Eredivisie',     'Esc 7.5',  87, true,  1.90),
-      jogo('Porto x Benfica',         '21:15', 'Primeira Liga',  'Over 1.5', 95, true,  1.21),
-    ]},
-    [fmtDate(d2)]: { date: fmtDate(d2), resultado_confirmado: true, jogos: [
-      jogo('Man United x Tottenham',  '20:00', 'Premier League', 'Over 1.5', 96, true,  1.20),
-      jogo('Flamengo x Palmeiras',    '19:00', 'Brasileirão',    'Over 1.5', 92, true,  1.28),
-      jogo('River x Boca',            '21:00', 'Arg. LPF',       'Cart 2.5', 89, true,  1.75),
-      jogo('Roma x Lazio',            '20:45', 'Serie A',        'Over 2.5', 91, false, 1.68),
-      jogo('Celtic x Rangers',        '12:30', 'Scottish Prem.', 'Over 1.5', 95, true,  1.22),
-    ]},
-    [fmtDate(d1)]: { date: fmtDate(d1), resultado_confirmado: true, jogos: [
-      jogo('Fluminense x Corinthians','17:00', 'Brasileirão',    'Over 1.5', 93, true,  1.26),
-      jogo('Sevilla x Betis',         '21:00', 'La Liga',        'Over 1.5', 97, true,  1.19),
-      jogo('Lille x Marseille',       '20:45', 'Ligue 1',        'Esc 7.5',  88, true,  1.95),
-      jogo('Sporting x Benfica',      '21:15', 'Primeira Liga',  'Over 2.5', 90, false, 1.70),
-    ]},
-    [fmtDate(d0)]: { date: fmtDate(d0), resultado_confirmado: false, jogos: [
-      jogo('Flamengo x Atlético-MG',  '18:30', 'Brasileirão',    'Over 1.5', 98, null,  1.20),
-      jogo('Man City x Arsenal',      '17:30', 'Premier League', 'Over 2.5', 95, null,  1.55),
-      jogo('Barcelona x Real Madrid', '21:00', 'La Liga',        'Over 1.5', 96, null,  1.18),
-      jogo('Borussia x Leverkusen',   '20:30', 'Bundesliga',     'Cart 2.5', 87, null,  1.82),
-      jogo('Napoli x Juventus',       '20:45', 'Serie A',        'Esc 7.5',  91, null,  1.88),
-    ]},
-  };
+// ─── Converte ISO date → chave DD-MM-YYYY ────────────────────────────────────
+function isoToKey(iso) {
+  if (!iso) return null;
+  // Suporta "YYYY-MM-DD" e "YYYY-MM-DDTHH:mm:ss..."
+  const [datePart] = iso.split('T');
+  const [yyyy, mm, dd] = datePart.split('-');
+  return `${dd}-${mm}-${yyyy}`;
 }
 
-// ─── Inicialização com dados mockados ────────────────────────────────────────
-function initDashboard() {
-  console.log('[WinMetrics] Carregando dados mockados temporários...');
-  // TODO: substituir mock por dados reais do Supabase após importar algoritmo V1
-  const ALL_DATA = getMockData();
+// ─── Converte result_status do Supabase → formato esperado por resultOk() ───
+function statusToResultado(status, mkt) {
+  if (!status || status === 'pending' || status === 'null') return null;
+  const mktKey = MKT_RESULT[mkt] || 'over15_ok';
+  if (status === 'green') return { [mktKey]: true };
+  if (status === 'red')   return { [mktKey]: false };
+  return null; // void → tratado como null (sem resultado)
+}
+
+// ─── Inicialização com dados reais do Supabase ────────────────────────────────
+async function initDashboard() {
+  console.log('[WinMetrics] Carregando dados reais do Supabase...');
+
+  const sbClient = (typeof supabaseClient !== 'undefined')
+    ? supabaseClient
+    : window.supabase.createClient(
+        'https://kpcxjmydlmqxmvnawdyo.supabase.co',
+        'sb_publishable_Jt5py8nDWMfOKeobimY8VQ_Gri5nO8b'
+      );
+
+  // Busca snapshots dos últimos 30 dias com todos os campos necessários
+  const dataLimite = new Date();
+  dataLimite.setDate(dataLimite.getDate() - 30);
+  const isoLimite = dataLimite.toISOString().split('T')[0];
+
+  const { data: snaps, error } = await sbClient
+    .from('prediction_snapshots')
+    .select('fixture_id, match_name, home_team, away_team, league_name, market, score, grade, odd, result_status, match_date, hour')
+    .eq('grade', 'A+')
+    .gte('match_date', isoLimite)
+    .order('match_date', { ascending: true })
+    .order('score', { ascending: false });
+
+  if (error) {
+    console.error('[WinMetrics] Erro ao carregar snapshots:', error);
+    return;
+  }
+
+  // Agrupa por data (DD-MM-YYYY) → { jogos: [], temResultadoConfirmado: bool }
+  const porDia = {};
+
+  for (const snap of (snaps || [])) {
+    const key = isoToKey(snap.match_date);
+    if (!key) continue;
+
+    if (!porDia[key]) porDia[key] = { jogos: [], temGreenOuRed: false };
+
+    const mkt    = snap.market || 'Over 1.5';
+    const status = snap.result_status || null;
+    const isConfirmado = status === 'green' || status === 'red' || status === 'void';
+
+    if (isConfirmado) porDia[key].temGreenOuRed = true;
+
+    // Jogo no formato esperado por calcAndRender
+    porDia[key].jogos.push({
+      jogo:          snap.match_name || `${snap.home_team} x ${snap.away_team}`,
+      hora:          snap.hour || '--',
+      liga:          snap.league_name || 'Outras',
+      palpite_mkt:   mkt,
+      palpite_score: Number(snap.score)  || 0,
+      palpite_grade: snap.grade || 'D',
+      resultado:     statusToResultado(status, mkt),
+      // Odd real do melhor mercado
+      odd:           Number(snap.odd) || null,
+      // Campos de odd por mercado (para oddForJogo)
+      odds_o15:        mkt === 'Over 1.5'  ? Number(snap.odd) || null : null,
+      odds_o25:        mkt === 'Over 2.5'  ? Number(snap.odd) || null : null,
+      odds_cards_25:   mkt === 'Cart 2.5'  ? Number(snap.odd) || null : null,
+      odds_cards_35:   mkt === 'Cart 3.5'  ? Number(snap.odd) || null : null,
+      odds_corners_75: mkt === 'Esc 7.5'   ? Number(snap.odd) || null : null,
+      odds_corners_85: mkt === 'Esc 8.5'   ? Number(snap.odd) || null : null,
+      odds_u45:        (mkt === 'Under 4.5' || mkt === 'Under 3.5') ? Number(snap.odd) || null : null,
+    });
+  }
+
+  // Monta ALL_DATA com resultado_confirmado = true se o dia tem ao menos um green/red
+  const ALL_DATA = {};
+  for (const [key, dia] of Object.entries(porDia)) {
+    ALL_DATA[key] = {
+      date:                 key,
+      resultado_confirmado: dia.temGreenOuRed,
+      jogos:                dia.jogos,
+    };
+  }
+
+  console.log(`[WinMetrics] ${Object.keys(ALL_DATA).length} dias carregados, ${(snaps||[]).length} snapshots.`);
   calcAndRender(ALL_DATA);
 }
 
