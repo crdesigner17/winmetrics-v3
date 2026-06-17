@@ -76,7 +76,7 @@
   .dp-preset:hover, #dp-preset-active { background:rgba(108,99,255,.15);color:var(--text-primary); }
 
   /* KPI CARDS */
-  .kpi-row { display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px; }
+  .kpi-row { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px; }
   .kpi-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 14px;position:relative;overflow:hidden; }
   .kpi-label { font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:5px; }
   .kpi-label svg { width:13px;height:13px; }
@@ -110,6 +110,7 @@
   .result-bars { display:grid;gap:14px;margin-top:6px; }
   .result-bar-head { display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--text-secondary);margin-bottom:7px; }
   .result-bar-head strong { color:var(--text-primary);font-weight:800; }
+  .result-bar-pct { color:var(--text-muted);font-size:11px;font-weight:600;margin-left:4px; }
   .result-bar-track { height:12px;background:#252a3a;border-radius:999px;overflow:hidden; }
   .result-bar-fill { height:100%;width:0;border-radius:999px;transition:width .35s ease; }
   .result-bar-fill.green { background:linear-gradient(90deg,#00b98d,var(--green)); }
@@ -159,17 +160,24 @@
 
   .stats-table-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden; }
 
-  /* Pyramid */
+  /* Confidence */
   .pyramid-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px; }
-  .pyramid-wrap { display:flex;align-items:center;gap:20px;margin-top:14px; }
-  .pyramid-svg { flex-shrink:0; }
-  .pyramid-legend { display:flex;flex-direction:column;gap:8px; }
-  .pyr-item { display:flex;align-items:center;gap:8px;font-size:12.5px; }
-  .pyr-dot { width:10px;height:10px;border-radius:2px;flex-shrink:0; }
-  .pyr-label { color:var(--text-secondary);min-width:50px; }
-  .pyr-count { font-weight:600; }
-  .pyr-pct { color:var(--text-muted);font-size:11px;margin-left:2px; }
-  .pyramid-note { font-size:11px;color:var(--text-muted);margin-top:12px; }
+  .confidence-body { display:grid;gap:13px;margin-top:12px; }
+  .confidence-summary { display:flex;align-items:flex-end;justify-content:space-between;gap:14px; }
+  .confidence-headline { font-family:'Rajdhani',sans-serif;font-size:29px;font-weight:800;line-height:1;color:var(--red); }
+  .confidence-sub { font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.35; }
+  .confidence-alert { background:rgba(255,94,106,.09);border:1px solid rgba(255,94,106,.28);color:#ffb7bd;border-radius:8px;padding:9px 11px;font-size:11.5px;font-weight:700;white-space:nowrap; }
+  .confidence-bars { display:grid;gap:9px; }
+  .confidence-bar-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:12px;color:var(--text-secondary); }
+  .confidence-bar-head strong { color:var(--text-primary);font-weight:800; }
+  .confidence-track { height:9px;background:#252a3a;border-radius:999px;overflow:hidden; }
+  .confidence-fill { height:100%;border-radius:999px;transition:width .35s ease; }
+  .confidence-fill.elite { background:#7c3aed; }
+  .confidence-fill.alta { background:var(--green); }
+  .confidence-fill.media { background:#d4b800; }
+  .confidence-fill.baixa { background:var(--red); }
+  .pyramid-note { font-size:11px;color:var(--text-muted);margin-top:12px;line-height:1.45; }
+  .pyramid-wrap { display:none; }
 
 /* ── OVERLAY SIDEBAR MOBILE ── */
 #sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;backdrop-filter:blur(2px)}
@@ -527,14 +535,14 @@ async function getCurrentProfile() {
           <div>
             <div class="result-bar-head">
               <span>Green</span>
-              <strong id="result-green-count">421 de 473</strong>
+              <strong id="result-green-count">421 de 473 <span class="result-bar-pct">(89.0%)</span></strong>
             </div>
             <div class="result-bar-track"><div class="result-bar-fill green" id="result-green-bar" style="width:89%"></div></div>
           </div>
           <div>
             <div class="result-bar-head">
               <span>Red</span>
-              <strong id="result-red-count">52 de 473</strong>
+              <strong id="result-red-count">52 de 473 <span class="result-bar-pct">(11.0%)</span></strong>
             </div>
             <div class="result-bar-track"><div class="result-bar-fill red" id="result-red-bar" style="width:11%"></div></div>
           </div>
@@ -644,6 +652,33 @@ async function getCurrentProfile() {
         <div class="card-header">
           <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>CONFIANÇA DAS PREVISÕES</div>
           <span class="ver-link" style="font-size:12px;color:var(--accent);cursor:pointer">Ver pirâmide</span>
+        </div>
+        <div class="confidence-body">
+          <div class="confidence-summary">
+            <div>
+              <div class="confidence-headline" id="confidence-headline">Baixa dominante</div>
+              <div class="confidence-sub" id="confidence-sub">A maior parte das previs?es est? abaixo de 85%.</div>
+            </div>
+            <div class="confidence-alert" id="confidence-alert">Aten??o: qualidade concentrada em Baixa</div>
+          </div>
+          <div class="confidence-bars">
+            <div>
+              <div class="confidence-bar-head"><span>Elite</span><strong id="pyr-elite-text">112 (23.7%)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill elite" id="confidence-elite-bar" style="width:23.7%"></div></div>
+            </div>
+            <div>
+              <div class="confidence-bar-head"><span>Alta</span><strong id="pyr-alta-text">198 (41.9%)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill alta" id="confidence-alta-bar" style="width:41.9%"></div></div>
+            </div>
+            <div>
+              <div class="confidence-bar-head"><span>M?dia</span><strong id="pyr-media-text">129 (27.3%)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill media" id="confidence-media-bar" style="width:27.3%"></div></div>
+            </div>
+            <div>
+              <div class="confidence-bar-head"><span>Baixa</span><strong id="pyr-baixa-text">34 (7.1%)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill baixa" id="confidence-baixa-bar" style="width:7.1%"></div></div>
+            </div>
+          </div>
         </div>
         <div class="pyramid-wrap">
           <svg class="pyramid-svg" width="120" height="130" viewBox="0 0 120 130">
@@ -1158,8 +1193,10 @@ function calcAndRender(ALL_DATA, filtrado = false) {
     const pR = total > 0 ? Math.round((totalReds   / total) * 1000) / 10 : 0;
     const pG = total > 0 ? Math.round((totalGreens / total) * 1000) / 10 : 0;
 
-    document.getElementById('result-green-count').textContent = `${totalGreens} de ${total}`;
-    document.getElementById('result-red-count').textContent   = `${totalReds} de ${total}`;
+    document.getElementById('result-green-count').innerHTML =
+      `${totalGreens} de ${total} <span class="result-bar-pct">(${pG}%)</span>`;
+    document.getElementById('result-red-count').innerHTML =
+      `${totalReds} de ${total} <span class="result-bar-pct">(${pR}%)</span>`;
     document.getElementById('result-green-bar').style.width   = `${pG}%`;
     document.getElementById('result-red-bar').style.width     = `${pR}%`;
   }
@@ -1322,15 +1359,43 @@ function calcAndRender(ALL_DATA, filtrado = false) {
     ];
     tiers.forEach(t => {
       const pct = Math.round((t.count / total) * 1000) / 10;
-      document.getElementById(`pyr-${t.id}-count`).textContent = t.count;
-      document.getElementById(`pyr-${t.id}-pct`).textContent   = `(${pct}%)`;
+      const countEl = document.getElementById(`pyr-${t.id}-count`);
+      const pctEl = document.getElementById(`pyr-${t.id}-pct`);
+      const textEl = document.getElementById(`pyr-${t.id}-text`);
+      if (countEl) countEl.textContent = t.count;
+      if (pctEl) pctEl.textContent = `(${pct}%)`;
+      if (textEl) textEl.textContent = `${t.count} (${pct}%)`;
+      const bar = document.getElementById(`confidence-${t.id}-bar`);
+      if (bar) bar.style.width = `${pct}%`;
     });
 
     // Nota dinâmica: maior concentração
     const max = tiers.reduce((a, b) => b.count > a.count ? b : a);
     const labels = { elite: 'Elite', alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+    const score = Math.round((
+      pyrStats.elite * 100 +
+      pyrStats.alta  * 90 +
+      pyrStats.media * 75 +
+      pyrStats.baixa * 40
+    ) / total);
+    const status = score >= 90 ? 'Elite' : score >= 75 ? 'Alta' : score >= 60 ? 'Média' : 'Baixa';
+    const headlineEl = document.getElementById('confidence-headline');
+    const subEl = document.getElementById('confidence-sub');
+    const alertEl = document.getElementById('confidence-alert');
+    if (headlineEl) {
+      const maxPct = Math.round((max.count / total) * 1000) / 10;
+      headlineEl.textContent = `${maxPct}% ${labels[max.id]}`;
+      headlineEl.style.color = max.id === 'elite' ? '#7c3aed'
+        : max.id === 'alta' ? 'var(--green)'
+        : max.id === 'media' ? '#d4b800'
+        : 'var(--red)';
+    }
+    if (subEl) subEl.textContent = `Categoria dominante: ${labels[max.id]}. Score geral: ${score} (${status}).`;
+    if (alertEl) alertEl.textContent = max.id === 'baixa'
+      ? 'Atenção: qualidade concentrada em Baixa'
+      : `Maior concentração em ${labels[max.id]}`;
     document.getElementById('pyramid-note').textContent =
-      `Maior concentração na categoria ${labels[max.id]}.`;
+      `${Math.round(((pyrStats.elite + pyrStats.alta) / total) * 1000) / 10}% das previsões estão em Elite/Alta. Maior concentração na categoria ${labels[max.id]}.`;
   }
 }
 
