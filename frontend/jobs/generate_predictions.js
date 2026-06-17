@@ -1064,6 +1064,7 @@ async function upsertSnapshot(result, raw) {
     score_enriquecido: result.best_score_enriquecido !== null ? pyRound(result.best_score_enriquecido, 1) : null,
     grade_enriquecido: result.best_grade_enriquecido ?? null,
     odds_fonte:        raw.odds_fonte || 'packball',
+    alternative_mkt:   result.alternative_mkt ? JSON.stringify(result.alternative_mkt) : null,
     created_at:        new Date().toISOString(),
     // Ao reprocessar engine: preservar result_status existente
     ...(REPROCESS_ENGINE && existing?.result_status ? { result_status: existing.result_status } : {}),
@@ -1340,7 +1341,7 @@ async function run() {
             { market: 'Over 1.5',    score: result.scores?.over15,   eligible: result.filters?.over15_passed },
             { market: 'Over 2.5',    score: result.scores?.over25,   eligible: true },
             { market: 'BTTS',        score: result.scores?.btts,     eligible: true },
-            { market: 'Over 0.5 HT', score: result.scores?.over05ht, eligible: true },
+            // Over 0.5 HT removido — performance fraca (igual ao engine §5.2)
             { market: 'Under 4.5',   score: result.scores?.under45,  eligible: true },
             { market: 'Under 3.5',   score: result.scores?.under35,  eligible: result.filters?.under35_passed },
             { market: 'Esc 7.5',     score: null,                    eligible: false },  // bloqueado
