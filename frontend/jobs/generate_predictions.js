@@ -45,6 +45,7 @@ const PredictionEngine       = require('../lib/prediction_engine_v1.js');
 const PackBallMapper         = require('../lib/packball_mapper.js');
 const AltLineResolver        = require('../lib/alternative_line_resolver.js');
 const { enrichFromWorldCup } = require('../lib/enrichFromWorldCup.js');
+const { applyWorldCupBoost, WC_LEAGUE_NAME } = require('../lib/world_cup_boost.js');
 const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enricher.js');
 const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.js'); // [NOVO]
 
@@ -1391,6 +1392,13 @@ async function run() {
         console.log(`[PIPELINE] result.odds  — ${resultOdds}`);
         console.log(`[PIPELINE] result.evs   — ${resultEvs}`);
         console.log(`[PIPELINE] best_odd=${result.best_odd}  best_ev=${result.best_ev}`);
+      }
+
+      // ── [WC BOOST] Camada especializada Copa do Mundo ─────────────────────
+      // ISOLADO: aplica SOMENTE quando raw.league_name === 'World: World Cup'
+      // Não afeta nenhuma outra liga, competição ou lógica do engine principal.
+      if (raw.league_name === WC_LEAGUE_NAME) {
+        applyWorldCupBoost(result, raw, LOG);
       }
 
       // Contabiliza grades
