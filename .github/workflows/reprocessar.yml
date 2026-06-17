@@ -81,8 +81,14 @@ jobs:
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
-          echo "▶ Reconfirmando últimos 21 dias"
-          node scripts/confirmar.js --days="${{ github.event.inputs.dias || '7' }}" --force
+          DATA="${{ github.event.inputs.data }}"
+          if [ -n "$DATA" ]; then
+            echo "▶ Reconfirmando data específica: $DATA"
+            node scripts/confirmar.js --date="$DATA" --force
+          else
+            echo "▶ Reconfirmando últimos ${{ github.event.inputs.dias || '7' }} dias"
+            node scripts/confirmar.js --days="${{ github.event.inputs.dias || '7' }}" --force
+          fi
 
       - name: Reprocessar histórico (sobrescreve snapshots confirmados)
         if: github.event.inputs.modo == 'reprocess_historico'
