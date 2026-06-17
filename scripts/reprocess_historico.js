@@ -77,7 +77,7 @@ async function main() {
 
   const { data: fixtures, error: fxErr } = await supabase
     .from('fixtures')
-    .select('fixture_id, home_team, away_team, league_name, match_date, hour')
+    .select('fixture_id, home_team, away_team, league_name, match_date')
     .gte('match_date', startISO)
     .lte('match_date', endISO)
     .order('match_date', { ascending: true })
@@ -108,7 +108,7 @@ async function main() {
       away_team:   f.away_team,
       league_name: f.league_name,
       match_name:  `${f.home_team} x ${f.away_team}`,
-      hour:        f.hour ?? null,
+      hour:        null,
     }));
 
   console.log(`Fixtures no período: ${fixtures.length} | Com métricas: ${metrics.length}\n`);
