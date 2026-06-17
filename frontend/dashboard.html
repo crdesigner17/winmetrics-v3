@@ -84,7 +84,7 @@
   .kpi-val.green { color:var(--green); }
   .kpi-val.red { color:var(--red); }
   .kpi-val.white { color:var(--text-primary); }
-  .kpi-delta { font-size:11.5px;display:flex;align-items:center;gap:4px; }
+  .kpi-delta { display:none !important; }
   .kpi-delta.up { color:var(--green); }
   .kpi-delta.down { color:var(--red); }
   .kpi-sparkline { position:absolute;bottom:0;right:0;opacity:.5; }
@@ -107,6 +107,17 @@
   .legend-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
   .legend-label { color:var(--text-secondary); }
   .legend-val { font-weight:600;margin-left:4px; }
+  .result-bars { display:grid;gap:14px;margin-top:6px; }
+  .result-bar-head { display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--text-secondary);margin-bottom:7px; }
+  .result-bar-head strong { color:var(--text-primary);font-weight:800; }
+  .result-bar-track { height:12px;background:#252a3a;border-radius:999px;overflow:hidden; }
+  .result-bar-fill { height:100%;width:0;border-radius:999px;transition:width .35s ease; }
+  .result-bar-fill.green { background:linear-gradient(90deg,#00b98d,var(--green)); }
+  .result-bar-fill.red { background:linear-gradient(90deg,#ff7480,var(--red)); }
+  .result-kpis { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px; }
+  .result-kpi { background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:11px 12px; }
+  .result-kpi-label { display:block;font-size:9.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px; }
+  .result-kpi-val { font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:800;line-height:1;color:var(--text-primary); }
 
   /* Mercado card */
   .mercado-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px; }
@@ -466,18 +477,22 @@ async function getCurrentProfile() {
         <div class="kpi-delta up" id="kpi-assertividade-delta">▲ 4.3% (7 dias)</div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,30 15,26 30,20 45,14 60,8 80,4" fill="none" stroke="#00d2a0" stroke-width="2"/></svg>
       </div>
+      <!-- KPI ROI preservado para uso futuro.
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>ROI</div>
         <div class="kpi-val green" id="kpi-roi">+18.7%</div>
         <div class="kpi-delta up" id="kpi-roi-delta">▲ 3.1% (7 dias)</div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,32 15,28 30,22 45,16 55,12 70,6 80,3" fill="none" stroke="#a78bfa" stroke-width="2"/></svg>
       </div>
+      -->
+      <!-- KPI Lucro preservado para uso futuro.
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>LUCRO (UNIDADES)</div>
         <div class="kpi-val green" id="kpi-lucro">+124.5u</div>
         <div class="kpi-delta up" id="kpi-lucro-delta">▲ 9.8u (7 dias)</div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,34 20,28 40,18 60,10 80,4" fill="none" stroke="#00d2a0" stroke-width="2"/></svg>
       </div>
+      -->
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>GREENS</div>
         <div class="kpi-val green" id="kpi-greens">421</div>
@@ -508,27 +523,20 @@ async function getCurrentProfile() {
             DISTRIBUIÇÃO DE RESULTADOS
           </div>
         </div>
-        <div class="donut-wrap">
-          <div style="position:relative;width:110px;height:110px;flex-shrink:0;">
-            <svg id="donut-svg" width="110" height="110" viewBox="0 0 110 110">
-              <!-- bg -->
-              <circle cx="55" cy="55" r="42" fill="none" stroke="#252a3a" stroke-width="14"/>
-              <!-- red 11% -->
-              <circle id="donut-red" cx="55" cy="55" r="42" fill="none" stroke="#ff5e6a" stroke-width="14"
-                stroke-dasharray="29 235" stroke-dashoffset="0" transform="rotate(-90 55 55)" stroke-linecap="butt"/>
-
-
-              <circle id="donut-green" cx="55" cy="55" r="42" fill="none" stroke="#00d2a0" stroke-width="14"
-                stroke-dasharray="233 31" stroke-dashoffset="-32" transform="rotate(-90 55 55)"/>
-            </svg>
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-              <div id="donut-total" style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;">473</div>
-              <div style="font-size:10px;color:var(--text-muted)">Total</div>
+        <div class="result-bars">
+          <div>
+            <div class="result-bar-head">
+              <span>Green</span>
+              <strong id="result-green-count">421 de 473</strong>
             </div>
+            <div class="result-bar-track"><div class="result-bar-fill green" id="result-green-bar" style="width:89%"></div></div>
           </div>
-          <div class="donut-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span class="legend-label">Green</span><span class="legend-val" id="donut-leg-green">421 <span style="color:var(--text-muted);font-size:11px;font-weight:400">(89.0%)</span></span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div><span class="legend-label">Red</span><span class="legend-val" id="donut-leg-red">52 <span style="color:var(--text-muted);font-size:11px;font-weight:400">(11.0%)</span></span></div>
+          <div>
+            <div class="result-bar-head">
+              <span>Red</span>
+              <strong id="result-red-count">52 de 473</strong>
+            </div>
+            <div class="result-bar-track"><div class="result-bar-fill red" id="result-red-bar" style="width:11%"></div></div>
           </div>
         </div>
       </div>
@@ -1072,15 +1080,19 @@ function calcAndRender(ALL_DATA, filtrado = false) {
   // KPI: ROI
   if (roi !== null) {
     const roiEl = document.getElementById('kpi-roi');
-    roiEl.textContent = (roi >= 0 ? '+' : '') + roi + '%';
-    roiEl.className = 'kpi-val ' + (roi >= 0 ? 'green' : 'red');
-    const roiL7 = statsL7.auditados > 0 ? Math.round((statsL7.lucro / Math.max(1, statsL7.auditados)) * 1000) / 10 : null;
-    const roiP7 = statsP7.auditados > 0 ? Math.round((statsP7.lucro / Math.max(1, statsP7.auditados)) * 1000) / 10 : null;
-    const d = delta(roiL7, roiP7, '%');
-    if (d.text) {
-      const el = document.getElementById('kpi-roi-delta');
-      el.textContent = d.text;
-      el.className = 'kpi-delta ' + d.cls;
+    if (roiEl) {
+      roiEl.textContent = (roi >= 0 ? '+' : '') + roi + '%';
+      roiEl.className = 'kpi-val ' + (roi >= 0 ? 'green' : 'red');
+      const roiL7 = statsL7.auditados > 0 ? Math.round((statsL7.lucro / Math.max(1, statsL7.auditados)) * 1000) / 10 : null;
+      const roiP7 = statsP7.auditados > 0 ? Math.round((statsP7.lucro / Math.max(1, statsP7.auditados)) * 1000) / 10 : null;
+      const d = delta(roiL7, roiP7, '%');
+      if (d.text) {
+        const el = document.getElementById('kpi-roi-delta');
+        if (el) {
+          el.textContent = d.text;
+          el.className = 'kpi-delta ' + d.cls;
+        }
+      }
     }
   }
 
@@ -1088,13 +1100,17 @@ function calcAndRender(ALL_DATA, filtrado = false) {
   {
     const lucEl = document.getElementById('kpi-lucro');
     const luc   = Math.round(lucroTotal * 10) / 10;
-    lucEl.textContent = (luc >= 0 ? '+' : '') + luc + 'u';
-    lucEl.className = 'kpi-val ' + (luc >= 0 ? 'green' : 'red');
-    const d = delta(statsL7.lucro, statsP7.lucro, 'u');
-    if (d.text) {
-      const el = document.getElementById('kpi-lucro-delta');
-      el.textContent = d.text;
-      el.className = 'kpi-delta ' + d.cls;
+    if (lucEl) {
+      lucEl.textContent = (luc >= 0 ? '+' : '') + luc + 'u';
+      lucEl.className = 'kpi-val ' + (luc >= 0 ? 'green' : 'red');
+      const d = delta(statsL7.lucro, statsP7.lucro, 'u');
+      if (d.text) {
+        const el = document.getElementById('kpi-lucro-delta');
+        if (el) {
+          el.textContent = d.text;
+          el.className = 'kpi-delta ' + d.cls;
+        }
+      }
     }
   }
 
@@ -1137,34 +1153,15 @@ function calcAndRender(ALL_DATA, filtrado = false) {
 
   // ── Donut: Distribuição Green/Red ────────────────────────────────────────
   {
-    const total  = totalGreens + totalReds;
-    const circum = 2 * Math.PI * 42;
-
-    const pctG = total > 0 ? totalGreens / total : 0;
-    const pctR = total > 0 ? totalReds   / total : 0;
-
-    const dashR = Math.round(circum * pctR);
-    const dashG = Math.round(circum * pctG);
-    const gap   = Math.round(circum);
-
-    const elR = document.getElementById('donut-red');
-    const elG = document.getElementById('donut-green');
-
-    elR.setAttribute('stroke-dasharray', `${dashR} ${gap - dashR}`);
-    elR.setAttribute('stroke-dashoffset', '0');
-
-    elG.setAttribute('stroke-dasharray', `${dashG} ${gap - dashG}`);
-    elG.setAttribute('stroke-dashoffset', -dashR);
-
-    document.getElementById('donut-total').textContent = total;
+    const total = totalGreens + totalReds;
 
     const pR = total > 0 ? Math.round((totalReds   / total) * 1000) / 10 : 0;
     const pG = total > 0 ? Math.round((totalGreens / total) * 1000) / 10 : 0;
 
-    document.getElementById('donut-leg-green').innerHTML =
-      `${totalGreens} <span style="color:var(--text-muted);font-size:11px;font-weight:400">(${pG}%)</span>`;
-    document.getElementById('donut-leg-red').innerHTML =
-      `${totalReds} <span style="color:var(--text-muted);font-size:11px;font-weight:400">(${pR}%)</span>`;
+    document.getElementById('result-green-count').textContent = `${totalGreens} de ${total}`;
+    document.getElementById('result-red-count').textContent   = `${totalReds} de ${total}`;
+    document.getElementById('result-green-bar').style.width   = `${pG}%`;
+    document.getElementById('result-red-bar').style.width     = `${pR}%`;
   }
 
   // ── Mercado com maior assertividade ──────────────────────────────────────
