@@ -166,16 +166,16 @@
   .confidence-summary { display:flex;align-items:flex-end;justify-content:space-between;gap:14px; }
   .confidence-headline { font-family:'Rajdhani',sans-serif;font-size:29px;font-weight:800;line-height:1;color:var(--red); }
   .confidence-sub { font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.35; }
-  .confidence-alert { background:rgba(255,94,106,.09);border:1px solid rgba(255,94,106,.28);color:#ffb7bd;border-radius:8px;padding:9px 11px;font-size:11.5px;font-weight:700;white-space:nowrap; }
+  .confidence-alert { background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.32);color:#c4b5fd;border-radius:8px;padding:9px 11px;font-size:11.5px;font-weight:700;white-space:nowrap; }
   .confidence-bars { display:grid;gap:9px; }
   .confidence-bar-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:12px;color:var(--text-secondary); }
   .confidence-bar-head strong { color:var(--text-primary);font-weight:800; }
   .confidence-track { height:9px;background:#252a3a;border-radius:999px;overflow:hidden; }
   .confidence-fill { height:100%;border-radius:999px;transition:width .35s ease; }
-  .confidence-fill.elite { background:#7c3aed; }
-  .confidence-fill.alta { background:var(--green); }
-  .confidence-fill.media { background:#d4b800; }
-  .confidence-fill.baixa { background:var(--red); }
+  .confidence-fill.elite { background:var(--green); }
+  .confidence-fill.alta { background:#f0a500; }
+  .confidence-fill.media { background:#60a5fa; }
+  .confidence-fill.baixa { background:#a78bfa; }
   .pyramid-note { font-size:11px;color:var(--text-muted);margin-top:12px;line-height:1.45; }
   .pyramid-wrap { display:none; }
 
@@ -650,33 +650,32 @@ async function getCurrentProfile() {
       <!-- Pirâmide -->
       <div class="pyramid-card">
         <div class="card-header">
-          <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>CONFIANÇA DAS PREVISÕES</div>
-          <span class="ver-link" style="font-size:12px;color:var(--accent);cursor:pointer">Ver pirâmide</span>
+          <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>ASSERTIVIDADE POR GRADE</div>
         </div>
         <div class="confidence-body">
           <div class="confidence-summary">
             <div>
-              <div class="confidence-headline" id="confidence-headline">Baixa dominante</div>
-              <div class="confidence-sub" id="confidence-sub">A maior parte das previs?es est? abaixo de 85%.</div>
+              <div class="confidence-headline" id="confidence-headline">Assertividade por grade</div>
+              <div class="confidence-sub" id="confidence-sub">Percentual de acerto por grade, considerando apenas green/red auditados.</div>
             </div>
-            <div class="confidence-alert" id="confidence-alert">Aten??o: qualidade concentrada em Baixa</div>
+            <div class="confidence-alert" id="confidence-alert">Elite/Alta juntos: --</div>
           </div>
           <div class="confidence-bars">
             <div>
-              <div class="confidence-bar-head"><span>Elite</span><strong id="pyr-elite-text">112 (23.7%)</strong></div>
-              <div class="confidence-track"><div class="confidence-fill elite" id="confidence-elite-bar" style="width:23.7%"></div></div>
+              <div class="confidence-bar-head"><span>Elite</span><strong id="pyr-elite-text">0% (0)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill elite" id="confidence-elite-bar" style="width:0%"></div></div>
             </div>
             <div>
-              <div class="confidence-bar-head"><span>Alta</span><strong id="pyr-alta-text">198 (41.9%)</strong></div>
-              <div class="confidence-track"><div class="confidence-fill alta" id="confidence-alta-bar" style="width:41.9%"></div></div>
+              <div class="confidence-bar-head"><span>Alta</span><strong id="pyr-alta-text">0% (0)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill alta" id="confidence-alta-bar" style="width:0%"></div></div>
             </div>
             <div>
-              <div class="confidence-bar-head"><span>M?dia</span><strong id="pyr-media-text">129 (27.3%)</strong></div>
-              <div class="confidence-track"><div class="confidence-fill media" id="confidence-media-bar" style="width:27.3%"></div></div>
+              <div class="confidence-bar-head"><span>Moderado</span><strong id="pyr-media-text">0% (0)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill media" id="confidence-media-bar" style="width:0%"></div></div>
             </div>
             <div>
-              <div class="confidence-bar-head"><span>Baixa</span><strong id="pyr-baixa-text">34 (7.1%)</strong></div>
-              <div class="confidence-track"><div class="confidence-fill baixa" id="confidence-baixa-bar" style="width:7.1%"></div></div>
+              <div class="confidence-bar-head"><span>Arriscado</span><strong id="pyr-baixa-text">0% (0)</strong></div>
+              <div class="confidence-track"><div class="confidence-fill baixa" id="confidence-baixa-bar" style="width:0%"></div></div>
             </div>
           </div>
         </div>
@@ -935,8 +934,13 @@ function calcAndRender(ALL_DATA, filtrado = false) {
 
   const ligaStats = {};  // { liga: { acertos, erros, palpites, lucro } }
 
-  // Pirâmide de confiança: grade → conjunto de palpites com resultado
-  const pyrStats = { elite: 0, alta: 0, media: 0, baixa: 0, total: 0 };
+  // Confiança: assertividade por grade oficial A+, A, B e C.
+  const gradeStats = {
+    elite: { acertos: 0, erros: 0 },
+    alta:  { acertos: 0, erros: 0 },
+    media: { acertos: 0, erros: 0 },
+    baixa: { acertos: 0, erros: 0 },
+  };
 
   // Para Odd Média global (todos os palpites confirmados)
   let oddSum = 0, oddCount = 0;
@@ -980,18 +984,6 @@ function calcAndRender(ALL_DATA, filtrado = false) {
     const jogos   = dayData.jogos || [];
     const conf    = !!dayData.resultado_confirmado;
 
-    // Pirâmide: apenas dias confirmados (espelho fiel do histórico auditado)
-    if (conf) {
-      for (const j of jogos) {
-        const score = getPalpiteScore(j);
-        pyrStats.total++;
-        if      (score >= 95) pyrStats.elite++;
-        else if (score >= 90) pyrStats.alta++;
-        else if (score >= 85) pyrStats.media++;
-        else                  pyrStats.baixa++;
-      }
-    }
-
     // KPIs, lucro, mercados, ligas: apenas dias confirmados
     if (!conf) continue;
 
@@ -1008,6 +1000,17 @@ function calcAndRender(ALL_DATA, filtrado = false) {
 
       // ok === null = resultado sem confirmação, ignora
       if (ok === null) continue;
+
+      const grade = getPalpiteGrade(j);
+      const gradeKey = grade === 'A+' ? 'elite'
+        : grade === 'A' ? 'alta'
+        : grade === 'B' ? 'media'
+        : grade === 'C' ? 'baixa'
+        : null;
+      if (gradeKey && gradeStats[gradeKey]) {
+        if (ok === true) gradeStats[gradeKey].acertos++;
+        else gradeStats[gradeKey].erros++;
+      }
 
       totalPalpites++;
 
@@ -1348,54 +1351,51 @@ function calcAndRender(ALL_DATA, filtrado = false) {
     }
   }
 
-  // ── Pirâmide de Confiança ─────────────────────────────────────────────────
+  // Assertividade por grade oficial A+, A, B e C
   {
-    const total = pyrStats.total || 1;
+    const labels = { elite: 'Elite', alta: 'Alta', media: 'Moderado', baixa: 'Arriscado' };
+    const colors = { elite: 'var(--green)', alta: '#f0a500', media: '#60a5fa', baixa: '#a78bfa' };
     const tiers = [
-      { id: 'elite', count: pyrStats.elite },
-      { id: 'alta',  count: pyrStats.alta  },
-      { id: 'media', count: pyrStats.media },
-      { id: 'baixa', count: pyrStats.baixa },
-    ];
-    tiers.forEach(t => {
-      const pct = Math.round((t.count / total) * 1000) / 10;
-      const countEl = document.getElementById(`pyr-${t.id}-count`);
-      const pctEl = document.getElementById(`pyr-${t.id}-pct`);
-      const textEl = document.getElementById(`pyr-${t.id}-text`);
-      if (countEl) countEl.textContent = t.count;
-      if (pctEl) pctEl.textContent = `(${pct}%)`;
-      if (textEl) textEl.textContent = `${t.count} (${pct}%)`;
-      const bar = document.getElementById(`confidence-${t.id}-bar`);
-      if (bar) bar.style.width = `${pct}%`;
+      { id: 'elite', ...gradeStats.elite },
+      { id: 'alta',  ...gradeStats.alta  },
+      { id: 'media', ...gradeStats.media },
+      { id: 'baixa', ...gradeStats.baixa },
+    ].map(t => {
+      const auditados = t.acertos + t.erros;
+      const pct = auditados > 0 ? Math.round((t.acertos / auditados) * 1000) / 10 : 0;
+      return { ...t, auditados, pct };
     });
 
-    // Nota dinâmica: maior concentração
-    const max = tiers.reduce((a, b) => b.count > a.count ? b : a);
-    const labels = { elite: 'Elite', alta: 'Alta', media: 'Média', baixa: 'Baixa' };
-    const score = Math.round((
-      pyrStats.elite * 100 +
-      pyrStats.alta  * 90 +
-      pyrStats.media * 75 +
-      pyrStats.baixa * 40
-    ) / total);
-    const status = score >= 90 ? 'Elite' : score >= 75 ? 'Alta' : score >= 60 ? 'Média' : 'Baixa';
+    tiers.forEach(t => {
+      const textEl = document.getElementById(`pyr-${t.id}-text`);
+      if (textEl) textEl.textContent = `${t.pct}% (${t.auditados})`;
+      const bar = document.getElementById(`confidence-${t.id}-bar`);
+      if (bar) bar.style.width = `${t.pct}%`;
+    });
+
+    const ranked = tiers.filter(t => t.auditados > 0).sort((a, b) => b.pct - a.pct);
+    const best = ranked[0] || tiers[0];
+    const totalAuditado = tiers.reduce((sum, t) => sum + t.auditados, 0);
+    const fortesAcertos = gradeStats.elite.acertos + gradeStats.alta.acertos;
+    const fortesAuditados = gradeStats.elite.acertos + gradeStats.elite.erros + gradeStats.alta.acertos + gradeStats.alta.erros;
+    const fortesPct = fortesAuditados > 0 ? Math.round((fortesAcertos / fortesAuditados) * 1000) / 10 : 0;
+
     const headlineEl = document.getElementById('confidence-headline');
     const subEl = document.getElementById('confidence-sub');
     const alertEl = document.getElementById('confidence-alert');
+
     if (headlineEl) {
-      const maxPct = Math.round((max.count / total) * 1000) / 10;
-      headlineEl.textContent = `${maxPct}% ${labels[max.id]}`;
-      headlineEl.style.color = max.id === 'elite' ? '#7c3aed'
-        : max.id === 'alta' ? 'var(--green)'
-        : max.id === 'media' ? '#d4b800'
-        : 'var(--red)';
+      headlineEl.textContent = `Melhor: ${labels[best.id]} ${best.pct}%`;
+      headlineEl.style.color = colors[best.id];
     }
-    if (subEl) subEl.textContent = `Categoria dominante: ${labels[max.id]}. Score geral: ${score} (${status}).`;
-    if (alertEl) alertEl.textContent = max.id === 'baixa'
-      ? 'Atenção: qualidade concentrada em Baixa'
-      : `Maior concentração em ${labels[max.id]}`;
-    document.getElementById('pyramid-note').textContent =
-      `${Math.round(((pyrStats.elite + pyrStats.alta) / total) * 1000) / 10}% das previsões estão em Elite/Alta. Maior concentração na categoria ${labels[max.id]}.`;
+    if (subEl) subEl.textContent = 'Percentual de acerto por grade, considerando apenas green/red auditados.';
+    if (alertEl) alertEl.textContent = totalAuditado > 0
+      ? `Elite/Alta juntos: ${fortesPct}% de acerto`
+      : 'Sem resultados auditados no período';
+
+    document.getElementById('pyramid-note').textContent = totalAuditado > 0
+      ? `Base auditada: ${totalAuditado} palpites com resultado. Elite/Alta: ${fortesPct}% de acerto.`
+      : 'Sem palpites auditados para calcular assertividade por grade.';
   }
 }
 
