@@ -869,15 +869,50 @@ const PredictionEngine = (function () {
 
     if (!best) return null;
 
+    // ── FRENTE 5 — Over 1.5 prevalece quando score bruto for maior ─────────
+    // Se Over 1.5 é elegível e seu score BRUTO supera o score BRUTO do best_mkt,
+    // Over 1.5 vence — independente dos pesos de liga.
+    // O mercado perdedor vira alternative_mkt com badge "Liga".
+    let alternative_mkt = null;
+
+    const over15c = candidatos.find(c => c.key === 'over15');
+    if (
+      best.market !== 'Over 1.5' &&
+      over15c &&
+      over15c.eligible &&
+      over15c.score !== null &&
+      over15c.score >= (MIN_SCORE_FOR_BEST['over15'] ?? 65) &&
+      over15c.score > best.score
+    ) {
+      // Over 1.5 score bruto > best_mkt score bruto → Over 1.5 assume
+      alternative_mkt = {
+        market:     best.market,
+        score:      best.score,
+        grade:      getGrade(best.score),
+        confidence: getConfidence(getGrade(best.score)),
+        badge:      'Liga',
+        tooltip:    'Mercado favorito pelo histórico desta liga — considere como complemento',
+      };
+      best = {
+        market:        'Over 1.5',
+        score:         over15c.score,
+        effectiveScore: (over15c.ws ?? over15c.score) * oddBoost(over15c.odd),
+        eligible:      true,
+      };
+    }
+
     const grade      = getGrade(best.score);
     const confidence = getConfidence(grade);
 
     return {
-      market:     best.market,
-      score:      best.score,
-      grade,
-      confidence,
-      eligible:   best.eligible,
+      best: {
+        market:     best.market,
+        score:      best.score,
+        grade,
+        confidence,
+        eligible:   best.eligible,
+      },
+      alternative_mkt,
     };
   }
 
@@ -1068,7 +1103,9 @@ const PredictionEngine = (function () {
     };
 
     const leagueKey = getLeagueKey(raw.league_name, raw.country);
-    const best = selectBestMkt(scores, filters, leagueKey, odds);
+    const _bestResult = selectBestMkt(scores, filters, leagueKey, odds);
+    const best          = _bestResult ? _bestResult.best          : null;
+    const alternative_mkt = _bestResult ? _bestResult.alternative_mkt : null;
     const main_markets = buildMainMarkets(scores, grades, odds, evs, filters);
 
     const best_mkt        = best ? best.market     : null;
@@ -1078,6 +1115,8 @@ const PredictionEngine = (function () {
     const best_odd        = best ? (odds[_mktKey(best.market)] ?? null) : null;
     const best_ev         = best ? computeEV(best.score, best_odd) : null;
     const is_official     = GRADES_OFICIAIS.has(best_grade);
+    // alternative_mkt: mercado "Liga" (perdeu por peso de liga mas score bruto era menor)
+    const alt_mkt = alternative_mkt ?? null;
 
     return {
       // Identificação
@@ -1114,6 +1153,7 @@ const PredictionEngine = (function () {
       best_ev,
       main_markets,
       is_official,  // true se A+ ou A — entra em Melhores Previsões
+      alternative_mkt: alt_mkt,  // mercado alternativo com badge 'Liga'
     };
   }
 
