@@ -90,8 +90,7 @@
   .kpi-sparkline { position:absolute;bottom:0;right:0;opacity:.5; }
 
   /* MIDDLE ROW */
-  .mid-row { display:grid;grid-template-columns:1fr 320px 280px;gap:14px;margin-bottom:18px; }
-  .mid-row > .mini-table-card { min-height:200px; }
+  .mid-row { display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;margin-bottom:18px; }
 
   /* Chart card */
   .card-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
@@ -499,25 +498,8 @@ async function getCurrentProfile() {
       </div>
     </div>
 
-    <!-- Mid row: chart + donut + mercado -->
+    <!-- Mid row: donut + mercado -->
     <div class="mid-row">
-      <!-- Line chart -->
-      <div class="mini-table-card">
-        <div class="mini-table-header">
-          <div class="mini-table-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
-            DESEMPENHO POR MERCADO
-          </div>
-        </div>
-        <table class="mini">
-          <thead><tr>
-            <th>MERCADO</th><th>ASSERTIVIDADE</th><th>ROI</th><th>LUCRO (U)</th><th>PALPITES</th>
-          </tr></thead>
-          <tbody id="tbody-mercado-mid">
-          </tbody>
-        </table>
-      </div>
-
       <!-- Donut -->
       <div class="donut-card">
         <div class="card-header">
@@ -809,12 +791,15 @@ async function initDashboard(isoStart, isoEnd, filtrado) {
     isoEnd = new Date().toISOString().split('T')[0];
   }
 
+  const queryStart = String(isoStart).includes('T') ? isoStart : `${isoStart}T00:00:00.000Z`;
+  const queryEnd   = String(isoEnd).includes('T')   ? isoEnd   : `${isoEnd}T23:59:59.999Z`;
+
   let q = sbClient
     .from('prediction_snapshots')
     .select('fixture_id, match_name, home_team, away_team, league_name, market, score, grade, odd, result_status, match_date, hour')
     .in('grade', ['A+', 'A', 'B', 'C'])
-    .gte('match_date', isoStart)
-    .lte('match_date', isoEnd)
+    .gte('match_date', queryStart)
+    .lte('match_date', queryEnd)
     .order('match_date', { ascending: true })
     .order('score', { ascending: false });
 
@@ -932,26 +917,25 @@ function calcAndRender(ALL_DATA, filtrado = false) {
                  + String(_hoje.getMonth()+1).padStart(2,'0') + '-'
                  + _hoje.getFullYear();
 
-  let palpitesDoDia = [];
-  let palpitesDoDiaDate = null;
+  const datesComJogos = dates.filter(date => (ALL_DATA[date].jogos || []).length > 0);
+  const hojeTime = dateObj(_hojeKey).getTime();
+
+  function escolherDataPalpites() {
+    if (!datesComJogos.length) return null;
+    if (filtrado) return datesComJogos[datesComJogos.length - 1];
+    if (datesComJogos.includes(_hojeKey)) return _hojeKey;
+    const proximoDia = datesComJogos.find(date => dateObj(date).getTime() > hojeTime);
+    return proximoDia || datesComJogos[datesComJogos.length - 1];
+  }
+
+  let palpitesDoDiaDate = escolherDataPalpites();
+  let palpitesDoDia = palpitesDoDiaDate ? (ALL_DATA[palpitesDoDiaDate].jogos || []) : [];
 
   // ── Iteração por dia ──
   for (const date of dates) {
     const dayData = ALL_DATA[date];
     const jogos   = dayData.jogos || [];
     const conf    = !!dayData.resultado_confirmado;
-
-    if (jogos.length > 0) {
-      if (filtrado) {
-        // Filtro aplicado: usa o dia mais recente do período
-        palpitesDoDia     = jogos;
-        palpitesDoDiaDate = date;
-      } else if (date === _hojeKey) {
-        // Carga inicial: apenas hoje
-        palpitesDoDia     = jogos;
-        palpitesDoDiaDate = date;
-      }
-    }
 
     // Pirâmide: apenas dias confirmados (espelho fiel do histórico auditado)
     if (conf) {
@@ -1201,39 +1185,6 @@ function calcAndRender(ALL_DATA, filtrado = false) {
       document.getElementById('mercado-nome').textContent  = best.m;
       document.getElementById('mercado-lucro').textContent = pct + '% assertividade';
       document.getElementById('mercado-roi').textContent   = 'Lucro: ' + (lucBest >= 0 ? '+' : '') + lucBest + 'u';
-    }
-  }
-
-  // ── Desempenho por Mercado (mid-row) ─────────────────────────────────────
-  {
-    const tbody = document.getElementById('tbody-mercado-mid');
-    const rows = MERCADOS
-      .map(m => {
-        const s = mktStats[m];
-        const aud = s.acertos + s.erros;
-        const assert = aud > 0 ? Math.round((s.acertos / aud) * 1000) / 10 : null;
-        const roi    = aud > 0 ? Math.round((s.lucro / aud) * 1000) / 10 : null;
-        const lucro  = Math.round(s.lucro * 10) / 10;
-        return { m, ...s, aud, assert, roi, lucro };
-      })
-      .filter(x => x.aud >= 1)
-      .sort((a, b) => (b.assert ?? -999) - (a.assert ?? -999));
-
-    if (rows.length > 0) {
-      tbody.innerHTML = rows.map(s => {
-        const assertStr = s.assert !== null ? `<span style="color:var(--green);font-weight:600">${s.assert}%</span>` : '—';
-        const roiStr    = s.roi    !== null ? `<span style="color:var(--green);font-weight:600">${s.roi >= 0 ? '+' : ''}${s.roi}%</span>` : '—';
-        const lucroStr  = `<span style="color:var(--green);font-weight:700">${s.lucro >= 0 ? '+' : ''}${s.lucro}u</span>`;
-        return `<tr>
-          <td>${s.m}</td>
-          <td>${assertStr}</td>
-          <td>${roiStr}</td>
-          <td>${lucroStr}</td>
-          <td>${s.palpites}</td>
-        </tr>`;
-      }).join('');
-    } else {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">Sem dados confirmados</td></tr>';
     }
   }
 
