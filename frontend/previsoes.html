@@ -325,6 +325,69 @@
   th.col-alts, td.col-alts { min-width: 120px; width: auto; text-align: left; }
   /* World Cup mode — colunas específicas por mercado */
 
+  /* ── Botão World Cup ── */
+  .wc-special-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1.5px solid rgba(0,210,160,.35);
+    background: rgba(0,210,160,.07);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: .4px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, box-shadow .15s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .wc-special-btn:hover {
+    background: rgba(0,210,160,.14);
+    border-color: rgba(0,210,160,.6);
+  }
+  .wc-special-btn.wc-active {
+    background: rgba(0,210,160,.2);
+    border-color: #00d2a0;
+    box-shadow: 0 0 10px rgba(0,210,160,.25);
+    color: #00d2a0;
+  }
+
+  /* Tabela World Cup — colunas de categoria de mercado */
+  .wc-view-table th.wc-col, .wc-view-table td.wc-col {
+    min-width: 110px;
+    text-align: center;
+    padding: 8px 6px;
+    vertical-align: top;
+    white-space: normal;
+  }
+  .wc-cat-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    text-align: center;
+  }
+  .wc-market-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-bottom: 3px;
+  }
+  .wc-market-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: 'Rajdhani', sans-serif;
+    word-break: break-word;
+    line-height: 1.2;
+    color: var(--text-primary);
+  }
+
 
 
 
@@ -1012,7 +1075,11 @@ async function getCurrentProfile() {
 
       </div>
 
-      <div style="display:flex;align-items:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <!-- ── Botão exclusivo Copa do Mundo (isolado dos filtros principais) ── -->
+        <button class="wc-special-btn" id="wc-special-btn" title="Exibir apenas jogos da Copa do Mundo">
+          🇧🇷 World Cup 🇧🇷
+        </button>
         <div class="explain-link" style="margin:0;">
           <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           Explicação das métricas
@@ -2695,6 +2762,10 @@ let searchQuery      = '';
 const worldCupOnly = false; // modo WC desativado
 const WORLD_CUP_LEAGUES = ['World: World Cup', 'FIFA World Cup', 'World Cup'];
 
+// ── Estado isolado do filtro especial Copa do Mundo ──────────────────────────
+// Não afeta activeFilter, filterLeague, filterMarket nem nenhum filtro principal.
+let activeSpecialFilter = null; // 'world_cup' quando o botão WC está ativo
+
 // section
 // section
 function brtDateStr(date) {
@@ -3339,18 +3410,25 @@ function smartMarketKey(market) {
   if (label === 'over 3.5 gols') return 'over35';
   if (label === 'under 3.5' || label === 'under 3.5 gols') return 'under35';
   if (label === 'under 4.5' || label === 'under 4.5 gols') return 'under45';
+  if (label === 'under 2.5' || label === 'under 2.5 gols') return 'under25';
   if (label === 'btts' || label === 'ambas marcam') return 'btts';
   if (label === 'over 0.5 ht') return 'over05ht';
   if (label === 'over 0.5 gols casa') return 'homeOver05';
   if (label === 'over 0.5 gols visitante') return 'awayOver05';
   if (label === 'dupla chance 1x') return 'double1x';
-  if (label === 'dupla chance 2x') return 'double2x';
+  if (label === 'dupla chance 2x' || label === 'dupla chance x2') return 'doublex2';
+  if (label === 'dupla chance 12') return 'double12';
   if (label === 'vitória da casa' || label === 'vitoria da casa') return 'homeWin';
   if (label === 'vitória do visitante' || label === 'vitoria do visitante') return 'awayWin';
+  if (label === 'empate' || label === 'draw') return 'draw';
+  if (label === 'esc 6.5' || label === 'over 6.5 escanteios') return 'esc65';
   if (label === 'esc 7.5' || label === 'over 7.5 escanteios') return 'esc75';
   if (label === 'esc 8.5' || label === 'over 8.5 escanteios') return 'esc85';
+  if (label === 'esc 9.5' || label === 'over 9.5 escanteios') return 'esc95';
   if (label === 'over 2.5 cartão' || label === 'over 2.5 cartao') return 'cart25';
   if (label === 'over 3.5 cartão' || label === 'over 3.5 cartao') return 'cart35';
+  if (label === 'over 4.5 cartão' || label === 'over 4.5 cartao') return 'cart45';
+  if (label === 'under 4.5 cartão' || label === 'under 4.5 cartao') return 'cart45u';
   if (label === 'over 5.5 cartão' || label === 'over 5.5 cartao') return 'cart55';
   if (label === 'cart 2.5') return 'cart25';
   if (label === 'cart 3.5') return 'cart35';
@@ -3940,6 +4018,242 @@ function renderPagination(total, page) {
 }
 
 // section
+// ════════════════════════════════════════════════════════════════════════════
+//  WORLD CUP — Lógica isolada (não afeta nenhum outro filtro ou liga)
+//  activeSpecialFilter = 'world_cup'  quando o botão 🇧🇷 World Cup 🇧🇷 está ativo
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Agrupa as previsões de um jogo por categoria de mercado.
+ * Retorna, para cada categoria, o MELHOR mercado (maior score).
+ * Função isolada — usada somente na visualização World Cup.
+ */
+function getWorldCupMarketGroups(predictions) {
+  // Definição dos grupos e quais market keys pertencem a cada um
+  const WC_GROUPS = {
+    over_gols: {
+      label: 'Over Gols',
+      keys: ['over05', 'over15', 'over25', 'over35'],
+    },
+    under_gols: {
+      label: 'Under Gols',
+      keys: ['under25', 'under35', 'under45'],
+    },
+    escanteios: {
+      label: 'Escanteios',
+      keys: ['esc65', 'esc75', 'esc85', 'esc95'],
+    },
+    cartoes: {
+      label: 'Cartões',
+      keys: ['cart25', 'cart35', 'cart45', 'cart45u'],
+    },
+    resultado: {
+      label: 'Resultado / Dupla Chance',
+      keys: ['homeWin', 'awayWin', 'draw', 'double1x', 'doublex2', 'double12', 'btts'],
+    },
+  };
+
+  // Mapeia market key → prediction (maior score)
+  const byKey = {};
+  (predictions || []).forEach(p => {
+    const key = smartMarketKey(p.market);
+    if (!key) return;
+    if (!byKey[key] || Number(p.score || 0) > Number(byKey[key].score || 0)) {
+      byKey[key] = p;
+    }
+  });
+
+  // Para cada grupo, pega o melhor entre as keys disponíveis
+  const result = {};
+  Object.entries(WC_GROUPS).forEach(([groupId, { label, keys }]) => {
+    let best = null;
+    keys.forEach(k => {
+      if (!byKey[k]) return;
+      if (!best || Number(byKey[k].score || 0) > Number(best.score || 0)) {
+        best = byKey[k];
+      }
+    });
+    result[groupId] = { label, best };
+  });
+
+  return result;
+}
+
+/** Converte grade em texto descritivo (reutiliza classificação oficial) */
+function wcGradeLabel(grade) {
+  const map = { 'A+': 'Elite', A: 'Alta', B: 'Moderado', C: 'Arriscado', D: 'Evitar' };
+  return map[grade] || grade || '-';
+}
+
+/** Renderiza a célula de uma categoria de mercado na view World Cup */
+function renderWcCategoryCell(groupData, snap) {
+  if (!groupData.best) {
+    return `<div class="wc-cat-label">${groupData.label}</div>
+            <span style="color:var(--text-muted);font-size:11px">-</span>`;
+  }
+
+  const p = groupData.best;
+  const grade = p.grade || 'C';
+  const score = p.score !== null && p.score !== undefined ? Math.round(Number(p.score)) : null;
+  const marketDisplay = displayMarket(p.market);
+  const gradeColors = {
+    'A+': { bg: 'rgba(0,210,160,.14)', border: 'rgba(0,210,160,.35)', color: '#00d2a0' },
+    'A':  { bg: 'rgba(240,165,0,.12)', border: 'rgba(240,165,0,.35)',  color: '#f0a500' },
+    'B':  { bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.28)', color: '#60a5fa' },
+    'C':  { bg: 'rgba(124,58,237,.1)', border: 'rgba(124,58,237,.28)', color: '#a78bfa' },
+    'D':  { bg: 'rgba(255,94,106,.1)', border: 'rgba(255,94,106,.28)', color: '#ff5e6a' },
+  };
+  const gc = gradeColors[grade] || gradeColors['C'];
+  const res = calcMarketResult(marketDisplay, snap);
+
+  let labelStyle = 'color:var(--text-primary);';
+  let suffix = '';
+  if (res === 'green') {
+    labelStyle = 'color:#00d2a0;';
+    suffix = '<span style="font-size:9px;font-weight:700;color:#00d2a0;margin-left:3px;">✓</span>';
+  } else if (res === 'red') {
+    labelStyle = 'color:#ff5e6a;text-decoration:line-through;opacity:.75;';
+    suffix = '<span style="font-size:9px;font-weight:700;color:#ff5e6a;margin-left:3px;">✗</span>';
+  }
+
+  return `<div class="wc-cat-label">${groupData.label}</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span style="
+              font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
+              background:${gc.bg};border:1px solid ${gc.border};color:${gc.color};
+              letter-spacing:.3px;
+            ">${grade} ${wcGradeLabel(grade)}</span>
+            <div class="wc-market-item">
+              <span style="font-size:11.5px;font-weight:600;font-family:'Rajdhani',sans-serif;color:var(--text-primary);${labelStyle}">${marketDisplay}</span>
+              ${suffix}
+            </div>
+            ${score !== null ? `<span style="font-size:10px;color:var(--text-muted);">${score}%</span>` : ''}
+          </div>`;
+}
+
+/**
+ * Renderiza a tabela completa no modo World Cup.
+ * Cada linha mostra o melhor mercado por categoria para aquele jogo.
+ * Isolado — não altera renderRows nem a lógica padrão.
+ */
+function renderWorldCupRows(fixtures, predictionsMap, fixturesMap) {
+  const tbody = document.getElementById('tableBody');
+  const thead = document.querySelector('thead tr');
+
+  if (!fixtures.length) {
+    renderEmpty();
+    // Restaura thead normal ao sair
+    if (thead) thead.innerHTML = THEAD_NORMAL;
+    return;
+  }
+
+  // Thead especial Copa do Mundo
+  if (thead) {
+    thead.innerHTML = `
+      <th class="col-star"></th>
+      <th class="col-game">JOGO</th>
+      <th class="col-date center">DATA</th>
+      <th class="wc-col">Over Gols</th>
+      <th class="wc-col">Under Gols</th>
+      <th class="wc-col">Escanteios</th>
+      <th class="wc-col">Cartões</th>
+      <th class="wc-col">Resultado / Dupla Chance</th>
+      <th class="col-scoreboard center">PLACAR</th>
+      <th class="col-result center">RESULTADO</th>
+    `;
+  }
+
+  const table = document.querySelector('.table-wrap table');
+  if (table) table.style.minWidth = '1100px';
+
+  tbody.innerHTML = fixtures.map(snap => {
+    const predictions = predictionsMap[snap.fixture_id] || [];
+    const f = fixturesMap[String(snap.fixture_id)] || snap;
+    const merged = { ...snap, ...f };
+
+    if (f.goals_home !== undefined) merged.goals_home = f.goals_home;
+    if (f.goals_away !== undefined) merged.goals_away = f.goals_away;
+
+    const groups = getWorldCupMarketGroups(predictions);
+    const hora   = snap.hour || formatHour(snap.match_date);
+    const data   = formatDate(snap.match_date);
+    const leagueName = snap.league_name || '';
+    const matchName  = cleanMatchName(snap.match_name || `${snap.home_team || ''} x ${snap.away_team || ''}`);
+
+    return `
+  <tr>
+    <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
+    <td class="col-game" style="padding:10px 8px 10px 12px;">
+      <div class="game-cell">
+        <div class="game-info">
+          <div class="game-name">${matchName}</div>
+          <div class="game-sub">${leagueName}</div>
+        </div>
+      </div>
+    </td>
+    <td class="col-date" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;padding:10px 8px;text-align:center;">
+      <div style="font-weight:600;color:var(--text-primary);font-size:12px;">${data}</div>
+      <div style="font-size:11px;margin-top:2px">${hora}</div>
+    </td>
+    <td class="wc-col">${renderWcCategoryCell(groups.over_gols, merged)}</td>
+    <td class="wc-col">${renderWcCategoryCell(groups.under_gols, merged)}</td>
+    <td class="wc-col">${renderWcCategoryCell(groups.escanteios, merged)}</td>
+    <td class="wc-col">${renderWcCategoryCell(groups.cartoes, merged)}</td>
+    <td class="wc-col">${renderWcCategoryCell(groups.resultado, merged)}</td>
+    <td class="col-scoreboard" style="text-align:center;">${formatPlacar(merged)}</td>
+    <td class="col-result" style="text-align:center;">${formatResult(merged)}</td>
+  </tr>`;
+  }).join('');
+}
+
+/**
+ * Carrega e exibe jogos da Copa do Mundo.
+ * Totalmente isolado — não altera filterLeague, filterMarket nem activeFilter.
+ */
+async function loadWorldCup() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
+    <div style="font-size:14px">⚽ Carregando jogos da Copa do Mundo...</div></td></tr>`;
+
+  try {
+    const fixtures = await fetchWorldCupFixtures();
+
+    if (!fixtures.length) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
+        <div style="font-size:22px;margin-bottom:12px;">🇧🇷</div>
+        <div style="font-size:14px;margin-bottom:6px;">Nenhum jogo da Copa do Mundo encontrado no período selecionado.</div>
+        <div style="font-size:12px;color:var(--text-muted);">Tente selecionar outro período de datas.</div>
+      </td></tr>`;
+      const thead = document.querySelector('thead tr');
+      if (thead) thead.innerHTML = THEAD_NORMAL;
+      return;
+    }
+
+    const fixtureIds = fixtures.map(f => f.fixture_id);
+    const [predictionsMap, fixturesMap] = await Promise.all([
+      fetchPredictions(fixtureIds),
+      fetchFixtureResults(fixtureIds),
+    ]);
+
+    renderWorldCupRows(fixtures, predictionsMap, fixturesMap);
+
+    // Atualiza contador (sem paginação no modo WC)
+    const paginationInfo = document.querySelector('.pagination-info');
+    if (paginationInfo) {
+      paginationInfo.textContent = `${fixtures.length} jogo${fixtures.length !== 1 ? 's' : ''} da Copa do Mundo`;
+    }
+    const pagesEl = document.querySelector('.pagination-pages');
+    if (pagesEl) pagesEl.innerHTML = '';
+
+  } catch (err) {
+    renderError(err.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  Fim da lógica World Cup
+// ════════════════════════════════════════════════════════════════════════════
+
 async function loadPrevisoes() {
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
@@ -4048,7 +4362,11 @@ function _bindTabEvents() {
       document.getElementById('filter-date-label').textContent = 'Filtros';
       document.getElementById('filter-date-btn').style.borderColor = '';
       currentPage = 1;
-      loadPrevisoes();
+      if (activeSpecialFilter === 'world_cup') {
+        loadWorldCup();
+      } else {
+        loadPrevisoes();
+      }
     });
   });
 }
@@ -4179,6 +4497,29 @@ function initDropdowns() {
 }
 
 // initWorldCupButton removido
+function initWorldCupButton() {
+  const btn = document.getElementById('wc-special-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    if (activeSpecialFilter === 'world_cup') {
+      // Desativa — volta ao modo normal
+      activeSpecialFilter = null;
+      btn.classList.remove('wc-active');
+      // Restaura thead normal
+      const thead = document.querySelector('thead tr');
+      if (thead) thead.innerHTML = THEAD_NORMAL;
+      const table = document.querySelector('.table-wrap table');
+      if (table) table.style.minWidth = '1040px';
+      loadPrevisoes();
+    } else {
+      // Ativa modo World Cup (isolado)
+      activeSpecialFilter = 'world_cup';
+      btn.classList.add('wc-active');
+      loadWorldCup();
+    }
+  });
+}
 function initFilterModal() {
   const overlay   = document.getElementById('filter-modal-overlay');
   const openBtn   = document.getElementById('filter-date-btn');
@@ -4221,7 +4562,11 @@ function initFilterModal() {
     openBtn.style.color = 'var(--text-primary)';
 
     closeModal();
-    loadPrevisoes();
+    if (activeSpecialFilter === 'world_cup') {
+      loadWorldCup();
+    } else {
+      loadPrevisoes();
+    }
   });
 
   clearBtn.addEventListener('click', () => {
@@ -4239,7 +4584,11 @@ function initFilterModal() {
     });
     closeModal();
     currentPage = 1;
-    loadPrevisoes();
+    if (activeSpecialFilter === 'world_cup') {
+      loadWorldCup();
+    } else {
+      loadPrevisoes();
+    }
   });
 }
 
@@ -4252,6 +4601,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFilterModal();
   initSearch();
   initPageSize();
+  initWorldCupButton();
   loadPrevisoes();
 });
 </script>
