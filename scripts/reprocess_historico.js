@@ -77,7 +77,7 @@ async function main() {
 
   const { data: fixtures, error: fxErr } = await supabase
     .from('fixtures')
-    .select('fixture_id, home_team, away_team, league_name, match_date')
+    .select('fixture_id, home_team, away_team, league_name, match_date, hour')
     .gte('match_date', startISO)
     .lte('match_date', endISO)
     .order('match_date', { ascending: true })
@@ -107,6 +107,8 @@ async function main() {
       home_team:   f.home_team,
       away_team:   f.away_team,
       league_name: f.league_name,
+      match_name:  `${f.home_team} x ${f.away_team}`,
+      hour:        f.hour ?? null,
     }));
 
   console.log(`Fixtures no período: ${fixtures.length} | Com métricas: ${metrics.length}\n`);
@@ -211,19 +213,31 @@ async function main() {
     // 4. Sobrescrever snapshot — preserva result_status, goals, placar
     const existingConfirmed = snapMap[fid]?.[newMkt];
     const row = {
-      fixture_id:    fid,
-      market:        newMkt,
-      score:         newScore,
-      grade:         newGrade,
-      match_date:    m.match_date,
-      home_team:     m.home_team,
-      away_team:     m.away_team,
-      league_name:   m.league_name,
+      fixture_id:        fid,
+      match_name:        m.match_name,
+      home_team:         m.home_team,
+      away_team:         m.away_team,
+      home_team_logo:    null,
+      away_team_logo:    null,
+      league_name:       m.league_name,
+      match_date:        m.match_date,
+      hour:              m.hour ?? null,
+      market:            newMkt,
+      score:             newScore,
+      grade:             newGrade,
+      odd:               null,
+      score_enriquecido: null,
+      grade_enriquecido: null,
+      odds_fonte:        'packball',
+      passed_filter:     result.filters?.over15_passed  ?? false,
+      under35_passed:    result.filters?.under35_passed ?? false,
+      is_best_market:    true,
+      source:            'reprocess_historico',
+      created_at:        new Date().toISOString(),
       // Preservar resultado confirmado
       result_status: existingConfirmed?.result_status ?? null,
       goals_home:    existingConfirmed?.goals_home    ?? null,
       goals_away:    existingConfirmed?.goals_away    ?? null,
-      source:        'reprocess_historico',
     };
 
     const { error: upErr } = await supabase
