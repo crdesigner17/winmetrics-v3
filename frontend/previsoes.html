@@ -2892,7 +2892,7 @@ async function fetchWorldCupFixtures() {
   const { start, end } = getDateRange();
   let q = supabaseClient
     .from('fixtures')
-    .select('fixture_id, match_date, home_team, away_team, home_team_logo, away_team_logo, league_name, goals_home, goals_away, status')
+    .select('fixture_id, match_date, hour, home_team, away_team, home_team_logo, away_team_logo, league_name, goals_home, goals_away, status')
     .in('league_name', WORLD_CUP_LEAGUES)
     .order('match_date', { ascending: true });
 
@@ -4136,7 +4136,7 @@ function renderWcCategoryCell(groupData, snap) {
  * Cada linha mostra o melhor mercado por categoria para aquele jogo.
  * Isolado — não altera renderRows nem a lógica padrão.
  */
-function renderWorldCupRows(fixtures, predictionsMap, fixturesMap) {
+function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap = {}) {
   const tbody = document.getElementById('tableBody');
   const thead = document.querySelector('thead tr');
 
@@ -4175,7 +4175,9 @@ function renderWorldCupRows(fixtures, predictionsMap, fixturesMap) {
     if (f.goals_away !== undefined) merged.goals_away = f.goals_away;
 
     const groups = getWorldCupMarketGroups(predictions);
-    const hora   = snap.hour || formatHour(snap.match_date);
+    // hour: prioridade → snapshot (tem o horário real) → fixtures (só tem meia-noite BRT)
+    const snapEntry = snapshotsMap[String(snap.fixture_id)] || {};
+    const hora   = snapEntry.hour || snap.hour || formatHour(snap.match_date);
     const data   = formatDate(snap.match_date);
     const leagueName = snap.league_name || '';
     const matchName  = cleanMatchName(snap.match_name || `${snap.home_team || ''} x ${snap.away_team || ''}`);
@@ -4230,12 +4232,13 @@ async function loadWorldCup() {
     }
 
     const fixtureIds = fixtures.map(f => f.fixture_id);
-    const [predictionsMap, fixturesMap] = await Promise.all([
+    const [predictionsMap, fixturesMap, snapshotsMap] = await Promise.all([
       fetchPredictions(fixtureIds),
       fetchFixtureResults(fixtureIds),
+      fetchOfficialSnapshotsByFixtureIds(fixtureIds), // para pegar o hour correto
     ]);
 
-    renderWorldCupRows(fixtures, predictionsMap, fixturesMap);
+    renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap);
 
     // Atualiza contador (sem paginação no modo WC)
     const paginationInfo = document.querySelector('.pagination-info');
