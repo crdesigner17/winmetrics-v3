@@ -534,10 +534,8 @@ async function getCurrentProfile() {
               <!-- red 11% -->
               <circle id="donut-red" cx="55" cy="55" r="42" fill="none" stroke="#ff5e6a" stroke-width="14"
                 stroke-dasharray="29 235" stroke-dashoffset="0" transform="rotate(-90 55 55)" stroke-linecap="butt"/>
-              <!-- void 1% -->
-              <circle id="donut-void" cx="55" cy="55" r="42" fill="none" stroke="#525870" stroke-width="14"
-                stroke-dasharray="3 261" stroke-dashoffset="-29" transform="rotate(-90 55 55)"/>
-              <!-- green 89% offset after red+void -->
+
+
               <circle id="donut-green" cx="55" cy="55" r="42" fill="none" stroke="#00d2a0" stroke-width="14"
                 stroke-dasharray="233 31" stroke-dashoffset="-32" transform="rotate(-90 55 55)"/>
             </svg>
@@ -549,7 +547,6 @@ async function getCurrentProfile() {
           <div class="donut-legend">
             <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span class="legend-label">Green</span><span class="legend-val" id="donut-leg-green">421 <span style="color:var(--text-muted);font-size:11px;font-weight:400">(89.0%)</span></span></div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div><span class="legend-label">Red</span><span class="legend-val" id="donut-leg-red">52 <span style="color:var(--text-muted);font-size:11px;font-weight:400">(11.0%)</span></span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#525870"></div><span class="legend-label">Void</span><span class="legend-val" id="donut-leg-void">8 <span style="color:var(--text-muted);font-size:11px;font-weight:400">(1.0%)</span></span></div>
           </div>
         </div>
       </div>
@@ -769,7 +766,27 @@ function statusToResultado(status, mkt) {
   const mktKey = MKT_RESULT[mkt] || 'over15_ok';
   if (status === 'green') return { [mktKey]: true };
   if (status === 'red')   return { [mktKey]: false };
-  return null; // void → tratado como null (sem resultado)
+  return null;
+}
+
+// ─── Normaliza nome do mercado vindo do Supabase → nome interno do dashboard ─
+function normalizarMercado(market) {
+  if (!market) return 'Over 1.5';
+  const m = market.trim();
+  const n = m.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/ã/g, 'a').replace(/õ/g, 'o');
+  if (n.includes('over 1.5'))   return 'Over 1.5';
+  if (n.includes('over 2.5'))   return 'Over 2.5';
+  if (n.includes('under 3.5'))  return 'Under 3.5';
+  if (n.includes('under 4.5'))  return 'Under 4.5';
+  if (n.includes('btts') || n.includes('ambas'))  return 'BTTS';
+  if (n.includes('0.5 ht') || n.includes('0.5ht')) return 'Over 0.5 HT';
+  if (n.includes('8.5') && (n.includes('esc') || n.includes('cant'))) return 'Esc 8.5';
+  if (n.includes('7.5') && (n.includes('esc') || n.includes('cant'))) return 'Esc 7.5';
+  if (n.includes('3.5') && (n.includes('cart') || n.includes('card'))) return 'Cart 3.5';
+  if (n.includes('2.5') && (n.includes('cart') || n.includes('card'))) return 'Cart 2.5';
+  return 'Over 1.5'; // fallback seguro
 }
 
 // ─── Inicialização com dados reais do Supabase ────────────────────────────────
@@ -818,16 +835,16 @@ async function initDashboard(isoStart, isoEnd, filtrado) {
 
     if (!porDia[key]) porDia[key] = { jogos: [], temGreenOuRed: false };
 
-    const mkt    = snap.market || 'Over 1.5';
+    const mkt    = normalizarMercado(snap.market);
     const status = snap.result_status || null;
-    const isConfirmado = status === 'green' || status === 'red' || status === 'void';
+    const isConfirmado = status === 'green' || status === 'red';
 
     if (isConfirmado) porDia[key].temGreenOuRed = true;
 
     // Jogo no formato esperado por calcAndRender
     porDia[key].jogos.push({
       jogo:          snap.match_name || `${snap.home_team} x ${snap.away_team}`,
-      hora:          snap.hour || '--',
+      hora:          snap.hour ? snap.hour.slice(0,5) : '--',
       liga:          snap.league_name || 'Outras',
       palpite_mkt:   mkt,
       palpite_score: Number(snap.score)  || 0,
@@ -881,8 +898,8 @@ function calcAndRender(ALL_DATA) {
   const evolucaoLabels = [];
   let lucroAcum = 0;
 
-  // Greens/Reds/Void globais
-  let totalGreens = 0, totalReds = 0, totalVoid = 0;
+  // Greens/Reds globais
+  let totalGreens = 0, totalReds = 0;
   let totalPalpites = 0;
 
   // Últimos resultados (para tabela)
@@ -942,12 +959,8 @@ function calcAndRender(ALL_DATA) {
       const ok     = res ? resultOk(res, mktKey) : null;
       const odd    = oddForJogo(j);
 
-      // ok === null = resultado ausente em dia confirmado (conta como void)
-      if (ok === null) {
-        totalVoid++;
-        totalPalpites++;
-        continue;
-      }
+      // ok === null = resultado sem confirmação, ignora
+      if (ok === null) continue;
 
       totalPalpites++;
 
@@ -1118,45 +1131,36 @@ function calcAndRender(ALL_DATA) {
     }
   }
 
-  // ── Donut: Distribuição Green/Red/Void ────────────────────────────────────
+  // ── Donut: Distribuição Green/Red ────────────────────────────────────────
   {
-    const total  = totalGreens + totalReds + totalVoid;
-    const circum = 2 * Math.PI * 42; // ≈ 263.9
+    const total  = totalGreens + totalReds;
+    const circum = 2 * Math.PI * 42;
 
     const pctG = total > 0 ? totalGreens / total : 0;
-    const pctR = total > 0 ? totalReds    / total : 0;
-    const pctV = total > 0 ? totalVoid    / total : 0;
+    const pctR = total > 0 ? totalReds   / total : 0;
 
     const dashR = Math.round(circum * pctR);
-    const dashV = Math.round(circum * pctV);
     const dashG = Math.round(circum * pctG);
     const gap   = Math.round(circum);
 
     const elR = document.getElementById('donut-red');
-    const elV = document.getElementById('donut-void');
     const elG = document.getElementById('donut-green');
 
     elR.setAttribute('stroke-dasharray', `${dashR} ${gap - dashR}`);
     elR.setAttribute('stroke-dashoffset', '0');
 
-    elV.setAttribute('stroke-dasharray', `${dashV} ${gap - dashV}`);
-    elV.setAttribute('stroke-dashoffset', -dashR);
-
     elG.setAttribute('stroke-dasharray', `${dashG} ${gap - dashG}`);
-    elG.setAttribute('stroke-dashoffset', -(dashR + dashV));
+    elG.setAttribute('stroke-dashoffset', -dashR);
 
     document.getElementById('donut-total').textContent = total;
 
     const pR = total > 0 ? Math.round((totalReds   / total) * 1000) / 10 : 0;
-    const pG = total > 0 ? Math.round((totalGreens  / total) * 1000) / 10 : 0;
-    const pV = total > 0 ? Math.round((totalVoid    / total) * 1000) / 10 : 0;
+    const pG = total > 0 ? Math.round((totalGreens / total) * 1000) / 10 : 0;
 
     document.getElementById('donut-leg-green').innerHTML =
       `${totalGreens} <span style="color:var(--text-muted);font-size:11px;font-weight:400">(${pG}%)</span>`;
     document.getElementById('donut-leg-red').innerHTML =
       `${totalReds} <span style="color:var(--text-muted);font-size:11px;font-weight:400">(${pR}%)</span>`;
-    document.getElementById('donut-leg-void').innerHTML =
-      `${totalVoid} <span style="color:var(--text-muted);font-size:11px;font-weight:400">(${pV}%)</span>`;
   }
 
   // ── Mercado com maior assertividade ──────────────────────────────────────
