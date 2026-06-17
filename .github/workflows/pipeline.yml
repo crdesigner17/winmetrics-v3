@@ -41,8 +41,9 @@ jobs:
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
         run: |
-          echo "▶ Backfill automático"
-          node scripts/backfill.js --from="2026-05-24" --future="10" --delay=2000
+          FROM=$(TZ="America/Sao_Paulo" date -d "-2 days" +%Y-%m-%d)
+          echo "▶ Backfill automático: $FROM → hoje + 7 dias"
+          node scripts/backfill.js --from="$FROM" --future="5" --delay=2000
           EXIT=$?
           [ $EXIT -eq 2 ] && echo "⛔ Quota esgotada." && exit 0
           exit $EXIT
