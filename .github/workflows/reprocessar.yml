@@ -9,10 +9,11 @@ on:
         default: 'hoje'
         type: choice
         options:
-          - hoje            # Hoje + próximos 7 dias
-          - data_especifica # Uma data específica
-          - force_confirmar # Reconfirmar resultados já existentes
+          - hoje             # Hoje + próximos 7 dias
+          - data_especifica  # Uma data específica
+          - force_confirmar  # Reconfirmar resultados já existentes
           - reprocess_engine # Reprocessar engine sem apagar resultados
+          - reprocess_historico # Reprocessar período passado com engine atual
       data:
         description: '[data_especifica] Data no formato YYYY-MM-DD'
         required: false
@@ -26,6 +27,10 @@ on:
         description: 'Quantos dias reprocessar (force_confirmar e reprocess_engine)'
         required: false
         default: '7'
+      data_fim:
+        description: '[reprocess_historico] Data fim YYYY-MM-DD (data início usa o campo data acima)'
+        required: false
+        default: ''
 
 concurrency:
   group: pipeline-v3
@@ -78,6 +83,21 @@ jobs:
         run: |
           echo "▶ Reconfirmando últimos 21 dias"
           node scripts/confirmar.js --days="${{ github.event.inputs.dias || '7' }}" --force
+
+      - name: Reprocessar histórico (sobrescreve snapshots confirmados)
+        if: github.event.inputs.modo == 'reprocess_historico'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          FROM="${{ github.event.inputs.data }}"
+          TO="${{ github.event.inputs.data_fim }}"
+          if [ -z "$FROM" ] || [ -z "$TO" ]; then
+            echo "Erro: preencha 'data' (início) e 'data_fim' (fim) do período."
+            exit 1
+          fi
+          echo "▶ Reprocessando histórico: $FROM → $TO"
+          node scripts/reprocess_historico.js --from="$FROM" --to="$TO"
 
       - name: Reprocessar engine
         if: github.event.inputs.modo == 'reprocess_engine'
