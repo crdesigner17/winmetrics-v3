@@ -798,6 +798,7 @@ async function upsertFixture(raw, liga) {
     season,
     tier:           liga?.tier || 'normal',
     match_date:     raw.match_date,
+    hour:           raw.hour ?? null,
     home_team:      raw.home_team,
     away_team:      raw.away_team,
     home_team_logo: raw.home_team_logo || null,
