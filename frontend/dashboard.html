@@ -773,7 +773,7 @@ function statusToResultado(status, mkt) {
 }
 
 // ─── Inicialização com dados reais do Supabase ────────────────────────────────
-async function initDashboard(isoStart, isoEnd) {
+async function initDashboard(isoStart, isoEnd, filtrado) {
   console.log('[WinMetrics] Carregando dados reais do Supabase...');
 
   const sbClient = (typeof supabaseClient !== 'undefined')
@@ -889,11 +889,11 @@ function calcAndRender(ALL_DATA) {
   const ultimosResultados = [];
 
   // Palpites do dia (data mais recente com jogos)
-  // Chave do dia atual no formato DD-MM-YYYY
-  const hoje = new Date();
-  const hojeKey = String(hoje.getDate()).padStart(2,'0') + '-'
-                + String(hoje.getMonth()+1).padStart(2,'0') + '-'
-                + hoje.getFullYear();
+  // Chave de hoje DD-MM-YYYY
+  const _hoje = new Date();
+  const _hojeKey = String(_hoje.getDate()).padStart(2,'0') + '-'
+                 + String(_hoje.getMonth()+1).padStart(2,'0') + '-'
+                 + _hoje.getFullYear();
 
   let palpitesDoDia = [];
   let palpitesDoDiaDate = null;
@@ -904,10 +904,16 @@ function calcAndRender(ALL_DATA) {
     const jogos   = dayData.jogos || [];
     const conf    = !!dayData.resultado_confirmado;
 
-    // Palpites do dia = somente hoje
-    if (date === hojeKey && jogos.length > 0) {
-      palpitesDoDia     = jogos;
-      palpitesDoDiaDate = date;
+    if (jogos.length > 0) {
+      if (filtrado) {
+        // Filtro aplicado: usa o dia mais recente do período
+        palpitesDoDia     = jogos;
+        palpitesDoDiaDate = date;
+      } else if (date === _hojeKey) {
+        // Carga inicial: apenas hoje
+        palpitesDoDia     = jogos;
+        palpitesDoDiaDate = date;
+      }
     }
 
     // Pirâmide: apenas dias confirmados (espelho fiel do histórico auditado)
@@ -1502,7 +1508,7 @@ function applyPreset(days) {
   // Fecha dropdown e recarrega
   _dpOpen = false;
   document.getElementById('date-picker-dropdown').style.display = 'none';
-  initDashboard(isoStart, isoEnd);
+  initDashboard(isoStart, isoEnd, true);
 }
 
 function applyCustomRange() {
@@ -1520,7 +1526,7 @@ function applyCustomRange() {
 
   _dpOpen = false;
   document.getElementById('date-picker-dropdown').style.display = 'none';
-  initDashboard(startVal, endVal);
+  initDashboard(startVal, endVal, true);
 }
 
 // Preenche inputs com datas padrão ao abrir
