@@ -4033,7 +4033,8 @@ function getWorldCupMarketGroups(predictions) {
   const WC_GROUPS = {
     over_gols: {
       label: 'Over Gols',
-      keys: ['over05', 'over15', 'over25', 'over35'],
+      // btts incluído aqui — semanticamente são mercados de gols
+      keys: ['over05', 'over15', 'over25', 'over35', 'btts'],
     },
     under_gols: {
       label: 'Under Gols',
@@ -4049,7 +4050,8 @@ function getWorldCupMarketGroups(predictions) {
     },
     resultado: {
       label: 'Resultado / Dupla Chance',
-      keys: ['homeWin', 'awayWin', 'draw', 'double1x', 'doublex2', 'double12', 'btts'],
+      // O engine atual não gera esses mercados — coluna mostrará '-' até serem implementados
+      keys: ['homeWin', 'awayWin', 'draw', 'double1x', 'doublex2', 'double12'],
     },
   };
 
@@ -4136,6 +4138,36 @@ function renderWcCategoryCell(groupData, snap) {
  * Cada linha mostra o melhor mercado por categoria para aquele jogo.
  * Isolado — não altera renderRows nem a lógica padrão.
  */
+// Renderiza a coluna Resultado na view World Cup
+// Usa status da fixture (FT/NS/LIVE) + placar real — isolado da view normal
+function formatWcResult(snap) {
+  const status = snap.status || snap.fixture_status || null;
+  const gh = snap.goals_home ?? snap.home_goals ?? null;
+  const ga = snap.goals_away ?? snap.away_goals ?? null;
+
+  const FINISHED = new Set(['FT', 'AET', 'PEN', 'FT_PEN', 'AWD', 'WO']);
+  const LIVE     = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE']);
+
+  if (FINISHED.has(status)) {
+    const placar = (gh !== null && ga !== null) ? `${gh} – ${ga}` : '? – ?';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <span style="font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--text-muted);text-transform:uppercase;">Encerrado</span>
+      <span style="font-size:14px;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--text-primary);letter-spacing:.5px;">${placar}</span>
+    </div>`;
+  }
+
+  if (LIVE.has(status)) {
+    const placar = (gh !== null && ga !== null) ? `${gh} – ${ga}` : '0 – 0';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <span style="font-size:9px;font-weight:700;letter-spacing:.5px;color:#00d2a0;text-transform:uppercase;">● AO VIVO</span>
+      <span style="font-size:14px;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--text-primary);letter-spacing:.5px;">${placar}</span>
+    </div>`;
+  }
+
+  // Não iniciado
+  return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">Aguardando</span>';
+}
+
 function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap = {}) {
   const tbody = document.getElementById('tableBody');
   const thead = document.querySelector('thead tr');
@@ -4158,7 +4190,6 @@ function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap 
       <th class="wc-col">Escanteios</th>
       <th class="wc-col">Cartões</th>
       <th class="wc-col">Resultado / Dupla Chance</th>
-      <th class="col-scoreboard center">PLACAR</th>
       <th class="col-result center">RESULTADO</th>
     `;
   }
@@ -4202,8 +4233,7 @@ function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap 
     <td class="wc-col">${renderWcCategoryCell(groups.escanteios, merged)}</td>
     <td class="wc-col">${renderWcCategoryCell(groups.cartoes, merged)}</td>
     <td class="wc-col">${renderWcCategoryCell(groups.resultado, merged)}</td>
-    <td class="col-scoreboard" style="text-align:center;">${formatPlacar(merged)}</td>
-    <td class="col-result" style="text-align:center;">${formatResult(merged)}</td>
+    <td class="col-result" style="text-align:center;padding:10px 8px;">${formatWcResult(merged)}</td>
   </tr>`;
   }).join('');
 }
