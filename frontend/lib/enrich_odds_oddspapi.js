@@ -382,11 +382,12 @@ async function enrichOddsOddspapi(raw, LOG = {}) {
   const leagueSearchTerm = LEAGUE_SEARCH[Number(raw.league_id)];
   if (!leagueSearchTerm) return raw;
 
-  // Verifica se já tem odds suficientes (pelo menos 3 campos preenchidos)
-  const oddFields = ['odd_o15','odd_o25','odd_u35','odd_u45','odd_btts','odd_esc75','odd_esc85','odd_c25','odd_c35'];
-  const filledCount = oddFields.filter(f => raw[f] !== null && raw[f] !== undefined).length;
-  if (filledCount >= 5) {
-    log.dim(`[OddsPapi] ${raw.home_team} — já tem ${filledCount} odds, pulando fallback.`);
+  // Só aciona o fallback se ainda faltam odds de escanteios ou cartões
+  // (gols podem estar preenchidos pela The Odds API mas esc/cart ficam null)
+  const cornerCardFields = ['odd_esc75','odd_esc85','odd_c25','odd_c35'];
+  const missingCornerCards = cornerCardFields.filter(f => raw[f] === null || raw[f] === undefined).length;
+  if (missingCornerCards === 0) {
+    log.dim(`[OddsPapi] ${raw.home_team} — escanteios e cartões já preenchidos, pulando.`);
     return raw;
   }
 
