@@ -187,6 +187,15 @@
 .hamburger{display:none;width:36px;height:36px;background:var(--bg2,#181c27);border:1px solid var(--border,#252a3a);border-radius:8px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:4px}
 .hamburger svg{width:18px;height:18px;stroke:var(--text,#f0f2ff);fill:none}
 
+/* ── Tablet (768–1024px) ── */
+@media (max-width: 1024px) {
+  .kpi-row          { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .mid-row          { grid-template-columns: 1fr; }
+  .bottom-row       { grid-template-columns: 1fr; }
+  .stats-row        { grid-template-columns: 1fr 1fr; }
+  .result-kpis      { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
 @media (max-width: 768px) {
   /* ── Layout base ── */
   body{overflow-x:hidden}
@@ -217,6 +226,30 @@
   /* ── Grids viram 1 coluna ── */
   .quick-grid{grid-template-columns:1fr !important}
   .login-grid{grid-template-columns:1fr !important}
+
+  /* ── Dashboard grids empilhados ── */
+  .kpi-row         { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap:10px; }
+  .mid-row         { grid-template-columns: 1fr !important; }
+  .bottom-row      { grid-template-columns: 1fr !important; }
+  .stats-row       { grid-template-columns: 1fr !important; }
+  .result-kpis     { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap:8px; }
+
+  /* ── KPI cards menores ── */
+  .kpi-card        { padding: 12px 10px; }
+  .kpi-val         { font-size: 22px; }
+  .kpi-sparkline   { display: none; }
+
+  /* ── Palpites do dia ── */
+  .palpites-table  { font-size: 11px; }
+
+  /* ── Tabelas mini ── */
+  table.mini th, table.mini td { font-size: 11px; padding: 6px 8px; }
+
+  /* ── Pagination compacta ── */
+  .pagination-row  { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+  /* ── Date range label ── */
+  .date-range-btn  { font-size: 11px; padding: 5px 10px; }
 
   /* ── Profile hero empilhado ── */
   .profile-hero-inner{flex-direction:column;align-items:flex-start;gap:14px;padding:16px}

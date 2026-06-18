@@ -399,6 +399,14 @@
   .table-wrap thead th:not(.col-game):not(.col-pick):not(.col-alts),
   .table-wrap tbody td:not(.col-game):not(.col-pick):not(.col-alts) { text-align: center; }
 
+  /* Mobile cards — hidden on desktop */
+  #mobile-cards-list {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
   /* section */
   .star-btn { cursor: pointer; color: var(--text-muted); transition: color .15s; }
   .star-btn:hover { color: var(--gold); }
@@ -611,39 +619,243 @@
 .hamburger{display:none;width:36px;height:36px;background:var(--bg2,#181c27);border:1px solid var(--border,#252a3a);border-radius:8px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:4px}
 .hamburger svg{width:18px;height:18px;stroke:var(--text,#f0f2ff);fill:none}
 
+/* ── Tablet (768–1024px) — previsoes ── */
+@media (max-width: 1024px) {
+  /* Toolbar quebra em 2 linhas */
+  .toolbar { flex-wrap: wrap; gap: 10px; }
+  .tab-group { overflow-x: auto; max-width: 100%; }
+
+  /* Dropdowns lado a lado */
+  #dd-league-wrap, #dd-market-wrap { flex: 1 1 calc(50% - 6px); min-width: 140px; }
+
+  /* Botão WC ocupa linha própria */
+  .wc-special-btn { width: 100%; justify-content: center; }
+
+  /* Tabela — esconde colunas secundárias */
+  th.col-alts,  td.col-alts  { display: none; }
+  th.col-confidence, td.col-confidence { display: none; }
+}
+
 @media (max-width: 768px) {
-  /* section */
-  body{overflow-x:hidden}
-  /* ── Tabela responsiva mobile ── */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; overflow-y: visible; }
-  .table-wrap::-webkit-scrollbar { height: 4px; }
-  .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  table { min-width: 900px; }
+  body { overflow-x: hidden; }
 
-  /* Esconde colunas menos importantes em mobile */
-  th.col-alts, td.col-alts,
+  /* ═══════════════════════════════════════════
+     LAYOUT GERAL — alinha toolbar e cards
+  ═══════════════════════════════════════════ */
+  .content { padding: 16px 0 !important; }
+  .page-header    { padding: 0 12px; margin-bottom: 14px; }
+  .toolbar        { padding: 0 12px; }
+  .snapshot-notice { margin: 0 12px 12px; }
+  .table-wrap     { margin: 0 12px 12px; }
+  #mobile-cards-list { padding: 0 12px; }
+  .pagination-row { padding: 0 12px; }
+  .metrics-footer { padding: 0 12px 60px !important; margin: 0; }
 
-  th.col-scoreboard, td.col-scoreboard,
-  th.col-result, td.col-result { display: none; }
+  /* ═══════════════════════════════════════════
+     TOOLBAR — tabs em cima, botão WC abaixo
+  ═══════════════════════════════════════════ */
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  /* Tabs: linha própria, alinhada com os cards */
+  .tab-group {
+    order: -1;
+    width: 100%;
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+  .tab-group::-webkit-scrollbar { display: none; }
+  .tab { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
 
-  /* Ajusta larguras */
-  th.col-game, td.col-game { width: 38%; }
-  th.col-pick, td.col-pick { width: 130px; text-align: left; }
-  th.col-score, td.col-score { width: 70px; }
-  th.col-odd, td.col-odd { width: 80px; }
-  th.col-confidence, td.col-confidence { width: 90px; }
-  th.col-date, td.col-date { width: 64px; }
+  /* Dropdowns escondidos da toolbar — abertos via bottom bar */
+  #dd-league-wrap, #dd-market-wrap { display: none !important; }
+  /* O .dd-menu quando aberto fica fixo acima da bottom bar */
+  #dd-league-wrap .dd-menu.open,
+  #dd-market-wrap .dd-menu.open {
+    display: block !important;
+    position: fixed !important;
+    bottom: 52px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-height: 55vh !important;
+    z-index: 1000 !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
 
-  /* Chips de mercado menores */
-  .best-pick { font-size: 12px; padding: 4px 7px; }
+  /* Div pai do botão WC: centraliza em mobile */
+  .wc-special-btn { order: 1; }
+  .wc-btn-row {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    order: 1;
+  }
+  .wc-btn-row .wc-special-btn {
+    width: auto;
+    min-width: 160px;
+    max-width: 240px;
+  }
 
-  /* Filtros empilhados */
-  .filters-row { flex-wrap: wrap; gap: 6px; }
-  .filters-row .dd-wrap { flex: 1 1 calc(50% - 6px); }
-  .wc-btn-wrap { width: 100%; justify-content: center; }
+  /* Esconde explicação e filtros em mobile */
+  .explain-link    { display: none !important; }
+  #filter-date-btn { display: none !important; }
 
-  /* Popup de explicação */
-  .metrics-explainer { max-width: calc(100vw - 24px); left: 12px !important; right: 12px !important; }
+  /* Table-wrap: remove background/borda em mobile (cards têm estilo próprio) */
+  .table-wrap {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Cards com respiro interno */
+  #mobile-cards-list { gap: 10px; padding: 0 12px 8px; }
+  .m-card { padding: 14px; }
+
+  /* ═══════════════════════════════════════════
+     BOTTOM BAR — Campeonatos | Mercados
+  ═══════════════════════════════════════════ */
+  .mobile-bottom-bar {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 900;
+    background: var(--bg2, #181c27);
+    border-top: 1px solid var(--border, #252a3a);
+    height: 52px;
+    align-items: stretch;
+  }
+  .mobile-bottom-bar .mbb-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    color: var(--text-secondary, #8b90a8);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 6px 4px;
+    transition: color .15s;
+    border-right: 1px solid var(--border, #252a3a);
+  }
+  .mobile-bottom-bar .mbb-btn:last-child { border-right: none; }
+  .mobile-bottom-bar .mbb-btn:active { color: var(--green, #00d2a0); }
+  .mobile-bottom-bar .mbb-btn.active { color: var(--green, #00d2a0); }
+  .mobile-bottom-bar .mbb-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; }
+  .mobile-bottom-bar .mbb-label { font-size: 10px; line-height: 1; }
+  .mobile-bottom-bar .mbb-value {
+    font-size: 10px; font-weight: 700;
+    color: var(--green, #00d2a0);
+    max-width: 90px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    display: none;
+  }
+  .mobile-bottom-bar .mbb-value.has-value { display: block; }
+
+  /* Espaço no final da página para não sobrepor conteúdo */
+  .content-inner, .metrics-footer { padding-bottom: 60px; }
+
+  /* ═══════════════════════════════════════════
+     TABELA — substituída por cards em mobile
+  ═══════════════════════════════════════════ */
+  /* Esconde tabela e thead */
+  .table-wrap table { display: none !important; }
+  .table-wrap thead  { display: none !important; }
+
+  /* Mostra os cards mobile */
+  #mobile-cards-list { display: flex !important; }
+
+  /* Card individual */
+  .m-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .m-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .m-card-game { flex: 1; min-width: 0; }
+  .m-card-name {
+    font-size: 13px; font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .m-card-sub  { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .m-card-date {
+    text-align: right; flex-shrink: 0;
+    font-size: 11px; color: var(--text-secondary);
+    line-height: 1.4;
+  }
+  .m-card-date strong { color: var(--text-primary); font-size: 12px; }
+  .m-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .m-card-pick { flex: 1; min-width: 0; }
+  .m-card-result { text-align: right; flex-shrink: 0; font-size: 11px; }
+
+  /* ═══════════════════════════════════════════
+     CARDS DE MÉTRICAS — compactos
+  ═══════════════════════════════════════════ */
+  .metrics-footer {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+  .metric-card {
+    padding: 10px;
+    gap: 8px;
+    align-items: center;
+  }
+  .metric-icon {
+    width: 28px; height: 28px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .metric-text h4 { font-size: 11px; margin-bottom: 2px; }
+  .metric-text p  { font-size: 10px; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  /* ═══════════════════════════════════════════
+     PAGINAÇÃO
+  ═══════════════════════════════════════════ */
+  .pagination-row { flex-wrap: wrap; gap: 8px; }
+  .pagination-pages { flex-wrap: wrap; gap: 3px; }
+
+  /* ═══════════════════════════════════════════
+     POPUP DE EXPLICAÇÃO
+  ═══════════════════════════════════════════ */
+  .metrics-explainer {
+    max-width: calc(100vw - 24px);
+    left: 12px !important; right: 12px !important;
+  }
+
+  /* ═══════════════════════════════════════════
+     WC VIEW MOBILE
+  ═══════════════════════════════════════════ */
+  .wc-col { min-width: 90px; font-size: 10px; }
+  .wc-cat-label { font-size: 8px; }
 
   .main-wrap{width:100%;min-width:0;overflow-x:auto}
 
@@ -1075,7 +1287,7 @@ async function getCurrentProfile() {
 
       </div>
 
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div class="wc-btn-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <!-- ── Botão exclusivo Copa do Mundo (isolado dos filtros principais) ── -->
         <button class="wc-special-btn" id="wc-special-btn" title="Exibir apenas jogos da Copa do Mundo">
           🇧🇷 World Cup 🇧🇷
@@ -1141,6 +1353,8 @@ async function getCurrentProfile() {
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
+      <!-- Mobile card list (shown only on mobile via CSS) -->
+      <div id="mobile-cards-list"></div>
     </div>
 
     <!-- Pagination -->
@@ -1163,6 +1377,20 @@ async function getCurrentProfile() {
           </select>
         </label>
       </div>
+    </div>
+
+    <!-- Mobile bottom bar — Campeonatos | Mercados (visible only on mobile) -->
+    <div class="mobile-bottom-bar" style="display:none;">
+      <button class="mbb-btn" id="mbb-league-btn" onclick="mbbOpenLeague()">
+        <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="mbb-label">Campeonatos</span>
+        <span class="mbb-value" id="mbb-league-value"></span>
+      </button>
+      <button class="mbb-btn" id="mbb-market-btn" onclick="mbbOpenMarket()">
+        <svg viewBox="0 0 24 24" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span class="mbb-label">Mercados</span>
+        <span class="mbb-value" id="mbb-market-value"></span>
+      </button>
     </div>
 
     <!-- Metrics footer -->
@@ -3915,6 +4143,49 @@ function renderError(msg) {
 }
 
 // section
+// ── Mobile Card Renderer ─────────────────────────────────────────────────────
+// Renderiza cards compactos para mobile. Chamado junto com renderRows.
+// Não altera a tabela desktop nem nenhuma lógica de dados.
+function renderMobileCards(snapshots, predictionsMap, snapshotsMap = {}) {
+  const container = document.getElementById('mobile-cards-list');
+  if (!container) return;
+
+  if (!snapshots.length) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = snapshots.map(snap => {
+    const hora       = snap.hour || formatHour(snap.fixture_match_date || snap.match_date);
+    const data       = formatDate(snap.match_date);
+    const matchName  = cleanMatchName(snap.match_name);
+    const leagueName = snap.league_name || '';
+    const mainPicks  = getMainPalpites(snap, predictionsMap);
+    const resultHtml = formatResult(snap);
+    const placar     = formatPlacar(snap);
+
+    return `
+    <div class="m-card">
+      <div class="m-card-top">
+        <div class="m-card-game">
+          <div class="m-card-name">${matchName}</div>
+          <div class="m-card-sub">${leagueName}</div>
+        </div>
+        <div class="m-card-date">
+          <strong>${data}</strong><br>${hora}
+        </div>
+      </div>
+      <div class="m-card-bottom">
+        <div class="m-card-pick">${renderMainPalpites(mainPicks)}</div>
+        <div class="m-card-result">
+          ${placar !== '<span style="color:var(--text-muted);font-size:11px">-</span>' ? `<div style="font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;margin-bottom:2px">${placar}</div>` : ''}
+          ${resultHtml}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, snapshotsMap = {}) {
   const tbody = document.getElementById('tableBody');
   if (!snapshots.length) { renderEmpty(); return; }
@@ -3974,6 +4245,9 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     <td class="col-confidence">${confBadge(conf)}</td>
   </tr>`;
   }).join('');
+
+  // Renderiza cards mobile em paralelo (não afeta desktop)
+  renderMobileCards(snapshots, predictionsMap, snapshotsMap);
 }
 
 // section
@@ -4348,9 +4622,14 @@ function buildDateTabs() {
   const now   = new Date();
   const today = brtDateStr(now);
 
-  // Gera array: 6 dias antes, hoje, 6 dias depois
+  // Mobile: 2 dias passados + hoje + 4 futuros = 7 tabs
+  // Desktop: 6 passados + hoje + 6 futuros = 13 tabs
+  const isMobile = window.innerWidth <= 768;
+  const past   = isMobile ? -2 : -6;
+  const future = isMobile ?  4 :  6;
+
   const days = [];
-  for (let i = -6; i <= 6; i++) {
+  for (let i = past; i <= future; i++) {
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
     const ymd = brtDateStr(d);
     const [y, m, dia] = ymd.split('-');
@@ -4372,6 +4651,12 @@ function buildDateTabs() {
 
 function initTabs() {
   buildDateTabs();
+  // Reconstrói tabs se orientação mudar (ex: portrait ↔ landscape)
+  window.addEventListener('resize', debounce(() => {
+    const wasMobile = document.getElementById('date-tab-group').childElementCount <= 8;
+    const isMobile  = window.innerWidth <= 768;
+    if (wasMobile !== isMobile) buildDateTabs();
+  }, 300));
 }
 
 function _bindTabEvents() {
@@ -4530,6 +4815,58 @@ function initDropdowns() {
 }
 
 // initWorldCupButton removido
+// ── Mobile Bottom Bar — delega clique para os dropdowns originais ─────────────
+function initMobileBottomBar() {
+  // Só ativa em mobile
+  const bar = document.querySelector('.mobile-bottom-bar');
+  if (!bar) return;
+
+  function updateValues() {
+    const leagueLabel = document.querySelector('#dd-league-wrap .select-label');
+    const marketLabel = document.querySelector('#dd-market-wrap .select-label');
+    const leagueVal   = document.getElementById('mbb-league-value');
+    const marketVal   = document.getElementById('mbb-market-value');
+    const leagueBtn   = document.getElementById('mbb-league-btn');
+    const marketBtn   = document.getElementById('mbb-market-btn');
+
+    if (leagueLabel && leagueVal) {
+      const text = leagueLabel.textContent.trim();
+      const isFiltered = text !== 'Todos os Campeonatos' && text !== '';
+      leagueVal.textContent = isFiltered ? text : '';
+      leagueVal.classList.toggle('has-value', isFiltered);
+      leagueBtn.classList.toggle('active', isFiltered);
+    }
+    if (marketLabel && marketVal) {
+      const text = marketLabel.textContent.trim();
+      const isFiltered = text !== 'Todos os Mercados' && text !== '';
+      marketVal.textContent = isFiltered ? text : '';
+      marketVal.classList.toggle('has-value', isFiltered);
+      marketBtn.classList.toggle('active', isFiltered);
+    }
+  }
+
+  // Observa mudanças nos labels dos dropdowns
+  const observer = new MutationObserver(updateValues);
+  const leagueLabel = document.querySelector('#dd-league-wrap .select-label');
+  const marketLabel = document.querySelector('#dd-market-wrap .select-label');
+  if (leagueLabel) observer.observe(leagueLabel, { childList: true, characterData: true, subtree: true });
+  if (marketLabel) observer.observe(marketLabel, { childList: true, characterData: true, subtree: true });
+
+  updateValues();
+}
+
+window.mbbOpenLeague = function() {
+  // Simula clique no dropdown de campeonatos
+  const btn = document.querySelector('#dd-league-wrap .select-btn');
+  if (btn) btn.click();
+};
+
+window.mbbOpenMarket = function() {
+  // Simula clique no dropdown de mercados
+  const btn = document.querySelector('#dd-market-wrap .select-btn');
+  if (btn) btn.click();
+};
+
 function initWorldCupButton() {
   const btn = document.getElementById('wc-special-btn');
   if (!btn) return;
@@ -4634,6 +4971,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFilterModal();
   initSearch();
   initPageSize();
+  initMobileBottomBar();
   initWorldCupButton();
   loadPrevisoes();
 });
