@@ -481,41 +481,41 @@ async function getCurrentProfile() {
     <div class="kpi-row">
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>ASSERTIVIDADE</div>
-        <div class="kpi-val green" id="kpi-assertividade">89.4%</div>
-        <div class="kpi-delta up" id="kpi-assertividade-delta">▲ 4.3% (7 dias)</div>
+        <div class="kpi-val green" id="kpi-assertividade">--</div>
+        <div class="kpi-delta up" id="kpi-assertividade-delta"></div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,30 15,26 30,20 45,14 60,8 80,4" fill="none" stroke="#00d2a0" stroke-width="2"/></svg>
       </div>
       <!-- KPI ROI preservado para uso futuro.
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>ROI</div>
-        <div class="kpi-val green" id="kpi-roi">+18.7%</div>
-        <div class="kpi-delta up" id="kpi-roi-delta">▲ 3.1% (7 dias)</div>
+        <div class="kpi-val green" id="kpi-roi">--</div>
+        <div class="kpi-delta up" id="kpi-roi-delta"></div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,32 15,28 30,22 45,16 55,12 70,6 80,3" fill="none" stroke="#a78bfa" stroke-width="2"/></svg>
       </div>
       -->
       <!-- KPI Lucro preservado para uso futuro.
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>LUCRO (UNIDADES)</div>
-        <div class="kpi-val green" id="kpi-lucro">+124.5u</div>
-        <div class="kpi-delta up" id="kpi-lucro-delta">▲ 9.8u (7 dias)</div>
+        <div class="kpi-val green" id="kpi-lucro">--</div>
+        <div class="kpi-delta up" id="kpi-lucro-delta"></div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,34 20,28 40,18 60,10 80,4" fill="none" stroke="#00d2a0" stroke-width="2"/></svg>
       </div>
       -->
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>GREENS</div>
-        <div class="kpi-val green" id="kpi-greens">421</div>
-        <div class="kpi-delta up" id="kpi-greens-delta">▲ 28 (7 dias)</div>
+        <div class="kpi-val green" id="kpi-greens">--</div>
+        <div class="kpi-delta up" id="kpi-greens-delta"></div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,30 20,24 40,16 60,10 80,6" fill="none" stroke="#00d2a0" stroke-width="2"/></svg>
       </div>
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>REDS</div>
-        <div class="kpi-val red" id="kpi-reds">52</div>
-        <div class="kpi-delta down" id="kpi-reds-delta">▼ 5 (7 dias)</div>
+        <div class="kpi-val red" id="kpi-reds">--</div>
+        <div class="kpi-delta down" id="kpi-reds-delta"></div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,8 20,14 40,18 60,22 80,26" fill="none" stroke="#ff5e6a" stroke-width="2"/></svg>
       </div>
       <div class="kpi-card">
         <div class="kpi-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>ODD MÉDIA</div>
-        <div class="kpi-val white" id="kpi-odd-media">1.68</div>
+        <div class="kpi-val white" id="kpi-odd-media">--</div>
         <div class="kpi-delta up" id="kpi-odd-media-delta">▲ 0.04 (7 dias)</div>
         <svg class="kpi-sparkline" width="80" height="36" viewBox="0 0 80 36"><polyline points="0,22 20,18 40,14 55,16 70,12 80,10" fill="none" stroke="#00d2a0" stroke-width="2"/></svg>
       </div>
@@ -535,14 +535,14 @@ async function getCurrentProfile() {
           <div>
             <div class="result-bar-head">
               <span>Green</span>
-              <strong id="result-green-count">421 de 473 <span class="result-bar-pct">(89.0%)</span></strong>
+              <strong id="result-green-count">-- <span class="result-bar-pct"></span></strong>
             </div>
             <div class="result-bar-track"><div class="result-bar-fill green" id="result-green-bar" style="width:89%"></div></div>
           </div>
           <div>
             <div class="result-bar-head">
               <span>Red</span>
-              <strong id="result-red-count">52 de 473 <span class="result-bar-pct">(11.0%)</span></strong>
+              <strong id="result-red-count">-- <span class="result-bar-pct"></span></strong>
             </div>
             <div class="result-bar-track"><div class="result-bar-fill red" id="result-red-bar" style="width:11%"></div></div>
           </div>
@@ -560,9 +560,9 @@ async function getCurrentProfile() {
         <div class="mercado-highlight">
           <div class="mercado-icon">🎯</div>
           <div>
-            <div class="mercado-name" id="mercado-nome">Over 1.5 Gols</div>
-            <div class="mercado-ev" id="mercado-lucro">+45.2u</div>
-            <div class="mercado-roi" id="mercado-roi">ROI: +21.3%</div>
+            <div class="mercado-name" id="mercado-nome">--</div>
+            <div class="mercado-ev" id="mercado-lucro">--</div>
+            <div class="mercado-roi" id="mercado-roi"></div>
           </div>
         </div>
       </div>
@@ -620,11 +620,7 @@ async function getCurrentProfile() {
         <table class="mini">
           <thead><tr><th>MERCADO</th><th>ASSERTIVIDADE</th><th>ROI</th><th>LUCRO (U)</th><th>PALPITES</th></tr></thead>
           <tbody id="tbody-mercado">
-            <tr><td>Over 1.5 Gols</td><td style="color:var(--green)">91.3%</td><td style="color:var(--green)">+25.2%</td><td style="color:var(--green);font-weight:700">+45.2u</td><td>142</td></tr>
-            <tr><td>Over 2.5 Gols</td><td style="color:var(--green)">82.1%</td><td style="color:var(--green)">+18.7%</td><td style="color:var(--green);font-weight:700">+29.5u</td><td>158</td></tr>
-            <tr><td>BTTS - Sim</td><td style="color:var(--green)">79.0%</td><td style="color:var(--green)">+14.3%</td><td style="color:var(--green);font-weight:700">+17.8u</td><td>124</td></tr>
-            <tr><td>Escanteios 8.5+</td><td style="color:var(--green)">87.6%</td><td style="color:var(--green)">+22.1%</td><td style="color:var(--green);font-weight:700">+21.7u</td><td>98</td></tr>
-            <tr><td>Cartões 4.5+</td><td style="color:var(--green)">76.3%</td><td style="color:var(--green)">+11.6%</td><td style="color:var(--green);font-weight:700">+8.8u</td><td>76</td></tr>
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);font-size:11px;padding:12px">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -638,11 +634,7 @@ async function getCurrentProfile() {
         <table class="mini">
           <thead><tr><th>COMPETIÇÃO</th><th>ASSERTIVIDADE</th><th>ROI</th><th>LUCRO (U)</th><th>PALPITES</th></tr></thead>
           <tbody id="tbody-competicao">
-            <tr><td>Brasileirão</td><td style="color:var(--green)">89.2%</td><td style="color:var(--green)">+20.4%</td><td style="color:var(--green);font-weight:700">+36.8u</td><td>112</td></tr>
-            <tr><td>Premier League</td><td style="color:var(--green)">88.1%</td><td style="color:var(--green)">+17.6%</td><td style="color:var(--green);font-weight:700">+28.4u</td><td>98</td></tr>
-            <tr><td>La Liga</td><td style="color:var(--green)">86.7%</td><td style="color:var(--green)">+15.2%</td><td style="color:var(--green);font-weight:700">+18.9u</td><td>86</td></tr>
-            <tr><td>Champions League</td><td style="color:var(--green)">90.3%</td><td style="color:var(--green)">+22.8%</td><td style="color:var(--green);font-weight:700">+22.1u</td><td>72</td></tr>
-            <tr><td>Libertadores</td><td style="color:var(--green)">87.4%</td><td style="color:var(--green)">+19.3%</td><td style="color:var(--green);font-weight:700">+16.7u</td><td>65</td></tr>
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);font-size:11px;padding:12px">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
