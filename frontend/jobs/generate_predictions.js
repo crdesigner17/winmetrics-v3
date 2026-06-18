@@ -48,6 +48,7 @@ const { enrichFromWorldCup } = require('../lib/enrichFromWorldCup.js');
 const { applyWorldCupBoost, WC_LEAGUE_NAME } = require('../lib/world_cup_boost.js');
 const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enricher.js');
 const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.js'); // [NOVO]
+const { enrichOddsOddspapi }                        = require('../lib/enrich_odds_oddspapi.js'); // fallback OddsPapi
 
 
 // ─────────────────────────────────────────────────────────────────
@@ -1280,6 +1281,11 @@ async function run() {
       // Só preenche campos null — nunca sobrescreve API-Football ou CSV
       // Fallback silencioso se ODDS_API_KEY não configurada ou jogo não encontrado
       raw = await enrichOddsExternas(raw, LOG);
+
+      // ── FALLBACK OddsPapi — ligas não cobertas pela The Odds API ─────
+      // Só atua quando ainda há campos null após enrichOddsExternas.
+      // Ligas cobertas: Série B, Série C, Division 2 Södra Götaland.
+      raw = await enrichOddsOddspapi(raw, LOG);
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
         const oddFields = ['odd_o15','odd_o25','odd_btts','odd_u35','odd_u45','odd_esc75','odd_esc85','odd_c25','odd_c35'];
