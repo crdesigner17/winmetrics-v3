@@ -363,10 +363,15 @@ function calculateWorldCupScore(raw) {
 // Modifica result.scores in-place, recalcula best_score se afetado
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Mercados que recebem boost integral vs reduzido
-const BOOST_MARKETS_FULL    = new Set(['over15', 'over25', 'btts', 'under35', 'under45']);
-const BOOST_MARKETS_REDUCED = new Set(['esc75', 'esc85', 'cards25', 'cards35']);
-const MAX_BOOST_POINTS      = 10; // cap de +10 pontos sobre score original
+// ── Prioridade: GOLS é o foco da Copa do Mundo ───────────────────────────────
+// Over 1.5 e Over 2.5 → boost máximo + cap maior (+15)
+// Under 3.5, Under 4.5, BTTS → boost alto + cap normal (+10)
+// Escanteios e Cartões → sem boost (não são o foco da Copa)
+const BOOST_GOALS_PRIMARY   = new Set(['over15', 'over25']);           // máximo
+const BOOST_GOALS_SECONDARY = new Set(['under35', 'under45', 'btts']); // alto
+const BOOST_MARKETS_NONE    = new Set(['esc75', 'esc85', 'cards25', 'cards35']); // zero
+const MAX_BOOST_GOALS       = 15; // cap gols primários: até +15 pontos
+const MAX_BOOST_POINTS      = 10; // cap demais mercados: até +10 pontos
 
 function applyWorldCupBoost(result, raw, LOG = {}) {
   const log = {
@@ -394,12 +399,22 @@ function applyWorldCupBoost(result, raw, LOG = {}) {
       continue;
     }
 
-    let boostFactor = 0;
+    // Escanteios e cartões: sem boost na Copa — não são o foco
+    if (BOOST_MARKETS_NONE.has(mkt)) {
+      boostedScores[mkt] = originalScore;
+      continue;
+    }
 
-    if (BOOST_MARKETS_FULL.has(mkt)) {
-      boostFactor = 1.0;
-    } else if (BOOST_MARKETS_REDUCED.has(mkt)) {
-      boostFactor = 0.5;
+    // Define fator e cap por categoria
+    let boostFactor = 0;
+    let maxBoostCap = MAX_BOOST_POINTS;
+
+    if (BOOST_GOALS_PRIMARY.has(mkt)) {
+      boostFactor = 1.0;           // Over 1.5 e Over 2.5 → boost máximo
+      maxBoostCap = MAX_BOOST_GOALS; // cap maior: +15
+    } else if (BOOST_GOALS_SECONDARY.has(mkt)) {
+      boostFactor = 0.8;           // Under 3.5, Under 4.5, BTTS → boost alto
+      maxBoostCap = MAX_BOOST_POINTS; // cap normal: +10
     } else {
       boostedScores[mkt] = originalScore;
       continue;
@@ -413,8 +428,8 @@ function applyWorldCupBoost(result, raw, LOG = {}) {
       continue;
     }
 
-    // Cap: não pode aumentar mais que MAX_BOOST_POINTS sobre o original
-    const maxAllowed = Math.min(originalScore + MAX_BOOST_POINTS, 100);
+    // Cap: não pode aumentar mais que maxBoostCap sobre o original
+    const maxAllowed = Math.min(originalScore + maxBoostCap, 100);
     const finalScore = Math.round(Math.min(originalScore + wcContribution, maxAllowed) * 10) / 10;
 
     boostedScores[mkt] = finalScore;
