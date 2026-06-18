@@ -16,6 +16,7 @@ on:
           - reprocess_historico # Reprocessar período passado com engine atual
           - intervalo        # Gerar palpites para um intervalo de datas (dia a dia)
           - confirmar_intervalo # Confirmar resultados para um intervalo de datas
+          - populate_wc_teams  # Popula times faltantes na wc_team_enrichment
       data:
         description: '[data_especifica / intervalo / confirmar_intervalo] Data início YYYY-MM-DD'
         required: false
@@ -182,6 +183,22 @@ jobs:
           fi
           echo "▶ Reprocessando histórico: $FROM → $TO"
           node scripts/reprocess_historico.js --from="$FROM" --to="$TO"
+
+      - name: Popular times WC faltantes
+        if: github.event.inputs.modo == 'populate_wc_teams'
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          TEAM="${{ github.event.inputs.data }}"
+          if [ -n "$TEAM" ]; then
+            echo "▶ Populando time específico: $TEAM"
+            node scripts/populate_wc_teams.js --team="$TEAM" --last=15
+          else
+            echo "▶ Populando todos os times WC faltantes"
+            node scripts/populate_wc_teams.js --last=15
+          fi
 
       - name: Reprocessar engine
         if: github.event.inputs.modo == 'reprocess_engine'
