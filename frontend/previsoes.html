@@ -3575,8 +3575,26 @@ function formatResult(snap) {
 function formatPlacar(snap) {
   const gh = snap.goals_home ?? snap.home_goals ?? snap.fixture_goals_home ?? null;
   const ga = snap.goals_away ?? snap.away_goals ?? snap.fixture_goals_away ?? null;
-  if (gh === null || ga === null) return '-';
-  return `${gh} - ${ga}`;
+  const status = snap.status || snap.fixture_status || null;
+
+  const FINISHED = new Set(['FT','AET','PEN','FT_PEN','AWD','WO']);
+  const LIVE     = new Set(['1H','HT','2H','ET','BT','P','SUSP','INT','LIVE']);
+
+  if (FINISHED.has(status)) {
+    const placar = (gh !== null && ga !== null) ? `${gh} - ${ga}` : '? - ?';
+    return `<span style="font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;">${placar}</span>`;
+  }
+
+  if (LIVE.has(status)) {
+    const placar = (gh !== null && ga !== null) ? `${gh} - ${ga}` : '0 - 0';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <span style="font-size:9px;font-weight:700;color:#00d2a0;letter-spacing:.5px;">● AO VIVO</span>
+      <span style="font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;">${placar}</span>
+    </div>`;
+  }
+
+  // Não iniciado ou status desconhecido
+  return `<span style="font-size:11px;color:var(--text-muted);">Aguardando</span>`;
 }
 
 function calcAltResult(rawMarket, snap) {
