@@ -823,10 +823,30 @@ const PredictionEngine = (function () {
   // Esc 7.5 e Cart 2.5/3.5 frequentemente indisponíveis nessas ligas.
   // Não afeta outras ligas nem o histórico existente.
   // Usa match parcial (includes) para cobrir variações de nome (ex: "Serie B", "Brasileirão Série B")
+  // Ligas onde o filtro de odd disponível é obrigatório para best_mkt.
+  // Cobre todas as divisões secundárias/regionais com cobertura limitada na casa de apostas.
   const REQUIRE_ODD_AVAILABLE_PATTERNS = [
+    // Brasil
     'série b', 'serie b',
     'série c', 'serie c',
+    'nordeste', 'carioca', 'paulista', 'mineiro',
+    // Argentina
+    'primera nacional',
+    // Itália
+    'serie b',
+    // Inglaterra
+    'championship',
+    // Alemanha
+    'bundesliga 2', '2. bundesliga',
+    // França
+    'ligue 2',
+    // Holanda
+    'eerste divisie',
+    // Suécia/Finlândia/Noruega
     'södra götaland', 'sodra gotaland', 'division 2',
+    'veikkausliiga', 'eliteserien',
+    // Outros regionais
+    'superliga', 'hnl', 'pro league',
   ];
 
   function leagueRequiresOdd(leagueName) {
