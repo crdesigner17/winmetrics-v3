@@ -822,13 +822,23 @@ const PredictionEngine = (function () {
   // Nessas ligas, mercados sem odd disponível são excluídos do best_mkt.
   // Esc 7.5 e Cart 2.5/3.5 frequentemente indisponíveis nessas ligas.
   // Não afeta outras ligas nem o histórico existente.
-  const REQUIRE_ODD_AVAILABLE = new Set([
-    'Brasileirão Série B',
-    'Brasileirão Série C',
-    'Division 2 - Södra Götaland',
-  ]);
+  // Usa match parcial (includes) para cobrir variações de nome (ex: "Serie B", "Brasileirão Série B")
+  const REQUIRE_ODD_AVAILABLE_PATTERNS = [
+    'série b', 'serie b',
+    'série c', 'serie c',
+    'södra götaland', 'sodra gotaland', 'division 2',
+  ];
 
-  function selectBestMkt(scores, filters, leagueKey, odds) {
+  function leagueRequiresOdd(leagueName) {
+    if (!leagueName) return false;
+    const l = leagueName.toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return REQUIRE_ODD_AVAILABLE_PATTERNS.some(p => l.includes(
+      p.normalize('NFD').replace(/[̀-ͯ]/g, '')
+    ));
+  }
+
+  function selectBestMkt(scores, filters, leagueKey, odds, raw) {
     // ── Pesos da liga (Frente anterior) ──────────────────────────────────────
     const ws = {
       over15:   applyLeagueWeight(scores.over15,   'over15',  leagueKey),
@@ -855,7 +865,7 @@ const PredictionEngine = (function () {
     let best = null;
 
     // Liga com restrição: filtra candidatos sem odd disponível na casa
-    const requireOdd = REQUIRE_ODD_AVAILABLE.has(leagueKey);
+    const requireOdd = leagueRequiresOdd(raw.league_name);
 
     for (const c of candidatos) {
       if (c.score === null || c.score === undefined) continue;
@@ -1119,7 +1129,7 @@ const PredictionEngine = (function () {
     };
 
     const leagueKey = getLeagueKey(raw.league_name, raw.country);
-    const _bestResult = selectBestMkt(scores, filters, leagueKey, odds);
+    const _bestResult = selectBestMkt(scores, filters, leagueKey, odds, raw);
     const best          = _bestResult ? _bestResult.best          : null;
     const alternative_mkt = _bestResult ? _bestResult.alternative_mkt : null;
     const main_markets = buildMainMarkets(scores, grades, odds, evs, filters);
