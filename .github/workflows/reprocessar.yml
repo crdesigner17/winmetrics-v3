@@ -57,6 +57,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_KEY:        ${{ secrets.ODDSPAPI_KEY }}
         run: |
           TODAY=$(TZ="America/Sao_Paulo" date +%Y-%m-%d)
           FORCE=$([[ "${{ github.event.inputs.force }}" == "true" ]] && echo "--force" || echo "")
@@ -70,6 +71,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_KEY:        ${{ secrets.ODDSPAPI_KEY }}
         run: |
           DATA="${{ github.event.inputs.data }}"
           if [ -z "$DATA" ]; then echo "Erro: informe a data." && exit 1; fi
@@ -83,6 +85,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_KEY:        ${{ secrets.ODDSPAPI_KEY }}
         run: |
           FROM="${{ github.event.inputs.data }}"
           TO="${{ github.event.inputs.data_fim }}"
@@ -121,6 +124,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_KEY:        ${{ secrets.ODDSPAPI_KEY }}
         run: |
           FROM="${{ github.event.inputs.data }}"
           TO="${{ github.event.inputs.data_fim }}"
@@ -159,6 +163,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_KEY:        ${{ secrets.ODDSPAPI_KEY }}
         run: |
           DATA="${{ github.event.inputs.data }}"
           if [ -n "$DATA" ]; then
@@ -207,6 +212,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           API_FOOTBALL_KEY:     ${{ secrets.API_FOOTBALL_KEY }}
           ODDS_API_KEY:         ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_KEY:        ${{ secrets.ODDSPAPI_KEY }}
         run: |
           echo "▶ Reprocessando engine nos últimos 21 dias"
           node frontend/jobs/generate_predictions.js --days="${{ github.event.inputs.dias || '7' }}" --force --reprocess-engine
