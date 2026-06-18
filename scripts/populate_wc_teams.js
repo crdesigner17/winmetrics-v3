@@ -202,21 +202,19 @@ async function teamExists(name) {
 // INSERIR TIME NA TABELA
 // ─────────────────────────────────────────────────────────────────────────────
 async function insertTeam(name, stats) {
+  // Apenas colunas confirmadas na wc_team_enrichment (lidas pelo enrichFromWorldCup)
   const row = {
     api_team_name: name,
-    last_wc:       null,          // nunca foi ou não cadastrado historicamente
+    last_wc:       null,
     ppg:           stats.ppg,
     avg_gf:        stats.avg_gf,
-    over15_g:      stats.over15_g,   // 0-100 — usado direto como score pelo engine
-    over25_g:      stats.over25_g,   // 0-100
-    btts_avg:      stats.btts_avg,   // 0-100 — usado como btts_h/btts_a no engine
-    over05_ht:     stats.over05_ht,  // 0-100 — usado direto como raw.over05_ht
+    over15_g:      stats.over15_g,
+    over25_g:      stats.over25_g,
+    btts_avg:      stats.btts_avg,
+    over05_ht:     stats.over05_ht,
     avg_cards:     stats.avg_cards,
     over25_cards:  stats.over25_cards,
     over35_cards:  stats.over35_cards,
-    source:        'api_football_recent',
-    games_used:    stats.games_used,
-    updated_at:    new Date().toISOString(),
   };
 
   const { error } = await supabase
