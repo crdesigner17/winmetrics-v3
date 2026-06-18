@@ -818,6 +818,16 @@ const PredictionEngine = (function () {
     return Math.min(1.12, Math.max(0.90, boost));
   }
 
+  // ── Ligas com restrição de mercado por disponibilidade na casa de apostas ──
+  // Nessas ligas, mercados sem odd disponível são excluídos do best_mkt.
+  // Esc 7.5 e Cart 2.5/3.5 frequentemente indisponíveis nessas ligas.
+  // Não afeta outras ligas nem o histórico existente.
+  const REQUIRE_ODD_AVAILABLE = new Set([
+    'Brasileirão Série B',
+    'Brasileirão Série C',
+    'Division 2 - Södra Götaland',
+  ]);
+
   function selectBestMkt(scores, filters, leagueKey, odds) {
     // ── Pesos da liga (Frente anterior) ──────────────────────────────────────
     const ws = {
@@ -844,6 +854,9 @@ const PredictionEngine = (function () {
 
     let best = null;
 
+    // Liga com restrição: filtra candidatos sem odd disponível na casa
+    const requireOdd = REQUIRE_ODD_AVAILABLE.has(leagueKey);
+
     for (const c of candidatos) {
       if (c.score === null || c.score === undefined) continue;
 
@@ -852,6 +865,9 @@ const PredictionEngine = (function () {
       if (c.score < minScore) continue;
 
       if (!c.eligible) continue;
+
+      // Frente ODD — ligas restritas: exige odd disponível na casa
+      if (requireOdd && (c.odd === null || c.odd === undefined)) continue;
 
       // Frente 3 — score efetivo = weighted × odd boost
       const boost = oddBoost(c.odd);
