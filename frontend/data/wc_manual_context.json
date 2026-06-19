@@ -1,0 +1,37 @@
+{
+  "_readme": [
+    "WinMetrics V3 — Curadoria manual para o mercado Resultado Final (Vitória) — Copa do Mundo.",
+    "Estes campos NÃO existem em nenhuma API do pipeline (API-Football não fornece qualidade de",
+    "elenco, histórico de Copa, contexto de grupo nem desfalques de forma estruturada).",
+    "Preencha por seleção, ANTES da rodada, para que o motor (frontend/lib/wc_resultado_final.js)",
+    "use esses critérios. Se um time não tiver entrada aqui, o motor PULA esses critérios para",
+    "ele (não assume nota neutra fake) e redistribui o peso entre os critérios automáticos reais.",
+    "",
+    "Campos por seleção (todos opcionais, 0-100 onde indicado):",
+    "  squadQuality   (0-100) — qualidade geral do elenco: nível dos jogadores, profundidade,",
+    "                  experiência em Copas. Julgamento seu — não há fonte automatizada.",
+    "  cupPedigree    (0-100) — tradição/histórico recente em Copas do Mundo (campanhas,",
+    "                  mata-mata, títulos).",
+    "  groupContext   objeto  — necessidade de vitória / situação no grupo nesta rodada:",
+    "                  needsWin (bool), alreadyQualified (bool), eliminated (bool).",
+    "                  Atualize a cada rodada da fase de grupos.",
+    "  missingKeyPlayers objeto — desfalques confirmados para a rodada:",
+    "                  strikerOut (bool), goalkeeperOut (bool), centerBackOut (bool).",
+    "  rotationRisk   (bool)  — true se o técnico sinalizou que vai poupar titulares",
+    "                  (ex: time já classificado, jogo sem necessidade de vitória).",
+    "  unpredictable  (bool)  — true se a seleção tem histórico de resultados muito",
+    "                  inconsistentes nesta edição (zebra constante) — marque manualmente.",
+    "",
+    "Exemplo preenchido abaixo para Brazil — apague/ajuste antes de usar pra valer."
+  ],
+  "teams": {
+    "Brazil": {
+      "squadQuality": 88,
+      "cupPedigree": 95,
+      "groupContext": { "needsWin": false, "alreadyQualified": false, "eliminated": false },
+      "missingKeyPlayers": { "strikerOut": false, "goalkeeperOut": false, "centerBackOut": false },
+      "rotationRisk": false,
+      "unpredictable": false
+    }
+  }
+}
