@@ -234,16 +234,25 @@
   .page-subtitle { font-size: 13.5px; color: var(--text-secondary); }
 
   /* section */
-  .toolbar {
-    display: flex; align-items: center; gap: 12px;
-    margin-bottom: 20px; flex-wrap: wrap;
+  .previsoes-control-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px 18px;
+    margin-bottom: 20px;
   }
 
-  .tab-group { display: flex; gap: 2px; background: var(--bg-card); border-radius: 8px; padding: 3px; border: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px; padding-bottom: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-group { display: flex; justify-content: center; gap: 4px; background: var(--bg-card2); border-radius: 8px; padding: 4px; border: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex: 1 1 auto; min-width: 0; }
   .tab-group::-webkit-scrollbar { display: none; }
   .tab {
-    padding: 7px 16px; border-radius: 6px;
-    font-size: 13px; font-weight: 500; cursor: pointer;
+    padding: 10px 22px; border-radius: 6px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
     color: var(--text-secondary); transition: all .15s;
   }
   .tab.active { background: var(--bg-hover); color: var(--text-primary); }
@@ -253,15 +262,15 @@
     box-shadow: inset 0 0 0 1px rgba(0,210,160,.35);
   }
 
-  .mkt-cat-bar { margin-bottom: 20px; }
+  .mkt-cat-bar { margin-bottom: 0; }
   .mkt-cat-tabs {
-    display: flex; gap: 28px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 28px; justify-content: space-between; border-bottom: 1px solid var(--border);
     overflow-x: auto; scrollbar-width: none;
   }
   .mkt-cat-tabs::-webkit-scrollbar { display: none; }
   .mkt-cat-tab {
-    display: flex; align-items: center; gap: 7px;
-    padding: 10px 2px 12px; font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1 1 0;
+    padding: 10px 4px 12px; font-size: 14px; font-weight: 600;
     color: var(--text-secondary); cursor: pointer; white-space: nowrap;
     border-bottom: 2px solid transparent; transition: all .15s;
   }
@@ -272,7 +281,7 @@
 
   .mkt-pill-bar {
     display: flex; align-items: center; justify-content: center;
-    gap: 10px; flex-wrap: wrap; padding: 14px 0 0;
+    gap: 10px; flex-wrap: wrap; padding: 16px 0 0;
   }
   .mkt-pill {
     padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
@@ -854,7 +863,8 @@
   ═══════════════════════════════════════════ */
   .content { padding: 16px 0 !important; }
   .page-header    { padding: 0 12px; margin-bottom: 14px; }
-  .toolbar        { padding: 0 12px; }
+  .previsoes-control-panel { margin: 0 12px 14px; padding: 12px 12px 14px; }
+  .toolbar        { padding: 0; }
   .snapshot-notice { margin: 0 12px 12px; }
   .table-wrap     { margin: 0 12px 12px; }
   #mobile-cards-list { padding: 0 12px; }
@@ -873,6 +883,7 @@
   .tab-group {
     order: -1;
     width: 100%;
+    justify-content: flex-start;
     overflow-x: auto;
     flex-shrink: 0;
     scrollbar-width: none;
@@ -880,10 +891,10 @@
   .tab-group::-webkit-scrollbar { display: none; }
   .tab { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
 
-  /* Barra de categorias de mercado — mobile */
-  .mkt-cat-bar { padding: 0 12px; margin-bottom: 14px; }
-  .mkt-cat-tabs { gap: 18px; }
-  .mkt-cat-tab { font-size: 13px; padding: 8px 1px 10px; }
+  /* Barra de categorias de mercado — mobile: volta a scroll horizontal */
+  .mkt-cat-bar { padding: 0; margin-bottom: 0; }
+  .mkt-cat-tabs { gap: 18px; justify-content: flex-start; }
+  .mkt-cat-tab { flex: none; font-size: 13px; padding: 8px 1px 10px; }
   .mkt-pill-bar { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; padding: 12px 0 2px; }
   .mkt-pill-bar::-webkit-scrollbar { display: none; }
   .mkt-pill { padding: 6px 14px; font-size: 12px; flex-shrink: 0; }
@@ -1446,38 +1457,41 @@ async function getCurrentProfile() {
       <p class="page-subtitle">As previsões com maior probabilidade e valor esperado.</p>
     </div>
 
-    <!-- Toolbar -->
-    <div class="toolbar" style="margin-bottom:14px;">
-      <div class="tab-group" id="date-tab-group">
-        <!-- Tabs de data gerados dinamicamente por buildDateTabs() -->
+    <!-- Painel de controles: datas + filtros + categorias de mercado -->
+    <div class="previsoes-control-panel">
+      <div class="toolbar">
+        <div class="tab-group" id="date-tab-group">
+          <!-- Tabs de data gerados dinamicamente por buildDateTabs() -->
+        </div>
+        <!-- Filtro de datas — comentado por enquanto, reativar quando precisar
+        <div class="filter-btn" id="filter-date-btn" style="cursor:pointer;">
+          <svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
+          <span id="filter-date-label">Filtros</span>
+        </div>
+        -->
       </div>
-      <div class="filter-btn" id="filter-date-btn" style="cursor:pointer;">
-        <svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
-        <span id="filter-date-label">Filtros</span>
-      </div>
-    </div>
 
-    <!-- Barra de Categorias de Mercado -->
-    <div class="mkt-cat-bar">
-      <div class="mkt-cat-tabs" id="mkt-cat-tabs">
-        <div class="mkt-cat-tab" data-cat="vencer">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M5 6H3a4 4 0 0 0 4 4"/><path d="M19 6h2a4 4 0 0 1-4 4"/></svg>
-          <span>Vencer</span>
+      <div class="mkt-cat-bar">
+        <div class="mkt-cat-tabs" id="mkt-cat-tabs">
+          <div class="mkt-cat-tab" data-cat="vencer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M5 6H3a4 4 0 0 0 4 4"/><path d="M19 6h2a4 4 0 0 1-4 4"/></svg>
+            <span>Vencer</span>
+          </div>
+          <div class="mkt-cat-tab active" data-cat="gols">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+            <span>Gols</span>
+          </div>
+          <div class="mkt-cat-tab" data-cat="escanteios">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 5h11l-2 4 2 4H4"/></svg>
+            <span>Escanteios</span>
+          </div>
+          <div class="mkt-cat-tab" data-cat="cartoes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/></svg>
+            <span>Cartões</span>
+          </div>
         </div>
-        <div class="mkt-cat-tab active" data-cat="gols">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
-          <span>Gols</span>
-        </div>
-        <div class="mkt-cat-tab" data-cat="escanteios">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 5h11l-2 4 2 4H4"/></svg>
-          <span>Escanteios</span>
-        </div>
-        <div class="mkt-cat-tab" data-cat="cartoes">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/></svg>
-          <span>Cartões</span>
-        </div>
+        <div class="mkt-pill-bar" id="mkt-pill-bar"></div>
       </div>
-      <div class="mkt-pill-bar" id="mkt-pill-bar"></div>
     </div>
 
     <!-- section -->
@@ -1486,7 +1500,7 @@ async function getCurrentProfile() {
       Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">Alta</strong> e <strong style="margin:0 3px">Elite</strong> geradas pelo Prediction Engine.
     </div>
 
-    <!-- Modal de filtro por intervalo de datas -->
+    <!-- Modal de filtro por intervalo de datas — comentado junto com o botão de Filtros
     <div id="filter-modal-overlay">
       <div class="filter-modal">
         <h3>
@@ -1510,6 +1524,7 @@ async function getCurrentProfile() {
         </div>
       </div>
     </div>
+    -->
 
     <!-- TABLE -->
     <div class="table-wrap">
@@ -5003,8 +5018,10 @@ function _bindTabEvents() {
         filterDateEnd   = null;
       }
 
-      document.getElementById('filter-date-label').textContent = 'Filtros';
-      document.getElementById('filter-date-btn').style.borderColor = '';
+      const fdLabel = document.getElementById('filter-date-label');
+      const fdBtn   = document.getElementById('filter-date-btn');
+      if (fdLabel) fdLabel.textContent = 'Filtros';
+      if (fdBtn) fdBtn.style.borderColor = '';
       currentPage = 1;
       loadPrevisoes();
     });
@@ -5060,6 +5077,10 @@ function initFilterModal() {
   const clearBtn  = document.getElementById('filter-clear-btn');
   const inputStart = document.getElementById('filter-date-start');
   const inputEnd   = document.getElementById('filter-date-end');
+
+  // Botão e modal de filtro de datas estão comentados por enquanto — só
+  // reativa essa lógica quando o HTML voltar (ver comentário no toolbar).
+  if (!overlay || !openBtn) return;
 
   // section
   const todayStr = brtDateStr(new Date());
