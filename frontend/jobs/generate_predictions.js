@@ -49,6 +49,18 @@ const { applyWorldCupBoost, WC_LEAGUE_NAME } = require('../lib/world_cup_boost.j
 const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enricher.js');
 const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.js'); // [NOVO]
 const { enrichOddsOddspapi }                        = require('../lib/enrich_odds_oddspapi.js'); // fallback OddsPapi
+// [NOVO] Mercado "Resultado Final (Vitória)" — exclusivo Copa do Mundo, isolado
+const { computeWcResultadoFinal, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
+
+// Curadoria manual (qualidade de elenco, histórico em Copa, contexto de grupo,
+// desfalques) — não existe API pra isso. Carregado uma vez; se o arquivo não
+// existir ou estiver vazio, o motor simplesmente pula esses critérios.
+let WC_MANUAL_CONTEXT = {};
+try {
+  WC_MANUAL_CONTEXT = require('../data/wc_manual_context.json').teams || {};
+} catch (_e) {
+  WC_MANUAL_CONTEXT = {};
+}
 
 
 // ─────────────────────────────────────────────────────────────────
@@ -932,13 +944,19 @@ async function upsertOdds(raw) {
 }
 
 /**
- * upsertPredictions(result)
+ * upsertPredictions(result, raw, wcVitoria)
  * Salva todos os 10 mercados na tabela predictions.
  * Marca is_best_market no mercado best_mkt.
  * Se houver linha alternativa, usa o label real (ex: Esc 9.5) e
  * salva os metadados original_market / final_market / is_alternative_line.
+ *
+ * @param {object|null} wcVitoria — [NOVO] sinal opcional do mercado "Resultado
+ *   Final (Vitória)", exclusivo Copa do Mundo. Vem de
+ *   computeWcResultadoFinal() (lib/wc_resultado_final.js) — já vem só A+/A,
+ *   nunca grades inferiores (a função retorna null nesses casos). Isolado:
+ *   não interfere nos 10 mercados padrão acima.
  */
-async function upsertPredictions(result, raw = {}) {
+async function upsertPredictions(result, raw = {}, wcVitoria = null) {
   // Monta mapa de overrides de label a partir de altLines
   const altLabelByKey = {};
   for (const alt of (result.altLines || [])) {
@@ -993,6 +1011,28 @@ async function upsertPredictions(result, raw = {}) {
       created_at:         new Date().toISOString(),
     };
   }).filter(Boolean);
+
+  // [NOVO] Mercado "Resultado Final (Vitória)" — Copa do Mundo, isolado.
+  // market vem como 'Vitória da Casa' / 'Vitória do Visitante' — esses labels
+  // já são reconhecidos pelo frontend (smartMarketKey → homeWin/awayWin),
+  // então aparecem automaticamente no grupo "Resultado / Dupla Chance" dos
+  // cards da Copa do Mundo, sem precisar mudar nada no previsoes.html.
+  if (wcVitoria && wcVitoria.market && ['A+', 'A'].includes(wcVitoria.grade)) {
+    rows.push({
+      fixture_id:         result.fixture_id,
+      market:              wcVitoria.market,
+      score:               wcVitoria.score,
+      grade:               wcVitoria.grade,
+      passed_filter:       true,
+      under35_passed:      false,
+      is_best_market:      false,
+      odd:                 null,
+      score_enriquecido:   null,
+      grade_enriquecido:   null,
+      odds_fonte:          'wc_resultado_final',
+      created_at:          new Date().toISOString(),
+    });
+  }
 
   if (rows.length === 0) return;
 
@@ -1407,6 +1447,27 @@ async function run() {
         applyWorldCupBoost(result, raw, LOG);
       }
 
+      // ── [NOVO] WC RESULTADO FINAL (VITÓRIA) ─────────────────────────────
+      // ISOLADO: só roda para jogos de Copa do Mundo (mesma checagem de liga
+      // usada no front-end — WC_LEAGUE_NAME sozinho não cobre todas as
+      // variações de league_name observadas em produção).
+      // Não altera result.scores nem result.grades dos 10 mercados existentes;
+      // gera um sinal à parte, salvo separadamente em upsertPredictions().
+      let wcVitoria = null;
+      if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+        const homeFormString = apiData.homeStats?.response?.form || null;
+        const awayFormString = apiData.awayStats?.response?.form || null;
+        wcVitoria = computeWcResultadoFinal({
+          raw,
+          homeFormString,
+          awayFormString,
+          manualContext: WC_MANUAL_CONTEXT,
+        });
+        if (wcVitoria) {
+          LOG.ok(`  🏆 WC Resultado Final: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} cobertura=${wcVitoria.coverage}%`);
+        }
+      }
+
       // Contabiliza grades
       const g = result.best_grade;
       if (g === 'A+') stats.grades_ap++;
@@ -1423,7 +1484,7 @@ async function run() {
         await upsertFixture(raw, entry.liga);
         await upsertMetrics(raw, result);
         await upsertOdds(raw);
-        await upsertPredictions(result, raw);
+        await upsertPredictions(result, raw, wcVitoria);
         savedSnapshot = await upsertSnapshot(result, raw);
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
