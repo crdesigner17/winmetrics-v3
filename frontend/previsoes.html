@@ -388,8 +388,230 @@
     color: var(--text-primary);
   }
 
+  /* ═══════════════════════════════════════════
+     WORLD CUP — Cards (todos os palpites/%)
+  ═══════════════════════════════════════════ */
+  #wc-cards-grid {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 2px 0 4px;
+  }
+  #wc-cards-grid.wc-grid-active { display: grid; }
 
+  .wc-game-card {
+    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 40%), var(--bg-card, #161a26);
+    border: 1px solid var(--border, #252a3a);
+    border-top: 3px solid var(--wc-accent, #3a3f55);
+    border-radius: 13px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 0 rgba(255,255,255,.02) inset, 0 6px 16px -10px rgba(0,0,0,.5);
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .wc-game-card:hover {
+    border-color: rgba(0,210,160,.35);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -12px rgba(0,210,160,.18);
+  }
 
+  /* ── Header ── */
+  .wc-card-header {
+    padding: 13px 14px 11px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .wc-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .wc-card-teams {
+    font-size: 14.5px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text-primary);
+    line-height: 1.25;
+  }
+  .wc-card-meta {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .wc-league-chip {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: #00d2a0;
+    background: rgba(0,210,160,.1);
+    border: 1px solid rgba(0,210,160,.25);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .wc-card-dot { opacity: .4; }
+
+  .wc-status-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .wc-status-badge .wc-status-score {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+  .wc-status-pending  { background: rgba(255,255,255,.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,.08); }
+  .wc-status-live     { background: rgba(0,210,160,.14); color: #00d2a0; border: 1px solid rgba(0,210,160,.35); }
+  .wc-status-live .wc-live-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #00d2a0; flex-shrink: 0;
+    animation: wcPulse 1.4s ease-in-out infinite;
+  }
+  .wc-status-finished { background: rgba(255,255,255,.06); color: var(--text-primary); border: 1px solid rgba(255,255,255,.1); }
+  @keyframes wcPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  /* ── Hero pick (melhor palpite do jogo) ── */
+  .wc-hero {
+    margin: 12px 14px 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--wc-hero-bg, rgba(124,58,237,.08));
+    border: 1px solid var(--wc-hero-border, rgba(124,58,237,.25));
+  }
+  .wc-hero-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .wc-hero-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .wc-hero-main {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+  .wc-hero-grade {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+  .wc-hero-market {
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .wc-hero-score {
+    font-size: 17px;
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    flex-shrink: 0;
+  }
+  .wc-hero-bar {
+    margin-top: 7px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.07);
+    overflow: hidden;
+  }
+  .wc-hero-bar-fill { height: 100%; border-radius: 2px; }
+
+  /* ── Body: grupos de categoria ── */
+  .wc-card-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .wc-card-group { }
+  .wc-card-group .wc-cat-label {
+    text-align: left;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .wc-group-icon { font-size: 10px; opacity: .85; margin-right: 5px; }
+
+  .wc-pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .wc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px 4px 7px;
+    border-radius: 7px;
+    background: rgba(255,255,255,.035);
+    border: 1px solid rgba(255,255,255,.07);
+    border-left: 3px solid transparent;
+    line-height: 1;
+  }
+  .wc-pill-grade-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 1px;
+  }
+  .wc-pill-market {
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Rajdhani', sans-serif;
+    margin-right: 5px;
+  }
+  .wc-pill-score {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .wc-pill-check { font-size: 10px; font-weight: 700; margin-left: 4px; }
+  .wc-pill-check.ok  { color: #00d2a0; }
+  .wc-pill-check.bad { color: #ff5e6a; }
+
+  .wc-card-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 4px 0;
+  }
+  .wc-cards-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 48px 12px;
+    color: var(--text-muted);
+  }
 
   th.col-score, td.col-score { width: 76px; text-align: center; white-space: nowrap; }
   th.col-odd, td.col-odd { min-width: 80px; text-align: center; white-space: nowrap; }
@@ -716,6 +938,7 @@
   /* Cards com respiro interno */
   #mobile-cards-list { gap: 10px; padding: 0 12px 8px; }
   .m-card { padding: 14px; }
+  #wc-cards-grid { grid-template-columns: 1fr; gap: 10px; padding: 0 12px 8px; }
 
   /* ═══════════════════════════════════════════
      BOTTOM BAR — Campeonatos | Mercados
@@ -1355,6 +1578,8 @@ async function getCurrentProfile() {
       </table>
       <!-- Mobile card list (shown only on mobile via CSS) -->
       <div id="mobile-cards-list"></div>
+      <!-- World Cup cards grid (todos os palpites/%) -->
+      <div id="wc-cards-grid"></div>
     </div>
 
     <!-- Pagination -->
@@ -4317,37 +4542,37 @@ function renderPagination(total, page) {
 
 /**
  * Agrupa as previsões de um jogo por categoria de mercado.
- * Retorna, para cada categoria, o MELHOR mercado (maior score).
+ * Retorna, para cada categoria, TODOS os palpites disponíveis (ordenados
+ * por score decrescente) — usado na visualização em cards.
  * Função isolada — usada somente na visualização World Cup.
  */
-function getWorldCupMarketGroups(predictions) {
-  // Definição dos grupos e quais market keys pertencem a cada um
-  const WC_GROUPS = {
-    over_gols: {
-      label: 'Over Gols',
-      // btts incluído aqui — semanticamente são mercados de gols
-      keys: ['over05', 'over15', 'over25', 'over35', 'btts'],
-    },
-    under_gols: {
-      label: 'Under Gols',
-      keys: ['under25', 'under35', 'under45'],
-    },
-    escanteios: {
-      label: 'Escanteios',
-      keys: ['esc65', 'esc75', 'esc85', 'esc95'],
-    },
-    cartoes: {
-      label: 'Cartões',
-      keys: ['cart25', 'cart35', 'cart45', 'cart45u'],
-    },
-    resultado: {
-      label: 'Resultado / Dupla Chance',
-      // O engine atual não gera esses mercados — coluna mostrará '-' até serem implementados
-      keys: ['homeWin', 'awayWin', 'draw', 'double1x', 'doublex2', 'double12'],
-    },
-  };
+const WC_GROUPS = {
+  over_gols: {
+    label: 'Over Gols',
+    // btts incluído aqui — semanticamente são mercados de gols
+    keys: ['over05', 'over15', 'over25', 'over35', 'btts'],
+  },
+  under_gols: {
+    label: 'Under Gols',
+    keys: ['under25', 'under35', 'under45'],
+  },
+  escanteios: {
+    label: 'Escanteios',
+    keys: ['esc65', 'esc75', 'esc85', 'esc95'],
+  },
+  cartoes: {
+    label: 'Cartões',
+    keys: ['cart25', 'cart35', 'cart45', 'cart45u'],
+  },
+  resultado: {
+    label: 'Resultado / Dupla Chance',
+    // O engine atual não gera esses mercados — grupo ficará vazio até serem implementados
+    keys: ['homeWin', 'awayWin', 'draw', 'double1x', 'doublex2', 'double12'],
+  },
+};
 
-  // Mapeia market key → prediction (maior score)
+function getWorldCupAllMarkets(predictions) {
+  // Mapeia market key → prediction (maior score, evita duplicidade do mesmo mercado)
   const byKey = {};
   (predictions || []).forEach(p => {
     const key = smartMarketKey(p.market);
@@ -4357,17 +4582,14 @@ function getWorldCupMarketGroups(predictions) {
     }
   });
 
-  // Para cada grupo, pega o melhor entre as keys disponíveis
+  // Para cada grupo, lista TODOS os palpites disponíveis, ordenados por score
   const result = {};
   Object.entries(WC_GROUPS).forEach(([groupId, { label, keys }]) => {
-    let best = null;
-    keys.forEach(k => {
-      if (!byKey[k]) return;
-      if (!best || Number(byKey[k].score || 0) > Number(best.score || 0)) {
-        best = byKey[k];
-      }
-    });
-    result[groupId] = { label, best };
+    const items = keys
+      .map(k => byKey[k])
+      .filter(Boolean)
+      .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+    result[groupId] = { label, items };
   });
 
   return result;
@@ -4379,60 +4601,103 @@ function wcGradeLabel(grade) {
   return map[grade] || grade || '-';
 }
 
-/** Renderiza a célula de uma categoria de mercado na view World Cup */
-function renderWcCategoryCell(groupData, snap) {
-  if (!groupData.best) {
-    return `<div class="wc-cat-label">${groupData.label}</div>
-            <span style="color:var(--text-muted);font-size:11px">-</span>`;
-  }
+/** Ícone por categoria — usado no rótulo do grupo dentro do card */
+const WC_GROUP_ICONS = {
+  over_gols: '⚽',
+  under_gols: '🔒',
+  escanteios: '🚩',
+  cartoes: '🟨',
+  resultado: '🏆',
+};
 
-  const p = groupData.best;
+/** Paleta de cores por grade — compartilhada entre pill, hero e accent do card */
+const WC_GRADE_COLORS = {
+  'A+': { bg: 'rgba(0,210,160,.14)', border: 'rgba(0,210,160,.35)', color: '#00d2a0' },
+  'A':  { bg: 'rgba(240,165,0,.12)', border: 'rgba(240,165,0,.35)',  color: '#f0a500' },
+  'B':  { bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.28)', color: '#60a5fa' },
+  'C':  { bg: 'rgba(124,58,237,.1)', border: 'rgba(124,58,237,.28)', color: '#a78bfa' },
+  'D':  { bg: 'rgba(255,94,106,.1)', border: 'rgba(255,94,106,.28)', color: '#ff5e6a' },
+};
+function wcGradeColor(grade) { return WC_GRADE_COLORS[grade] || WC_GRADE_COLORS['C']; }
+
+/** Encontra o melhor palpite do jogo entre TODOS os grupos — usado no destaque do card */
+function getWcBestOverall(groups) {
+  let best = null;
+  Object.values(groups).forEach(g => {
+    g.items.forEach(p => {
+      if (!best || Number(p.score || 0) > Number(best.score || 0)) best = p;
+    });
+  });
+  return best;
+}
+
+/** Renderiza um "pill" (chip) com um palpite individual + sua % — usado nos cards */
+function renderWcPill(p, snap) {
   const grade = p.grade || 'C';
   const score = p.score !== null && p.score !== undefined ? Math.round(Number(p.score)) : null;
   const marketDisplay = displayMarket(p.market);
-  const gradeColors = {
-    'A+': { bg: 'rgba(0,210,160,.14)', border: 'rgba(0,210,160,.35)', color: '#00d2a0' },
-    'A':  { bg: 'rgba(240,165,0,.12)', border: 'rgba(240,165,0,.35)',  color: '#f0a500' },
-    'B':  { bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.28)', color: '#60a5fa' },
-    'C':  { bg: 'rgba(124,58,237,.1)', border: 'rgba(124,58,237,.28)', color: '#a78bfa' },
-    'D':  { bg: 'rgba(255,94,106,.1)', border: 'rgba(255,94,106,.28)', color: '#ff5e6a' },
-  };
-  const gc = gradeColors[grade] || gradeColors['C'];
+  const gc = wcGradeColor(grade);
   const res = calcMarketResult(marketDisplay, snap);
 
   let labelStyle = 'color:var(--text-primary);';
   let suffix = '';
   if (res === 'green') {
     labelStyle = 'color:#00d2a0;';
-    suffix = '<span style="font-size:9px;font-weight:700;color:#00d2a0;margin-left:3px;">✓</span>';
+    suffix = '<span class="wc-pill-check ok">✓</span>';
   } else if (res === 'red') {
     labelStyle = 'color:#ff5e6a;text-decoration:line-through;opacity:.75;';
-    suffix = '<span style="font-size:9px;font-weight:700;color:#ff5e6a;margin-left:3px;">✗</span>';
+    suffix = '<span class="wc-pill-check bad">✗</span>';
   }
 
-  return `<div class="wc-cat-label">${groupData.label}</div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-            <span style="
-              font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
-              background:${gc.bg};border:1px solid ${gc.border};color:${gc.color};
-              letter-spacing:.3px;
-            ">${grade} ${wcGradeLabel(grade)}</span>
-            <div class="wc-market-item">
-              <span style="font-size:11.5px;font-weight:600;font-family:'Rajdhani',sans-serif;color:var(--text-primary);${labelStyle}">${marketDisplay}</span>
-              ${suffix}
-            </div>
-            ${score !== null ? `<span style="font-size:10px;color:var(--text-muted);">${score}%</span>` : ''}
+  return `<div class="wc-pill" style="border-left-color:${gc.color};" title="${grade} · ${wcGradeLabel(grade)}">
+            <span class="wc-pill-grade-dot" style="background:${gc.color}"></span>
+            <span class="wc-pill-market" style="${labelStyle}">${marketDisplay}</span>
+            ${score !== null ? `<span class="wc-pill-score">${score}%</span>` : ''}
+            ${suffix}
           </div>`;
 }
 
-/**
- * Renderiza a tabela completa no modo World Cup.
- * Cada linha mostra o melhor mercado por categoria para aquele jogo.
- * Isolado — não altera renderRows nem a lógica padrão.
- */
-// Renderiza a coluna Resultado na view World Cup
-// Usa status da fixture (FT/NS/LIVE) + placar real — isolado da view normal
-function formatWcResult(snap) {
+/** Renderiza um grupo de categoria (Over Gols, Escanteios, etc.) com TODOS os palpites — usado nos cards */
+function renderWcCardGroup(groupId, groupData, snap) {
+  if (!groupData.items.length) return '';
+  const icon = WC_GROUP_ICONS[groupId] || '';
+  return `<div class="wc-card-group">
+            <div class="wc-cat-label"><span class="wc-group-icon">${icon}</span>${groupData.label}</div>
+            <div class="wc-pill-list">
+              ${groupData.items.map(p => renderWcPill(p, snap)).join('')}
+            </div>
+          </div>`;
+}
+
+/** Renderiza o destaque "melhor palpite do jogo" no topo do card */
+function renderWcHero(best, snap) {
+  if (!best) return '';
+  const grade = best.grade || 'C';
+  const score = best.score !== null && best.score !== undefined ? Math.round(Number(best.score)) : null;
+  const marketDisplay = displayMarket(best.market);
+  const gc = wcGradeColor(grade);
+  const res = calcMarketResult(marketDisplay, snap);
+
+  let scoreColor = gc.color;
+  let suffix = '';
+  if (res === 'green') { suffix = '<span class="wc-pill-check ok" style="font-size:13px;">✓</span>'; }
+  else if (res === 'red') { scoreColor = '#ff5e6a'; suffix = '<span class="wc-pill-check bad" style="font-size:13px;">✗</span>'; }
+
+  return `<div class="wc-hero" style="--wc-hero-bg:${gc.bg};--wc-hero-border:${gc.border};background:${gc.bg};border-color:${gc.border};">
+            <div class="wc-hero-label">🔥 Melhor palpite do jogo</div>
+            <div class="wc-hero-row">
+              <div class="wc-hero-main">
+                <span class="wc-hero-grade" style="background:${gc.bg};color:${gc.color};border:1px solid ${gc.border};">${grade}</span>
+                <span class="wc-hero-market">${marketDisplay}</span>
+              </div>
+              <span class="wc-hero-score" style="color:${scoreColor};">${score !== null ? score + '%' : '-'}${suffix}</span>
+            </div>
+            ${score !== null ? `<div class="wc-hero-bar"><div class="wc-hero-bar-fill" style="width:${score}%;background:${gc.color};"></div></div>` : ''}
+          </div>`;
+}
+
+// Status do jogo (FT/NS/LIVE) + placar real, como badge compacto no header do card
+function wcStatusBadge(snap) {
   const status = snap.status || snap.fixture_status || null;
   const gh = snap.goals_home ?? snap.home_goals ?? null;
   const ga = snap.goals_away ?? snap.away_goals ?? null;
@@ -4441,55 +4706,36 @@ function formatWcResult(snap) {
   const LIVE     = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE']);
 
   if (FINISHED.has(status)) {
-    const placar = (gh !== null && ga !== null) ? `${gh} – ${ga}` : '? – ?';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-      <span style="font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--text-muted);text-transform:uppercase;">Encerrado</span>
-      <span style="font-size:14px;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--text-primary);letter-spacing:.5px;">${placar}</span>
-    </div>`;
+    const placar = (gh !== null && ga !== null) ? `${gh}-${ga}` : '?-?';
+    return `<span class="wc-status-badge wc-status-finished">Encerrado <span class="wc-status-score">${placar}</span></span>`;
   }
-
   if (LIVE.has(status)) {
-    const placar = (gh !== null && ga !== null) ? `${gh} – ${ga}` : '0 – 0';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-      <span style="font-size:9px;font-weight:700;letter-spacing:.5px;color:#00d2a0;text-transform:uppercase;">● AO VIVO</span>
-      <span style="font-size:14px;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--text-primary);letter-spacing:.5px;">${placar}</span>
-    </div>`;
+    const placar = (gh !== null && ga !== null) ? `${gh}-${ga}` : '0-0';
+    return `<span class="wc-status-badge wc-status-live"><span class="wc-live-dot"></span>Ao vivo <span class="wc-status-score">${placar}</span></span>`;
   }
-
-  // Não iniciado
-  return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">Aguardando</span>';
+  return `<span class="wc-status-badge wc-status-pending">Aguardando</span>`;
 }
 
-function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap = {}) {
-  const tbody = document.getElementById('tableBody');
-  const thead = document.querySelector('thead tr');
+/**
+ * Renderiza a grade de cards no modo World Cup.
+ * Cada card mostra TODOS os palpites e % disponíveis daquele jogo, agrupados por categoria,
+ * com destaque para o melhor palpite do jogo.
+ * Isolado — não altera renderRows nem a lógica padrão.
+ */
+function renderWorldCupCards(fixtures, predictionsMap, fixturesMap, snapshotsMap = {}) {
+  const grid = document.getElementById('wc-cards-grid');
+  if (!grid) return;
 
   if (!fixtures.length) {
-    renderEmpty();
-    // Restaura thead normal ao sair
-    if (thead) thead.innerHTML = THEAD_NORMAL;
+    grid.innerHTML = `<div class="wc-cards-empty-state">
+      <div style="font-size:22px;margin-bottom:12px;">🇧🇷</div>
+      <div style="font-size:14px;margin-bottom:6px;">Nenhum jogo da Copa do Mundo encontrado no período selecionado.</div>
+      <div style="font-size:12px;color:var(--text-muted);">Tente selecionar outro período de datas.</div>
+    </div>`;
     return;
   }
 
-  // Thead especial Copa do Mundo
-  if (thead) {
-    thead.innerHTML = `
-      <th class="col-star"></th>
-      <th class="col-game">JOGO</th>
-      <th class="col-date center">DATA</th>
-      <th class="wc-col">Over Gols</th>
-      <th class="wc-col">Under Gols</th>
-      <th class="wc-col">Escanteios</th>
-      <th class="wc-col">Cartões</th>
-      <th class="wc-col">Resultado / Dupla Chance</th>
-      <th class="col-result center">RESULTADO</th>
-    `;
-  }
-
-  const table = document.querySelector('.table-wrap table');
-  if (table) table.style.minWidth = '1100px';
-
-  tbody.innerHTML = fixtures.map(snap => {
+  grid.innerHTML = fixtures.map(snap => {
     const predictions = predictionsMap[snap.fixture_id] || [];
     const f = fixturesMap[String(snap.fixture_id)] || snap;
     const merged = { ...snap, ...f };
@@ -4497,7 +4743,7 @@ function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap 
     if (f.goals_home !== undefined) merged.goals_home = f.goals_home;
     if (f.goals_away !== undefined) merged.goals_away = f.goals_away;
 
-    const groups = getWorldCupMarketGroups(predictions);
+    const groups = getWorldCupAllMarkets(predictions);
     // hour: prioridade → snapshot (tem o horário real) → fixtures (só tem meia-noite BRT)
     const snapEntry = snapshotsMap[String(snap.fixture_id)] || {};
     const hora   = snapEntry.hour || snap.hour || formatHour(snap.match_date);
@@ -4505,28 +4751,29 @@ function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap 
     const leagueName = snap.league_name || '';
     const matchName  = cleanMatchName(snap.match_name || `${snap.home_team || ''} x ${snap.away_team || ''}`);
 
+    const best = getWcBestOverall(groups);
+    const accentColor = best ? wcGradeColor(best.grade || 'C').color : '#3a3f55';
+    const groupsHtml = Object.entries(groups).map(([gid, g]) => renderWcCardGroup(gid, g, merged)).join('');
+    const hasAny = Object.values(groups).some(g => g.items.length);
+
     return `
-  <tr>
-    <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
-    <td class="col-game" style="padding:10px 8px 10px 12px;">
-      <div class="game-cell">
-        <div class="game-info">
-          <div class="game-name">${matchName}</div>
-          <div class="game-sub">${leagueName}</div>
-        </div>
+  <div class="wc-game-card" style="--wc-accent:${accentColor};">
+    <div class="wc-card-header">
+      <div class="wc-card-title-row">
+        <div class="wc-card-teams">${matchName}</div>
+        ${wcStatusBadge(merged)}
       </div>
-    </td>
-    <td class="col-date" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;padding:10px 8px;text-align:center;">
-      <div style="font-weight:600;color:var(--text-primary);font-size:12px;">${data}</div>
-      <div style="font-size:11px;margin-top:2px">${hora}</div>
-    </td>
-    <td class="wc-col">${renderWcCategoryCell(groups.over_gols, merged)}</td>
-    <td class="wc-col">${renderWcCategoryCell(groups.under_gols, merged)}</td>
-    <td class="wc-col">${renderWcCategoryCell(groups.escanteios, merged)}</td>
-    <td class="wc-col">${renderWcCategoryCell(groups.cartoes, merged)}</td>
-    <td class="wc-col">${renderWcCategoryCell(groups.resultado, merged)}</td>
-    <td class="col-result" style="text-align:center;padding:10px 8px;">${formatWcResult(merged)}</td>
-  </tr>`;
+      <div class="wc-card-meta">
+        <span class="wc-league-chip">${leagueName}</span>
+        <span class="wc-card-dot">•</span>
+        <span>${data} ${hora}</span>
+      </div>
+    </div>
+    ${renderWcHero(best, merged)}
+    <div class="wc-card-body">
+      ${hasAny ? groupsHtml : '<div class="wc-card-empty">Sem palpites disponíveis para este jogo.</div>'}
+    </div>
+  </div>`;
   }).join('');
 }
 
@@ -4535,21 +4782,29 @@ function renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap 
  * Totalmente isolado — não altera filterLeague, filterMarket nem activeFilter.
  */
 async function loadWorldCup() {
-  const tbody = document.getElementById('tableBody');
-  tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
-    <div style="font-size:14px">⚽ Carregando jogos da Copa do Mundo...</div></td></tr>`;
+  const table = document.querySelector('.table-wrap table');
+  const grid  = document.getElementById('wc-cards-grid');
+  const mobileList = document.getElementById('mobile-cards-list');
+
+  // Esconde tabela normal (desktop e mobile) e mostra a grade de cards WC
+  if (table) table.style.display = 'none';
+  if (mobileList) mobileList.innerHTML = '';
+  if (grid) {
+    grid.classList.add('wc-grid-active');
+    grid.innerHTML = `<div class="wc-cards-empty-state">
+      <div style="font-size:14px">⚽ Carregando jogos da Copa do Mundo...</div>
+    </div>`;
+  }
 
   try {
     const fixtures = await fetchWorldCupFixtures();
 
     if (!fixtures.length) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
-        <div style="font-size:22px;margin-bottom:12px;">🇧🇷</div>
-        <div style="font-size:14px;margin-bottom:6px;">Nenhum jogo da Copa do Mundo encontrado no período selecionado.</div>
-        <div style="font-size:12px;color:var(--text-muted);">Tente selecionar outro período de datas.</div>
-      </td></tr>`;
-      const thead = document.querySelector('thead tr');
-      if (thead) thead.innerHTML = THEAD_NORMAL;
+      renderWorldCupCards([], {}, {}, {});
+      const paginationInfo = document.querySelector('.pagination-info');
+      if (paginationInfo) paginationInfo.textContent = 'Nenhum resultado';
+      const pagesEl = document.querySelector('.pagination-pages');
+      if (pagesEl) pagesEl.innerHTML = '';
       return;
     }
 
@@ -4560,7 +4815,7 @@ async function loadWorldCup() {
       fetchOfficialSnapshotsByFixtureIds(fixtureIds), // para pegar o hour correto
     ]);
 
-    renderWorldCupRows(fixtures, predictionsMap, fixturesMap, snapshotsMap);
+    renderWorldCupCards(fixtures, predictionsMap, fixturesMap, snapshotsMap);
 
     // Atualiza contador (sem paginação no modo WC)
     const paginationInfo = document.querySelector('.pagination-info');
@@ -4571,8 +4826,20 @@ async function loadWorldCup() {
     if (pagesEl) pagesEl.innerHTML = '';
 
   } catch (err) {
-    renderError(err.message);
+    if (grid) {
+      grid.innerHTML = `<div class="wc-cards-empty-state" style="color:#ff5e6a">
+        <div style="font-size:14px">⚠ Erro ao carregar dados: ${err.message}</div>
+      </div>`;
+    }
   }
+}
+
+/** Restaura a visualização normal (tabela), saindo do modo World Cup. */
+function exitWorldCupView() {
+  const table = document.querySelector('.table-wrap table');
+  const grid  = document.getElementById('wc-cards-grid');
+  if (table) { table.style.display = ''; table.style.minWidth = '1040px'; }
+  if (grid)  { grid.classList.remove('wc-grid-active'); grid.innerHTML = ''; }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -4894,11 +5161,7 @@ function initWorldCupButton() {
       // Desativa — volta ao modo normal
       activeSpecialFilter = null;
       btn.classList.remove('wc-active');
-      // Restaura thead normal
-      const thead = document.querySelector('thead tr');
-      if (thead) thead.innerHTML = THEAD_NORMAL;
-      const table = document.querySelector('.table-wrap table');
-      if (table) table.style.minWidth = '1040px';
+      exitWorldCupView();
       loadPrevisoes();
     } else {
       // Ativa modo World Cup (isolado)
