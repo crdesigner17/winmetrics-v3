@@ -253,6 +253,39 @@
     box-shadow: inset 0 0 0 1px rgba(0,210,160,.35);
   }
 
+  .mkt-cat-bar { margin-bottom: 20px; }
+  .mkt-cat-tabs {
+    display: flex; gap: 28px; border-bottom: 1px solid var(--border);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .mkt-cat-tabs::-webkit-scrollbar { display: none; }
+  .mkt-cat-tab {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 2px 12px; font-size: 14px; font-weight: 600;
+    color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all .15s;
+  }
+  .mkt-cat-tab svg { width: 15px; height: 15px; opacity: .75; flex-shrink: 0; }
+  .mkt-cat-tab:hover { color: var(--text-primary); }
+  .mkt-cat-tab.active { color: var(--green); border-bottom-color: var(--green); }
+  .mkt-cat-tab.active svg { opacity: 1; }
+
+  .mkt-pill-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; flex-wrap: wrap; padding: 14px 0 0;
+  }
+  .mkt-pill {
+    padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border); color: var(--text-secondary);
+    background: transparent; cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .mkt-pill:hover { border-color: var(--green); color: var(--text-primary); }
+  .mkt-pill.active {
+    background: rgba(0,210,160,.14); border-color: var(--green); color: var(--green);
+  }
+  .mkt-pill.disabled { opacity: .45; cursor: not-allowed; }
+  .mkt-pill.disabled:hover { border-color: var(--border); color: var(--text-secondary); }
+
   .select-btn {
     display: flex; align-items: center; gap: 8px;
     background: var(--bg-card); border: 1px solid var(--border);
@@ -271,15 +304,6 @@
     font-size: 13px; color: var(--text-secondary); cursor: pointer;
   }
 
-  /* section */
-  .explain-link {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12.5px; color: var(--text-secondary);
-    cursor: pointer; margin-bottom: 18px; width: fit-content;
-    margin-left: auto;
-    transition: color .15s;
-  }
-  .explain-link:hover { color: var(--text-primary); }
   .snapshot-notice { display: none !important; }
 
   /* section */
@@ -324,36 +348,6 @@
   th.col-pick, td.col-pick { min-width: 100px; width: auto; text-align: left; white-space: normal; }
   th.col-alts, td.col-alts { min-width: 120px; width: auto; text-align: left; }
   /* World Cup mode — colunas específicas por mercado */
-
-  /* ── Botão World Cup ── */
-  .wc-special-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 14px;
-    border-radius: 8px;
-    border: 1.5px solid rgba(0,210,160,.35);
-    background: rgba(0,210,160,.07);
-    color: var(--text-primary);
-    font-size: 12.5px;
-    font-weight: 700;
-    font-family: 'Rajdhani', sans-serif;
-    letter-spacing: .4px;
-    cursor: pointer;
-    transition: background .15s, border-color .15s, box-shadow .15s;
-    white-space: nowrap;
-    user-select: none;
-  }
-  .wc-special-btn:hover {
-    background: rgba(0,210,160,.14);
-    border-color: rgba(0,210,160,.6);
-  }
-  .wc-special-btn.wc-active {
-    background: rgba(0,210,160,.2);
-    border-color: #00d2a0;
-    box-shadow: 0 0 10px rgba(0,210,160,.25);
-    color: #00d2a0;
-  }
 
   /* Tabela World Cup — colunas de categoria de mercado */
   .wc-view-table th.wc-col, .wc-view-table td.wc-col {
@@ -847,12 +841,6 @@
   .toolbar { flex-wrap: wrap; gap: 10px; }
   .tab-group { overflow-x: auto; max-width: 100%; }
 
-  /* Dropdowns lado a lado */
-  #dd-league-wrap, #dd-market-wrap { flex: 1 1 calc(50% - 6px); min-width: 140px; }
-
-  /* Botão WC ocupa linha própria */
-  .wc-special-btn { width: 100%; justify-content: center; }
-
   /* Tabela — esconde colunas secundárias */
   th.col-alts,  td.col-alts  { display: none; }
   th.col-confidence, td.col-confidence { display: none; }
@@ -892,39 +880,20 @@
   .tab-group::-webkit-scrollbar { display: none; }
   .tab { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
 
-  /* Dropdowns escondidos da toolbar — abertos via bottom bar */
-  #dd-league-wrap, #dd-market-wrap { display: none !important; }
-  /* O .dd-menu quando aberto fica fixo acima da bottom bar */
-  #dd-league-wrap .dd-menu.open,
-  #dd-market-wrap .dd-menu.open {
-    display: block !important;
-    position: fixed !important;
-    bottom: 52px !important;
-    left: 12px !important;
-    right: 12px !important;
-    width: auto !important;
-    max-height: 55vh !important;
-    z-index: 1000 !important;
-    border-radius: 12px 12px 0 0 !important;
-  }
+  /* Barra de categorias de mercado — mobile */
+  .mkt-cat-bar { padding: 0 12px; margin-bottom: 14px; }
+  .mkt-cat-tabs { gap: 18px; }
+  .mkt-cat-tab { font-size: 13px; padding: 8px 1px 10px; }
+  .mkt-pill-bar { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; padding: 12px 0 2px; }
+  .mkt-pill-bar::-webkit-scrollbar { display: none; }
+  .mkt-pill { padding: 6px 14px; font-size: 12px; flex-shrink: 0; }
 
-  /* Div pai do botão WC: centraliza em mobile */
-  .wc-special-btn { order: 1; }
-  .wc-btn-row {
+  /* Filtros: visível e em linha própria, já que não há mais bottom bar */
+  #filter-date-btn {
     width: 100%;
-    display: flex;
     justify-content: center;
-    order: 1;
+    margin-left: 0;
   }
-  .wc-btn-row .wc-special-btn {
-    width: auto;
-    min-width: 160px;
-    max-width: 240px;
-  }
-
-  /* Esconde explicação e filtros em mobile */
-  .explain-link    { display: none !important; }
-  #filter-date-btn { display: none !important; }
 
   /* Table-wrap: remove background/borda em mobile (cards têm estilo próprio) */
   .table-wrap {
@@ -944,7 +913,7 @@
      BOTTOM BAR — Campeonatos | Mercados
   ═══════════════════════════════════════════ */
   .mobile-bottom-bar {
-    display: flex !important;
+    display: none !important;
     position: fixed;
     bottom: 0; left: 0; right: 0;
     z-index: 900;
@@ -1478,52 +1447,37 @@ async function getCurrentProfile() {
     </div>
 
     <!-- Toolbar -->
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-      <div class="toolbar" style="margin-bottom:0;">
-        <div class="tab-group" id="date-tab-group">
-          <!-- Tabs de data gerados dinamicamente por buildDateTabs() -->
-        </div>
-        <!-- Dropdown Campeonato -->
-        <div class="dd-wrap" id="dd-league-wrap">
-          <div class="select-btn" id="dd-league-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span id="dd-league-label">Todos os Campeonatos</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="dd-menu" id="dd-league-menu">
-            <div class="dd-item dd-loading">Carregando...</div>
-          </div>
-        </div>
-
-        <!-- Dropdown Mercado -->
-        <div class="dd-wrap" id="dd-market-wrap">
-          <div class="select-btn" id="dd-market-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span id="dd-market-label">Todos os Mercados</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="dd-menu" id="dd-market-menu">
-            <div class="dd-item dd-loading">Carregando...</div>
-          </div>
-        </div>
-
-
+    <div class="toolbar" style="margin-bottom:14px;">
+      <div class="tab-group" id="date-tab-group">
+        <!-- Tabs de data gerados dinamicamente por buildDateTabs() -->
       </div>
+      <div class="filter-btn" id="filter-date-btn" style="cursor:pointer;">
+        <svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
+        <span id="filter-date-label">Filtros</span>
+      </div>
+    </div>
 
-      <div class="wc-btn-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <!-- ── Botão exclusivo Copa do Mundo (isolado dos filtros principais) ── -->
-        <button class="wc-special-btn" id="wc-special-btn" title="Exibir apenas jogos da Copa do Mundo">
-          🇧🇷 World Cup 🇧🇷
-        </button>
-        <div class="explain-link" style="margin:0;">
-          <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Explicação das métricas
+    <!-- Barra de Categorias de Mercado -->
+    <div class="mkt-cat-bar">
+      <div class="mkt-cat-tabs" id="mkt-cat-tabs">
+        <div class="mkt-cat-tab" data-cat="vencer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M5 6H3a4 4 0 0 0 4 4"/><path d="M19 6h2a4 4 0 0 1-4 4"/></svg>
+          <span>Vencer</span>
         </div>
-        <div class="filter-btn" id="filter-date-btn" style="cursor:pointer;">
-          <svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
-          <span id="filter-date-label">Filtros</span>
+        <div class="mkt-cat-tab active" data-cat="gols">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+          <span>Gols</span>
+        </div>
+        <div class="mkt-cat-tab" data-cat="escanteios">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 5h11l-2 4 2 4H4"/></svg>
+          <span>Escanteios</span>
+        </div>
+        <div class="mkt-cat-tab" data-cat="cartoes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/></svg>
+          <span>Cartões</span>
         </div>
       </div>
+      <div class="mkt-pill-bar" id="mkt-pill-bar"></div>
     </div>
 
     <!-- section -->
@@ -1605,19 +1559,6 @@ async function getCurrentProfile() {
     </div>
 
     <!-- Mobile bottom bar — Campeonatos | Mercados (visible only on mobile) -->
-    <div class="mobile-bottom-bar" style="display:none;">
-      <button class="mbb-btn" id="mbb-league-btn" onclick="mbbOpenLeague()">
-        <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        <span class="mbb-label">Campeonatos</span>
-        <span class="mbb-value" id="mbb-league-value"></span>
-      </button>
-      <button class="mbb-btn" id="mbb-market-btn" onclick="mbbOpenMarket()">
-        <svg viewBox="0 0 24 24" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span class="mbb-label">Mercados</span>
-        <span class="mbb-value" id="mbb-market-value"></span>
-      </button>
-    </div>
-
     <!-- Metrics footer -->
     <div class="metrics-footer">
       <div class="metric-card">
@@ -3073,7 +3014,7 @@ function getAlternativas(fixtureId, mainMarket, predictionsMap, snapshotsMap, sn
 }
 
 function getMainPalpites(snap, predictionsMap) {
-  if (isAllowedOfficialSnapshotMarket(snap.market)) {
+  if (isAllowedOfficialSnapshotMarket(snap.market) || WC_VENCER_MARKETS.includes(snap.market)) {
     return [{
       key: canonicalMarketKey(snap.market),
       market: displayMarket(snap.market),
@@ -3209,6 +3150,7 @@ let totalCount      = 0;
 let activeFilter    = 'hoje';
 let filterLeague    = '';
 let filterMarket    = '';
+let activePillKey   = ''; // chave canônica da pill ativa (ex: 'over15', 'esc75')
 let filterDateStart = null;  // section
 let filterDateEnd   = null;
 let searchQuery      = '';
@@ -3312,7 +3254,12 @@ async function fetchSnapshots(page) {
 
 
   if (filterMarket) {
-    q = q.eq('market', filterMarket);
+    const aliases = ALIASES_BY_KEY[filterMarket];
+    if (aliases && aliases.length) {
+      q = q.in('market', aliases);
+    } else {
+      q = q.eq('market', filterMarket);
+    }
   }
 
   if (searchQuery) {
@@ -3359,6 +3306,64 @@ async function fetchWorldCupFixtures() {
   const { data, error } = await q;
   if (error || !data) return [];
   return data;
+}
+
+// Mercados de Vitória calculados pelo motor wc_resultado_final.js (só Copa do Mundo por enquanto)
+const WC_VENCER_MARKETS = ['Vitória da Casa', 'Vitória do Visitante'];
+
+// Pill "Vencer": busca jogos da Copa do Mundo com palpite de Vitória (tabela `predictions`,
+// já que esse mercado ainda não é salvo em prediction_snapshots) e devolve no mesmo formato
+// que fetchSnapshots(), pra reaproveitar todo o pipeline de renderização da tabela.
+async function fetchVencerCopaSnapshots(page) {
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const fixtures = await fetchWorldCupFixtures();
+  if (!fixtures.length) return { data: [], error: null, count: 0 };
+
+  const fixtureIds = fixtures.map(f => f.fixture_id);
+  const { data: preds, error } = await supabaseClient
+    .from('predictions')
+    .select('fixture_id, market, score, grade, odd')
+    .in('fixture_id', fixtureIds)
+    .in('market', WC_VENCER_MARKETS)
+    .in('grade', ['A+', 'A']);
+
+  if (error) return { data: [], error, count: 0 };
+
+  const fixturesById = {};
+  fixtures.forEach(f => { fixturesById[f.fixture_id] = f; });
+
+  const rows = (preds || []).map(p => {
+    const f = fixturesById[p.fixture_id];
+    if (!f) return null;
+    const matchName = (f.home_team && f.away_team) ? `${f.home_team} x ${f.away_team}` : f.league_name;
+    return {
+      fixture_id:      p.fixture_id,
+      match_name:      matchName,
+      home_team:       f.home_team,
+      away_team:       f.away_team,
+      home_team_logo:  f.home_team_logo,
+      away_team_logo:  f.away_team_logo,
+      league_name:     f.league_name,
+      market:          p.market,
+      score:           p.score,
+      grade:           p.grade,
+      odd:             p.odd,
+      result_status:   null,
+      confirmed_at:    null,
+      match_date:      f.match_date,
+      hour:            f.hour,
+      status:          f.status,
+      goals_home:      f.goals_home,
+      goals_away:      f.goals_away,
+    };
+  }).filter(Boolean);
+
+  rows.sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+
+  const count = rows.length;
+  const pageRows = rows.slice(offset, offset + PAGE_SIZE);
+  return { data: pageRows, error: null, count };
 }
 
 async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
@@ -3451,48 +3456,6 @@ async function fetchWorldCupMetrics(fixtureIds) {
 
 
 // section
-async function fetchLeagues() {
-  const { data, error } = await supabaseClient
-    .from('prediction_snapshots')
-    .select('league_name')
-    .not('league_name', 'is', null)
-    .order('league_name');
-  if (error || !data) return [];
-  const seen = new Set();
-  return data
-    .map(r => r.league_name)
-    .filter(l => l && l.trim() && !seen.has(l) && seen.add(l));
-}
-
-// section
-const MARKET_ORDER = [
-  'Over 1.5 gols',
-  'Over 1.5',
-  'Over 2.5 gols',
-  'Over 2.5',
-  'Under 3.5 gols',
-  'Under 3.5',
-  'Under 4.5 gols',
-  'Under 4.5',
-  'Over 7.5 cantos',
-  'Esc 7.5',
-  'Over 8.5 cantos',
-  'Esc 8.5',
-  'Over 2.5 cartão',
-  'Cart 2.5',
-  'Over 3.5 cartão',
-  'Cart 3.5',
-];
-
-function marketRank(market) {
-  const name = String(market || '');
-  // section
-  let idx = MARKET_ORDER.findIndex(m => m === name);
-  // section
-  // RF removido do engine — comentado para referência
-  return idx === -1 ? MARKET_ORDER.length : idx;
-}
-
 function marketNaturalRank(market) {
   const label = displayMarket(market).toLowerCase();
   if (label.includes('vitória da casa') || label.includes('vitoria da casa')) return 10;
@@ -3529,9 +3492,7 @@ function isBlockedMarket(market) {
   return label.includes('resultado final') ||
     label.includes('dupla chance') ||
     label.includes('dnb') ||
-    label.includes('empate anula') ||
-    label.includes('over 5.5 cart') ||
-    label.includes('cart 5.5');
+    label.includes('empate anula');
 }
 
 function applyMarketBlocklist(query) {
@@ -3539,9 +3500,7 @@ function applyMarketBlocklist(query) {
     .not('market', 'ilike', 'Resultado Final%')
     .not('market', 'ilike', '%Dupla Chance%')
     .not('market', 'ilike', '%DNB%')
-    .not('market', 'ilike', '%empate anula%')
-    .not('market', 'ilike', '%Over 5.5 Cart%')
-    .not('market', 'ilike', '%Cart 5.5%');
+    .not('market', 'ilike', '%empate anula%');
 }
 
 function displayMarket(market) {
@@ -3625,6 +3584,7 @@ function displayMarket(market) {
   if (norm === 'esc 8.5' || norm === 'over 8.5 cantos' || norm === 'over 8.5 escanteios') return 'Esc 8.5';
   if (norm === 'cart 2.5' || norm === 'over 2.5 cartao' || norm === 'over 2.5 cartao') return 'Cart 2.5';
   if (norm === 'cart 3.5' || norm === 'over 3.5 cartao' || norm === 'over 3.5 cartao') return 'Cart 3.5';
+  if (norm === 'cart 5.5' || norm === 'over 5.5 cartao' || norm === 'over 5.5 cartoes') return 'Cart 5.5';
   return name;
 }
 
@@ -3641,35 +3601,55 @@ function canonicalMarketKey(market) {
   if (label === 'esc 8.5') return 'esc85';
   if (label === 'cart 2.5') return 'cards25';
   if (label === 'cart 3.5') return 'cards35';
+  if (label === 'cart 5.5') return 'cards55';
   return label;
 }
+
+// Agrupa os aliases de mercado por chave canônica — usado pela barra de
+// categorias/pills da previsoes.html para filtrar por .in('market', [...]).
+const ALIASES_BY_KEY = {};
+OFFICIAL_SNAPSHOT_MARKET_ALIASES.forEach(alias => {
+  const key = canonicalMarketKey(alias);
+  (ALIASES_BY_KEY[key] = ALIASES_BY_KEY[key] || []).push(alias);
+});
+
+// Estrutura da barra de categorias (Vencer / Gols / Escanteios / Cartões).
+// "Vencer" usa o motor wc_resultado_final.js — só cobre jogos da Copa do Mundo
+// por enquanto (motor geral pra todas as ligas ainda não existe).
+// "Chance Dupla", "Ambas Recebem" e as pills de Escanteios/Cartões abaixo
+// marcadas com disabled:true ainda não têm motor de cálculo — entram só
+// como preparação visual até a lógica de cada mercado ser implementada.
+const MARKET_CATEGORIES = {
+  vencer: [
+    { key: 'vencer',       label: 'Vencer' },
+    { key: 'chance_dupla', label: 'Chance Dupla', disabled: true },
+  ],
+  gols: [
+    { key: 'over15',   label: 'Over 1.5' },
+    { key: 'over25',   label: 'Over 2.5' },
+    { key: 'under35',  label: 'Under 3.5' },
+    { key: 'under45',  label: 'Under 4.5' },
+    { key: 'btts',     label: 'BTTS' },
+    { key: 'over05ht', label: 'Over 0.5 HT' },
+  ],
+  escanteios: [
+    { key: 'esc75',      label: 'Esc 7.5' },
+    { key: 'esc85',      label: 'Esc 8.5' },
+    { key: 'esc65',      label: 'Over 6.5',   disabled: true },
+    { key: 'esc_under125', label: 'Under 12.5', disabled: true },
+    { key: 'esc_under135', label: 'Under 13.5', disabled: true },
+  ],
+  cartoes: [
+    { key: 'cards25', label: 'Cart 2.5' },
+    { key: 'cards35', label: 'Cart 3.5' },
+    { key: 'cards55', label: 'Over 5.5', disabled: true },
+    { key: 'cart_ambas_recebem', label: 'Ambas Recebem', disabled: true },
+  ],
+};
 
 function isAllowedOfficialSnapshotMarket(market) {
   if (!market || isBlockedMarket(market)) return false;
   return OFFICIAL_SNAPSHOT_MARKET_KEYS.has(canonicalMarketKey(market));
-}
-
-async function fetchMarkets() {
-  let q = supabaseClient
-    .from('prediction_snapshots')
-    .select('market')
-    .not('market', 'is', null);
-  q = applyMarketBlocklist(q);
-  const { data, error } = await q;
-  if (error || !data) return [];
-  const byLabel = new Map();
-  data.forEach(r => {
-    if (isBlockedMarket(r.market)) return;
-    const label = displayMarket(r.market);
-    const key = label.toLowerCase();
-    if (!r.market || !r.market.trim()) return;
-    const current = byLabel.get(key);
-    if (!current || (!FUNCTIONAL_MARKETS.has(current.value) && FUNCTIONAL_MARKETS.has(r.market))) {
-      byLabel.set(key, { value: r.market, label });
-    }
-  });
-  const result = [...byLabel.values()];
-  return result.sort((a, b) => marketRank(a.value) - marketRank(b.value) || a.label.localeCompare(b.label));
 }
 
 // section
@@ -4853,11 +4833,16 @@ async function loadPrevisoes() {
 
   try {
 
-    const { data: snapshots, error, count } = await fetchSnapshots(currentPage);
+    const isVencer = filterMarket === 'vencer';
+    const { data: snapshots, error, count } = isVencer
+      ? await fetchVencerCopaSnapshots(currentPage)
+      : await fetchSnapshots(currentPage);
     if (error) { renderError(error.message); return; }
 
     totalCount = count || 0;
-    const officialSnapshots = (snapshots || []).filter(s => isAllowedOfficialSnapshotMarket(s.market));
+    const officialSnapshots = isVencer
+      ? (snapshots || [])
+      : (snapshots || []).filter(s => isAllowedOfficialSnapshotMarket(s.market));
     if (officialSnapshots.length === 0) { renderEmpty(); renderPagination(0, 1); return; }
 
     const fixtureIds     = [...new Set(officialSnapshots.map(s => s.fixture_id))];
@@ -4934,6 +4919,62 @@ function buildDateTabs() {
   _bindTabEvents();
 }
 
+// section
+// ── Barra de Categorias de Mercado (Vencer/Gols/Escanteios/Cartões) + Pills ──
+function renderMarketPills(cat) {
+  const bar = document.getElementById('mkt-pill-bar');
+  if (!bar) return;
+  const items = MARKET_CATEGORIES[cat] || [];
+
+  bar.innerHTML = items.map(it => {
+    const isActive = !it.disabled && it.key === activePillKey;
+    const cls = ['mkt-pill', isActive ? 'active' : '', it.disabled ? 'disabled' : '']
+      .filter(Boolean).join(' ');
+    const suffix = it.disabled ? ' <span style="font-size:10px;opacity:.85">(em breve)</span>' : '';
+    return `<div class="${cls}" data-key="${it.key}" data-disabled="${!!it.disabled}">${it.label}${suffix}</div>`;
+  }).join('');
+
+  bar.querySelectorAll('.mkt-pill').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.dataset.disabled === 'true') return;
+      activePillKey = el.dataset.key;
+      bar.querySelectorAll('.mkt-pill').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      filterMarket = activePillKey;
+      currentPage  = 1;
+      loadPrevisoes();
+    });
+  });
+}
+
+function initMarketCategoryTabs() {
+  const tabsEl = document.getElementById('mkt-cat-tabs');
+  if (!tabsEl) return;
+
+  tabsEl.querySelectorAll('.mkt-cat-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.classList.contains('active')) return;
+      tabsEl.querySelectorAll('.mkt-cat-tab').forEach(x => x.classList.remove('active'));
+      tab.classList.add('active');
+
+      const cat = tab.dataset.cat;
+      const firstEnabled = (MARKET_CATEGORIES[cat] || []).find(it => !it.disabled);
+      activePillKey = firstEnabled ? firstEnabled.key : '';
+      renderMarketPills(cat);
+      filterMarket = firstEnabled ? activePillKey : '__none__';
+      currentPage  = 1;
+      loadPrevisoes();
+    });
+  });
+
+  // Estado inicial: categoria "Gols", primeira pill (Over 1.5) ativa
+  const initialCat = tabsEl.querySelector('.mkt-cat-tab.active')?.dataset.cat || 'gols';
+  const firstEnabled = (MARKET_CATEGORIES[initialCat] || []).find(it => !it.disabled);
+  activePillKey = firstEnabled ? firstEnabled.key : '';
+  renderMarketPills(initialCat);
+  filterMarket = firstEnabled ? activePillKey : '__none__';
+}
+
 function initTabs() {
   buildDateTabs();
   // Reconstrói tabs se orientação mudar (ex: portrait ↔ landscape)
@@ -4965,11 +5006,7 @@ function _bindTabEvents() {
       document.getElementById('filter-date-label').textContent = 'Filtros';
       document.getElementById('filter-date-btn').style.borderColor = '';
       currentPage = 1;
-      if (activeSpecialFilter === 'world_cup') {
-        loadWorldCup();
-      } else {
-        loadPrevisoes();
-      }
+      loadPrevisoes();
     });
   });
 }
@@ -5015,162 +5052,6 @@ function initPageSize() {
   });
 }
 
-function createDropdown({ btnId, menuId, labelId, allLabel, fetchFn, onSelect }) {
-  const btn   = document.getElementById(btnId);
-  const menu  = document.getElementById(menuId);
-  const label = document.getElementById(labelId);
-  let loaded  = false;
-  let isOpen  = false;
-
-  async function openMenu() {
-    isOpen = true;
-    btn.classList.add('dd-open');
-    menu.classList.add('open');
-
-    if (!loaded) {
-      loaded = true;
-      menu.innerHTML = '<div class="dd-item dd-loading">Carregando...</div>';
-      try {
-        const items = await fetchFn();
-        menu.innerHTML = `<div class="dd-item active" data-val="">${allLabel}</div>` +
-          items.map(item => {
-            const value = typeof item === 'string' ? item : item.value;
-            const text = typeof item === 'string' ? item : item.label;
-            return `<div class="dd-item" data-val="${String(value).replace(/"/g, '&quot;')}">${text}</div>`;
-          }).join('');
-        menu.querySelectorAll('.dd-item').forEach(item => {
-          item.addEventListener('click', () => {
-            const val = item.dataset.val;
-            label.textContent = val ? item.textContent : allLabel;
-            menu.querySelectorAll('.dd-item').forEach(x => x.classList.remove('active'));
-            item.classList.add('active');
-            closeMenu();
-            onSelect(val);
-          });
-        });
-      } catch (e) {
-        menu.innerHTML = '<div class="dd-item dd-loading">Erro ao carregar</div>';
-      }
-    }
-  }
-
-  function closeMenu() {
-    isOpen = false;
-    btn.classList.remove('dd-open');
-    menu.classList.remove('open');
-  }
-
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    isOpen ? closeMenu() : openMenu();
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!btn.contains(e.target) && !menu.contains(e.target)) closeMenu();
-  });
-}
-
-// section
-function initDropdowns() {
-  createDropdown({
-    btnId:    'dd-league-btn',
-    menuId:   'dd-league-menu',
-    labelId:  'dd-league-label',
-    allLabel: 'Todos os Campeonatos',
-    fetchFn:  fetchLeagues,
-    onSelect: (val) => {
-      filterLeague = val;
-      currentPage  = 1;
-      loadPrevisoes();
-    }
-  });
-
-  createDropdown({
-    btnId:    'dd-market-btn',
-    menuId:   'dd-market-menu',
-    labelId:  'dd-market-label',
-    allLabel: 'Todos os Mercados',
-    fetchFn:  fetchMarkets,
-    onSelect: (val) => {
-      filterMarket = val;
-      currentPage  = 1;
-      loadPrevisoes();
-    }
-  });
-}
-
-// initWorldCupButton removido
-// ── Mobile Bottom Bar — delega clique para os dropdowns originais ─────────────
-function initMobileBottomBar() {
-  // Só ativa em mobile
-  const bar = document.querySelector('.mobile-bottom-bar');
-  if (!bar) return;
-
-  function updateValues() {
-    const leagueLabel = document.querySelector('#dd-league-wrap .select-label');
-    const marketLabel = document.querySelector('#dd-market-wrap .select-label');
-    const leagueVal   = document.getElementById('mbb-league-value');
-    const marketVal   = document.getElementById('mbb-market-value');
-    const leagueBtn   = document.getElementById('mbb-league-btn');
-    const marketBtn   = document.getElementById('mbb-market-btn');
-
-    if (leagueLabel && leagueVal) {
-      const text = leagueLabel.textContent.trim();
-      const isFiltered = text !== 'Todos os Campeonatos' && text !== '';
-      leagueVal.textContent = isFiltered ? text : '';
-      leagueVal.classList.toggle('has-value', isFiltered);
-      leagueBtn.classList.toggle('active', isFiltered);
-    }
-    if (marketLabel && marketVal) {
-      const text = marketLabel.textContent.trim();
-      const isFiltered = text !== 'Todos os Mercados' && text !== '';
-      marketVal.textContent = isFiltered ? text : '';
-      marketVal.classList.toggle('has-value', isFiltered);
-      marketBtn.classList.toggle('active', isFiltered);
-    }
-  }
-
-  // Observa mudanças nos labels dos dropdowns
-  const observer = new MutationObserver(updateValues);
-  const leagueLabel = document.querySelector('#dd-league-wrap .select-label');
-  const marketLabel = document.querySelector('#dd-market-wrap .select-label');
-  if (leagueLabel) observer.observe(leagueLabel, { childList: true, characterData: true, subtree: true });
-  if (marketLabel) observer.observe(marketLabel, { childList: true, characterData: true, subtree: true });
-
-  updateValues();
-}
-
-window.mbbOpenLeague = function() {
-  // Simula clique no dropdown de campeonatos
-  const btn = document.querySelector('#dd-league-wrap .select-btn');
-  if (btn) btn.click();
-};
-
-window.mbbOpenMarket = function() {
-  // Simula clique no dropdown de mercados
-  const btn = document.querySelector('#dd-market-wrap .select-btn');
-  if (btn) btn.click();
-};
-
-function initWorldCupButton() {
-  const btn = document.getElementById('wc-special-btn');
-  if (!btn) return;
-
-  btn.addEventListener('click', () => {
-    if (activeSpecialFilter === 'world_cup') {
-      // Desativa — volta ao modo normal
-      activeSpecialFilter = null;
-      btn.classList.remove('wc-active');
-      exitWorldCupView();
-      loadPrevisoes();
-    } else {
-      // Ativa modo World Cup (isolado)
-      activeSpecialFilter = 'world_cup';
-      btn.classList.add('wc-active');
-      loadWorldCup();
-    }
-  });
-}
 function initFilterModal() {
   const overlay   = document.getElementById('filter-modal-overlay');
   const openBtn   = document.getElementById('filter-date-btn');
@@ -5213,11 +5094,7 @@ function initFilterModal() {
     openBtn.style.color = 'var(--text-primary)';
 
     closeModal();
-    if (activeSpecialFilter === 'world_cup') {
-      loadWorldCup();
-    } else {
-      loadPrevisoes();
-    }
+    loadPrevisoes();
   });
 
   clearBtn.addEventListener('click', () => {
@@ -5235,11 +5112,7 @@ function initFilterModal() {
     });
     closeModal();
     currentPage = 1;
-    if (activeSpecialFilter === 'world_cup') {
-      loadWorldCup();
-    } else {
-      loadPrevisoes();
-    }
+    loadPrevisoes();
   });
 }
 
@@ -5248,12 +5121,10 @@ document.addEventListener('DOMContentLoaded', () => {
   applyWcThead();
 
   initTabs();
-  initDropdowns();
+  initMarketCategoryTabs();
   initFilterModal();
   initSearch();
   initPageSize();
-  initMobileBottomBar();
-  initWorldCupButton();
   loadPrevisoes();
 });
 </script>
