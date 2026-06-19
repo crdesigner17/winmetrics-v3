@@ -9,7 +9,8 @@
     "backfill": "node scripts/backfill.js",
     "confirmar": "node scripts/confirmar.js",
     "import_v1": "node scripts/import_v1.js",
-    "pipeline_v1": "node frontend/jobs/pipeline_v1.js"
+    "pipeline_v1": "node frontend/jobs/pipeline_v1.js",
+    "wc_context": "node scripts/extract_wc_context.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
