@@ -243,14 +243,16 @@ function computeClubDuplaChance(input = {}) {
   return approved;
 }
 
-function computeClubDuplaChanceDebug({ raw, homeFormString = null, awayFormString = null, csvData = null } = {}) {
+function computeClubDuplaChanceDebug({ raw, homeFormString = null, awayFormString = null, csvData = null, homeBalanced = null, awayBalanced = null, balancedWin = null } = {}) {
   if (!raw) return { rejected: true, rejectReason: 'raw ausente' };
 
-  const winHome = num(raw.win_home);
-  const winDraw = num(raw.win_draw);
-  const winAway = num(raw.win_away);
-  const ppgHome = num(raw.ppg_h);
-  const ppgAway = num(raw.ppg_a);
+  // [NOVO] Probabilidades e PPG balanceados casa+fora (True Signal) têm
+  // prioridade sobre o dado bruto da API quando disponíveis.
+  const winHome = balancedWin ? balancedWin.win_home : num(raw.win_home);
+  const winDraw = balancedWin ? balancedWin.win_draw : num(raw.win_draw);
+  const winAway = balancedWin ? balancedWin.win_away : num(raw.win_away);
+  const ppgHome = homeBalanced?.balancedPpg ?? num(raw.ppg_h);
+  const ppgAway = awayBalanced?.balancedPpg ?? num(raw.ppg_a);
 
   if (winHome === null || winAway === null) {
     return { rejected: true, rejectReason: 'sem probabilidades (win_home/win_away ausentes)' };
@@ -307,8 +309,12 @@ function computeClubDuplaChanceDebug({ raw, homeFormString = null, awayFormStrin
     return { rejected: true, rejectReason: `${opponentTeam} em sequência de ${last5Opp.trailingWins} vitórias seguidas` };
   }
 
-  const gfOpp = side === 'home' ? num(raw.avg_sc_a)            : num(raw.avg_sc_h);
-  const gaFav = side === 'home' ? num(raw.home_avg_conc_home) : num(raw.away_avg_conc_away);
+  const gfOpp = side === 'home'
+    ? (awayBalanced?.balancedAttack ?? num(raw.avg_sc_a))
+    : (homeBalanced?.balancedAttack ?? num(raw.avg_sc_h));
+  const gaFav = side === 'home'
+    ? (homeBalanced?.balancedDefense ?? num(raw.home_avg_conc_home))
+    : (awayBalanced?.balancedDefense ?? num(raw.away_avg_conc_away));
 
   // ── GATE #5 — Adversário sem grande superioridade ofensiva ───────────────
   if (gfOpp !== null && gfOpp >= GATE.MAX_OPP_ATTACK) {

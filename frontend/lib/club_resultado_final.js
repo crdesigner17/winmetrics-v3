@@ -268,14 +268,16 @@ function computeClubResultadoFinal(input = {}) {
   return null;
 }
 
-function computeClubResultadoFinalDebug({ raw, homeFormString = null, awayFormString = null, csvData = null } = {}) {
+function computeClubResultadoFinalDebug({ raw, homeFormString = null, awayFormString = null, csvData = null, homeBalanced = null, awayBalanced = null, balancedWin = null } = {}) {
   if (!raw) return { rejected: true, rejectReason: 'raw ausente' };
 
-  const winHome = num(raw.win_home);
-  const winDraw = num(raw.win_draw);
-  const winAway = num(raw.win_away);
-  const ppgHome = num(raw.ppg_h);
-  const ppgAway = num(raw.ppg_a);
+  // [NOVO] Probabilidades e PPG balanceados casa+fora (True Signal) têm
+  // prioridade sobre o dado bruto da API quando disponíveis.
+  const winHome = balancedWin ? balancedWin.win_home : num(raw.win_home);
+  const winDraw = balancedWin ? balancedWin.win_draw : num(raw.win_draw);
+  const winAway = balancedWin ? balancedWin.win_away : num(raw.win_away);
+  const ppgHome = homeBalanced?.balancedPpg ?? num(raw.ppg_h);
+  const ppgAway = awayBalanced?.balancedPpg ?? num(raw.ppg_a);
 
   if (winHome === null || winAway === null) {
     return { rejected: true, rejectReason: 'sem probabilidades (win_home/win_away ausentes)' };
@@ -328,8 +330,12 @@ function computeClubResultadoFinalDebug({ raw, homeFormString = null, awayFormSt
     return { rejected: true, rejectReason: `${favoredTeam} teve ${last5Fav.losses} derrotas nos últimos 5 jogos (máx. ${GATE.MAX_LOSSES_LAST5})` };
   }
 
-  const gfFav = side === 'home' ? num(raw.avg_sc_h) : num(raw.avg_sc_a);
-  const gaOpp = side === 'home' ? num(raw.away_avg_conc_away) : num(raw.home_avg_conc_home);
+  const gfFav = side === 'home'
+    ? (homeBalanced?.balancedAttack ?? num(raw.avg_sc_h))
+    : (awayBalanced?.balancedAttack ?? num(raw.avg_sc_a));
+  const gaOpp = side === 'home'
+    ? (awayBalanced?.balancedDefense ?? num(raw.away_avg_conc_away))
+    : (homeBalanced?.balancedDefense ?? num(raw.home_avg_conc_home));
 
   // ── GATE #6 — Ataque do favorito mínimo ──────────────────────────────────
   if (gfFav !== null && gfFav < GATE.MIN_ATTACK_FAV) {
