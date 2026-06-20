@@ -50,11 +50,11 @@ const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enri
 const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.js'); // [NOVO]
 const { enrichOddsOddspapi }                        = require('../lib/enrich_odds_oddspapi.js'); // fallback OddsPapi
 // [NOVO] Mercado "Resultado Final (Vitória)" — exclusivo Copa do Mundo, isolado
-const { computeWcResultadoFinal, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
+const { computeWcResultadoFinal, computeWcResultadoFinalDebug, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
 // [NOVO] Mercado "Dupla Chance" (1X/X2) — exclusivo Copa do Mundo, isolado
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
 // [NOVO] Motores padrão para todos os campeonatos que NÃO são Copa do Mundo
-const { computeClubResultadoFinal } = require('../lib/club_resultado_final.js');
+const { computeClubResultadoFinal, computeClubResultadoFinalDebug } = require('../lib/club_resultado_final.js');
 const { computeClubDuplaChance }    = require('../lib/club_dupla_chance.js');
 
 // Curadoria manual (qualidade de elenco, histórico em Copa, contexto de grupo,
@@ -1499,6 +1499,9 @@ async function run() {
         vencerFonte = 'wc_resultado_final';
         if (wcVitoria) {
           LOG.ok(`  🏆 WC Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} cobertura=${wcVitoria.coverage}%`);
+        } else {
+          const dbg = computeWcResultadoFinalDebug({ raw, homeFormString, awayFormString, manualContext: WC_MANUAL_CONTEXT });
+          LOG.dim(`  🏆 WC Vencer/Vencer reprovado: ${dbg.rejectReason || `grade ${dbg.grade} (score ${dbg.score}) abaixo do mínimo`}`);
         }
 
         wcDuplaChance = computeWcDuplaChance({
@@ -1516,6 +1519,9 @@ async function run() {
         vencerFonte = 'club_resultado_final';
         if (wcVitoria) {
           LOG.ok(`  🥅 Clube Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} ppg_diff=${wcVitoria.combinedPpg}`);
+        } else {
+          const dbg = computeClubResultadoFinalDebug({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
+          LOG.dim(`  🥅 Clube Vencer/Vencer reprovado: ${dbg.rejectReason || `grade ${dbg.grade} (score ${dbg.score}) abaixo do mínimo`}`);
         }
 
         wcDuplaChance = computeClubDuplaChance({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
