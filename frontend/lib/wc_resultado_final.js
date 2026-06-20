@@ -1,82 +1,99 @@
 /**
- * WinMetrics V3 — Mercado "Resultado Final (Vitória)" — Copa do Mundo
+ * WinMetrics V3 — Mercado "Vencer / Vencer" (Resultado Final 1X2) — Copa do Mundo
  * ─────────────────────────────────────────────────────────────────────────────
- * Motor de scoring EXCLUSIVO para jogos da Copa do Mundo. Objetivo: poucos
- * sinais, porém com máxima assertividade (só aprova A+ e A).
+ * Motor de scoring EXCLUSIVO para jogos da Copa do Mundo. Reescrito em 2026-06
+ * para a especificação de máxima assertividade (Carlos): poucos sinais, porém
+ * com máxima confiabilidade. Prioriza qualidade sobre quantidade — só mostra
+ * score >= 80 (grade B, A ou A+).
  *
  * ISOLADO — não altera nenhum outro mercado, engine ou liga. Só roda quando
- * chamado explicitamente para fixtures de Copa do Mundo.
+ * chamado explicitamente para fixtures de Copa do Mundo (WORLD_CUP_LEAGUE_NAMES).
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * TRANSPARÊNCIA SOBRE FONTES DE DADOS (importante para confiar no score):
+ * CRITÉRIOS OBRIGATÓRIOS (gates — reprovam o jogo inteiro se não baterem)
  *
- * Critérios com dado 100% REAL e automático (já fluem no pipeline hoje):
- *   #1  Probabilidades (win_home/win_draw/win_away)  — API-Football /predictions
- *   #2  Ranking FIFA                                  — tabela estática datada (11/06/2026)
- *   #3  ELO                                           — tabela estática (top 20 mundial, parcial)
- *   #5  Forma Recente (home_form_score/away_form_score) — API-Football /teams/statistics
- *   #6  Força Ofensiva (avg_sc_h/avg_sc_a)            — API-Football /teams/statistics
- *   #7  Força Defensiva (avg_conc_home/avg_conc_away) — API-Football /teams/statistics
- *   #8  Momentum (sequência via form string)          — API-Football /teams/statistics
+ *   #1 Probabilidade mínima:
+ *        Vitória Casa:  home_win_probability >= 62%  E  vantagem >= 15pp sobre away
+ *        Vitória Fora:  away_win_probability >= 62%  E  vantagem >= 15pp sobre home
+ *        Caso nenhum lado bata isso → reprovado (jogo equilibrado).
+ *   #2 Probabilidade de empate:  draw_probability > 25%  → reprovado.
+ *   #3 Motivação: amistoso, classificação já garantida (sem necessidade) ou
+ *      risco de rotação confirmado em manualContext → reprovado.
  *
- * Critérios SEM fonte automatizada — dependem de frontend/data/wc_manual_context.json,
- * e são PULADOS (não fabricados) quando não preenchidos:
- *   #4  Valor de Mercado    (precisa curadoria manual, ex: Transfermarkt)
- *   #9  Qualidade do Elenco (curadoria manual)
- *   #10 Histórico em Copa   (curadoria manual)
- *   #11 Contexto do Grupo   (curadoria manual, atualizar por rodada)
- *   #12 Desfalques          (curadoria manual, atualizar por rodada)
+ * CRITÉRIOS DE SCORE (pool ponderado, 0-100, redistribuído quando faltar dado)
  *
- * Quando um critério está ausente, seu peso é redistribuído proporcionalmente
- * entre os critérios disponíveis — nunca é tratado como "neutro" silenciosamente
- * disfarçado de dado real. Além disso, exigimos uma COBERTURA MÍNIMA de peso
- * (MIN_COVERAGE) para sequer permitir grade A+/A — jogos com pouquíssimo dado
- * real disponível são automaticamente travados em grade C (não aprovados),
- * mesmo que o score bruto desse alto. Isso evita falsa confiança.
+ *   Probabilidade   35%   Forma recente   20%   Ranking FIFA   15%
+ *   Valor elenco    15%   Ataque/Defesa   10%   Consistência    5%
+ *
+ * CLASSIFICAÇÃO
+ *   A+ (Elite): score >= 90  E  probabilidade >= 70%  E  vantagem >= 20pp
+ *               E  empate <= 22%  E  superioridade clara no Ranking FIFA
+ *               E  superioridade clara no valor de elenco.
+ *   A:  85-89   B: 80-84   C: 75-79   D: <75
+ *   → só retorna resultado aprovável quando grade final é A+, A ou B
+ *     (score >= 80). C/D são calculados internamente (debug) mas nunca
+ *     aprovados — "priorizar qualidade em vez de quantidade".
+ *
+ * ODDS — nunca bloqueiam aprovação. Servidas apenas como informação (VALUE
+ * quando odd_oferecida > odd_justa × 1.05). odd_justa = 100 / probabilidade.
+ *
+ * FONTES DE DADO:
+ *   Automático (já flui no pipeline hoje): win_home/win_draw/win_away
+ *   (API-Football /predictions), home_form_score/away_form_score e
+ *   avg_sc_h/avg_sc_a/avg_conc_* (API-Football /teams/statistics).
+ *   Manual (frontend/data/wc_manual_context.json — pulado quando ausente,
+ *   nunca inventado): valor de elenco (marketValueM em wc_team_power.js,
+ *   hoje todo null — critério fica em coverage até ser preenchido), motivação
+ *   (friendly / alreadyQualifiedNoStakes / rotationRisk).
+ *   Ranking FIFA: snapshot fixo em data/wc_fifa_ranking.js (11/06/2026).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 'use strict';
 
-const { getTeamPower } = require('../data/wc_team_power.js');
+const { getTeamPower }                                    = require('../data/wc_team_power.js');
+const { getFifaRank, calculateFifaRankingScore }           = require('../data/wc_fifa_ranking.js');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURAÇÃO — limiares e pesos (ajustáveis aqui, em um único lugar)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GATE = {
-  MAX_DRAW_PROB:      28,   // rejeita se draw_probability > 28%
-  MIN_WIN_PROB:       62,   // exige >= 62% para o lado favorito
-  MIN_MARGIN:         15,   // exige vantagem mínima de 15pp sobre o adversário
-  MIN_FIFA_RANK_DIFF: 40,   // diferença mínima recomendada de ranking
-  MIN_ELO_DIFF:       80,   // diferença mínima recomendada de ELO
-  MIN_VALUE_RATIO:    2.0,  // valor de mercado >2x é considerado vantagem forte
+  MIN_WIN_PROB:        62,   // exige >= 62% para o lado favorito
+  MIN_MARGIN:          15,   // exige vantagem mínima de 15pp sobre o adversário
+  MAX_DRAW_PROB:       25,   // reprova se draw_probability > 25%
 };
 
-// Pesos somam 100 quando TODOS os critérios automáticos+manuais estão disponíveis.
-// Quando algum está ausente, o peso dele é redistribuído proporcionalmente.
+// A+ exige um patamar mais alto, à parte da regra geral de aprovação.
+const ELITE_GATE = {
+  MIN_WIN_PROB:  70,
+  MIN_MARGIN:    20,
+  MAX_DRAW_PROB: 22,
+  MIN_FIFA_SCORE:   80, // calculateFifaRankingScore >= 80 → "vantagem forte" (gap >= 20)
+  MIN_ELENCO_SCORE: 80, // scoreValorElenco >= 80 → ratio >= 1.5 ("favorável"/"forte")
+};
+
+// Pesos somam 100. Quando um critério não tem dado disponível, seu peso é
+// redistribuído proporcionalmente entre os critérios que têm dado real.
 const WEIGHTS = {
-  probabilidade:    14,
-  fifaRanking:       12,
-  elo:                16,
-  valorMercado:        4,
-  formaRecente:       10,
-  forcaOfensiva:       9,
-  forcaDefensiva:      9,
-  momentum:            8,
-  qualidadeElenco:     8,
-  historicoCopa:       2,
-  contextoGrupo:       8,
+  probabilidade: 35,
+  formaRecente:  20,
+  fifaRanking:   15,
+  valorElenco:   15,
+  ataqueDefesa:  10,
+  consistencia:   5,
 };
 
-// Cobertura mínima de peso (soma dos pesos dos critérios DISPONÍVEIS) para
-// sequer considerar aprovar A+/A. Abaixo disso, grade é travada em 'C'.
+// Cobertura mínima de peso (soma dos pesos com dado disponível) para sequer
+// considerar grade acima de C. Hoje probabilidade(35) + ranking(15) sempre
+// disponíveis = 50pp; com forma recente (mais 20) chega a 70%, normalmente
+// suficiente. Abaixo disso, a grade é travada em 'C' (não aprovado).
 const MIN_COVERAGE = 60;
 
 // Penalidade de desfalques (fora do pool de 100 — aplicada depois, como redutor)
-const DESFALQUE_PENALTY_EACH = 6;   // por desfalque do time favorito
+const DESFALQUE_PENALTY_EACH = 6;
 const DESFALQUE_PENALTY_MAX  = 18;
-const OPPONENT_DESFALQUE_BONUS_EACH = 3; // bônus se o ADVERSÁRIO tiver desfalques
+const OPPONENT_DESFALQUE_BONUS_EACH = 3;
 const OPPONENT_DESFALQUE_BONUS_MAX  = 9;
 
 // Ligas de Copa do Mundo aceitas — mesmo array usado no frontend (previsoes.html)
@@ -97,103 +114,112 @@ function num(v) {
 }
 
 /**
- * computeStreakFromForm(formString)
- * Conta a sequência invicta atual (mais recente → mais antiga) a partir da
- * string de forma da API-Football (ex: "WWDLW", mais recente é o último char).
- * Retorna { unbeaten, wins } — tamanho da sequência sem derrota e de vitórias puras.
+ * Analisa os últimos 5 resultados de uma string de forma da API-Football
+ * (ex: "WWDLW", mais recente é o último caractere).
+ * Retorna { draws, losses, transitions } — usado em scoreConsistencia().
  */
-function computeStreakFromForm(formString) {
-  if (!formString || typeof formString !== 'string') return { unbeaten: null, wins: null };
+function analyzeLast5(formString) {
+  if (!formString || typeof formString !== 'string') return null;
   const chars = formString.toUpperCase().split('').filter(c => ['W', 'D', 'L'].includes(c));
-  if (!chars.length) return { unbeaten: null, wins: null };
-
-  let unbeaten = 0;
-  for (let i = chars.length - 1; i >= 0; i--) {
-    if (chars[i] === 'L') break;
-    unbeaten++;
+  if (!chars.length) return null;
+  const last5 = chars.slice(-5);
+  const draws  = last5.filter(c => c === 'D').length;
+  const losses = last5.filter(c => c === 'L').length;
+  let transitions = 0;
+  for (let i = 1; i < last5.length; i++) {
+    if (last5[i] !== last5[i - 1]) transitions++;
   }
-  let wins = 0;
-  for (let i = chars.length - 1; i >= 0; i--) {
-    if (chars[i] !== 'W') break;
-    wins++;
-  }
-  return { unbeaten, wins };
+  return { last5, draws, losses, transitions };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SUBSCORES — cada um retorna 0-100 (favorável ao time FAVORITO) ou null se
+// SUBSCORES — cada um retorna 0-100 (favorável ao FAVORITO) ou null se
 // faltar dado. Nunca retornam um valor "inventado".
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Probabilidade — 35%
 function scoreProbabilidade(winFav, winOpp) {
   if (winFav === null || winOpp === null) return null;
   const margin = winFav - winOpp;
-  return clamp((winFav - 50) * 1.4 + (margin - GATE.MIN_MARGIN) * 1.0);
+  return clamp(50 + (winFav - GATE.MIN_WIN_PROB) * 1.5 + (margin - GATE.MIN_MARGIN) * 1.0);
 }
 
+// Forma recente — 20%. Favorito: ideal >=80%, mínimo >=70%. Adversário: bom se <=50%.
+function scoreFormaRecente(formFav, formOpp) {
+  if (formFav === null && formOpp === null) return null;
+  let s = 50;
+  if (formFav !== null) {
+    if (formFav >= 80)      s += 25;
+    else if (formFav >= 70) s += 12;
+    else                     s -= 10;
+  }
+  if (formOpp !== null) {
+    if (formOpp <= 50)      s += 15;
+    else if (formOpp > 70)  s -= 15;
+  }
+  return clamp(s);
+}
+
+// Ranking FIFA — 15%. Usa o snapshot fixo (data/wc_fifa_ranking.js).
 function scoreFifaRanking(rankFav, rankOpp) {
-  if (rankFav === null || rankOpp === null) return null;
-  const diff = rankOpp - rankFav; // positivo = favorito melhor posicionado (rank menor)
-  return clamp(diff);
+  return calculateFifaRankingScore(rankFav, rankOpp);
 }
 
-function scoreElo(eloFav, eloOpp) {
-  if (eloFav === null || eloOpp === null) return null;
-  const diff = eloFav - eloOpp;
-  return clamp(diff / 1.5);
-}
-
-function scoreValorMercado(valFav, valOpp) {
+// Valor de elenco — 15%. market_value_ratio = favorito / adversário.
+//   >= 2.0 → forte (100)   >= 1.5 → favorável (80)
+function scoreValorElenco(valFav, valOpp) {
   if (!valFav || !valOpp) return null;
   const ratio = valFav / valOpp;
-  return clamp((ratio - 1) * 60);
+  if (ratio >= 2.0) return 100;
+  if (ratio >= 1.5) return 80;
+  if (ratio >= 1.2) return 65;
+  if (ratio >= 1.0) return 55;
+  if (ratio >= 0.8) return 40;
+  return 25;
 }
 
-function scoreFormaRecente(formFav, formOpp) {
-  if (formFav === null || formOpp === null) return null;
-  const diff = formFav - formOpp; // ambos já são 0-100
-  return clamp(50 + diff / 2);
-}
-
-function scoreForcaOfensiva(gfFav, gfOpp) {
-  if (gfFav === null || gfOpp === null) return null;
-  const diff = gfFav - gfOpp;
-  return clamp(50 + diff * 35);
-}
-
-function scoreForcaDefensiva(gaFav, gaOpp) {
-  if (gaFav === null || gaOpp === null) return null;
-  const diff = gaOpp - gaFav; // positivo = favorito sofre menos gols
-  return clamp(50 + diff * 35);
-}
-
-function scoreMomentum(formFav, formOpp, streakFav, streakOpp) {
-  // Usa sequência invicta quando disponível; cai pro form score como proxy.
-  if (streakFav !== null && streakOpp !== null) {
-    const diff = streakFav - streakOpp;
-    return clamp(50 + diff * 8);
-  }
-  if (formFav === null || formOpp === null) return null;
-  return clamp(50 + (formFav - formOpp) / 2);
-}
-
-function scoreManual0a100(valFav, valOpp) {
-  if (valFav === null || valFav === undefined || valOpp === null || valOpp === undefined) return null;
-  const diff = valFav - valOpp;
-  return clamp(50 + diff / 2);
-}
-
-function scoreContextoGrupo(ctxFav, ctxOpp) {
-  if (!ctxFav && !ctxOpp) return null;
-  const f = ctxFav || {};
-  const o = ctxOpp || {};
+// Ataque/Defesa — 10%. Favorito: goals_scored_avg >= 1.5. Adversário: goals_conceded_avg >= 1.2.
+function scoreAtaqueDefesa(gfFav, gaOpp) {
+  if (gfFav === null && gaOpp === null) return null;
   let s = 50;
-  if (f.needsWin && !o.needsWin) s += 20;
-  if (!f.needsWin && o.needsWin) s -= 20;
-  if (f.alreadyQualified && !f.needsWin) s -= 10; // pode poupar força
-  if (o.eliminated) s += 10; // adversário sem nada a jogar
-  if (f.eliminated) s -= 25;
+  if (gfFav !== null) {
+    if (gfFav >= 1.5)      s += 20;
+    else if (gfFav < 1.0)  s -= 15;
+  }
+  if (gaOpp !== null) {
+    if (gaOpp >= 1.2)      s += 20;
+    else if (gaOpp < 0.8)  s -= 15;
+  }
   return clamp(s);
+}
+
+// Consistência — 5%. Penaliza muitos empates e sequência irregular nos últimos 5.
+// (Derrotas especificamente "para equipes inferiores" não é calculável hoje —
+// não há histórico de força do adversário por partida no pipeline; penalizamos
+// derrotas em geral como proxy, documentado aqui para auditoria futura.)
+function scoreConsistencia(formStrFav) {
+  const a = analyzeLast5(formStrFav);
+  if (!a) return null;
+  let s = 80;
+  s -= a.draws * 8;
+  s -= a.losses * 10;
+  if (a.transitions >= 3) s -= 10; // sequência irregular (muita alternância W/D/L)
+  return clamp(s);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ODDS — nunca bloqueiam aprovação, só sinalizam VALUE informativamente.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function calcOddJusta(probabilityPct) {
+  if (!probabilityPct || probabilityPct <= 0) return null;
+  return Math.round((100 / probabilityPct) * 100) / 100;
+}
+
+function calcIsValue(oddOferecida, oddJusta) {
+  if (oddOferecida === null || oddOferecida === undefined) return null;
+  if (oddJusta === null) return null;
+  return oddOferecida > oddJusta * 1.05;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -205,35 +231,31 @@ function scoreContextoGrupo(ctxFav, ctxOpp) {
  *
  * @param {object} input
  * @param {object} input.raw              — objeto raw já mapeado (PackBallMapper)
- * @param {string} [input.homeFormString] — string de forma bruta (ex: "WWDLW"), de
- *                                          apiData.homeStats.response.form, opcional
+ * @param {string} [input.homeFormString] — string de forma bruta (ex: "WWDLW")
  * @param {string} [input.awayFormString] — idem, away
  * @param {object} [input.manualContext]  — conteúdo de wc_manual_context.json.teams
+ * @param {number} [input.oddOferecida]   — odd real do mercado vencedor (se houver
+ *                                          alguma fonte futura), só para o flag VALUE
  *
- * @returns {object|null} — null se não há sinal aprovável; senão:
+ * @returns {object|null} — null se reprovado ou score < 80; senão:
  *   {
  *     market: 'Vitória da Casa' | 'Vitória do Visitante',
- *     score, grade,            // grade só pode ser 'A+' ou 'A' (senão retorna null)
+ *     score, grade,                 // grade só pode ser 'A+', 'A' ou 'B'
  *     favoredTeam, opponentTeam,
- *     coverage,                 // % do peso total que teve dado disponível
- *     breakdown,                // detalhe por critério, para auditoria/log
+ *     coverage, breakdown,
+ *     oddJusta, isValue,
  *     rejected: false
  *   }
- *   Em modo debug, use computeWcResultadoFinalDebug() para ver motivo de rejeição.
+ *   Use computeWcResultadoFinalDebug() para ver o motivo de rejeição.
  */
-function computeWcResultadoFinal({ raw, homeFormString = null, awayFormString = null, manualContext = {} } = {}) {
-  const result = computeWcResultadoFinalDebug({ raw, homeFormString, awayFormString, manualContext });
-  if (!result || result.rejected || !['A+', 'A'].includes(result.grade)) return null;
+function computeWcResultadoFinal(input = {}) {
+  const result = computeWcResultadoFinalDebug(input);
+  if (!result || result.rejected || !['A+', 'A', 'B'].includes(result.grade)) return null;
   const { rejected, rejectReason, ...approved } = result;
   return approved;
 }
 
-/**
- * computeWcResultadoFinalDebug — mesma lógica, mas sempre retorna o objeto
- * completo (mesmo quando rejeitado), com `rejected` e `rejectReason` preenchidos.
- * Útil para logs/depuração no generate_predictions.js.
- */
-function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormString = null, manualContext = {} } = {}) {
+function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormString = null, manualContext = {}, oddOferecida = null } = {}) {
   if (!raw) return { rejected: true, rejectReason: 'raw ausente' };
 
   const winHome = num(raw.win_home);
@@ -244,71 +266,64 @@ function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormStri
     return { rejected: true, rejectReason: 'sem probabilidades (win_home/win_away ausentes)' };
   }
 
-  // ── GATE #1 — Probabilidades ────────────────────────────────────────────
+  // ── GATE #2 — Probabilidade de empate ───────────────────────────────────
   if (winDraw !== null && winDraw > GATE.MAX_DRAW_PROB) {
     return { rejected: true, rejectReason: `draw_probability ${winDraw}% > ${GATE.MAX_DRAW_PROB}%` };
   }
 
+  // ── GATE #1 — Probabilidade mínima + vantagem (jogos equilibrados caem aqui) ─
   let side = null; // 'home' | 'away'
   if (winHome >= GATE.MIN_WIN_PROB && (winHome - winAway) >= GATE.MIN_MARGIN) side = 'home';
   else if (winAway >= GATE.MIN_WIN_PROB && (winAway - winHome) >= GATE.MIN_MARGIN) side = 'away';
 
-  if (!side) {
-    return { rejected: true, rejectReason: 'jogo equilibrado — nenhum lado atinge 62% + 15pp de vantagem' };
+  if (!side || Math.abs(winHome - winAway) < GATE.MIN_MARGIN) {
+    return { rejected: true, rejectReason: `jogo equilibrado — nenhum lado atinge ${GATE.MIN_WIN_PROB}% + ${GATE.MIN_MARGIN}pp de vantagem` };
   }
 
-  const favoredTeam   = side === 'home' ? raw.home_team : raw.away_team;
-  const opponentTeam  = side === 'home' ? raw.away_team : raw.home_team;
-  const winFav        = side === 'home' ? winHome : winAway;
-  const winOpp         = side === 'home' ? winAway : winHome;
+  const favoredTeam  = side === 'home' ? raw.home_team : raw.away_team;
+  const opponentTeam = side === 'home' ? raw.away_team : raw.home_team;
+  const winFav       = side === 'home' ? winHome : winAway;
+  const winOpp       = side === 'home' ? winAway : winHome;
 
-  // ── FILTROS DE EXCLUSÃO (#13) — flags manuais ───────────────────────────
+  // ── GATE #3 — Motivação ─────────────────────────────────────────────────
   const ctxFav = (manualContext && manualContext[favoredTeam]) || {};
   const ctxOpp = (manualContext && manualContext[opponentTeam]) || {};
+  if (ctxFav.friendly) {
+    return { rejected: true, rejectReason: `${favoredTeam} — partida amistosa (manualContext)` };
+  }
+  if (ctxFav.alreadyQualifiedNoStakes) {
+    return { rejected: true, rejectReason: `${favoredTeam} — classificação garantida, sem necessidade real (manualContext)` };
+  }
   if (ctxFav.rotationRisk) {
-    return { rejected: true, rejectReason: `${favoredTeam} marcado como risco de rotação (manualContext)` };
+    return { rejected: true, rejectReason: `${favoredTeam} — risco de rotação (manualContext)` };
   }
   if (ctxFav.unpredictable) {
-    return { rejected: true, rejectReason: `${favoredTeam} marcado como imprevisível (manualContext)` };
+    return { rejected: true, rejectReason: `${favoredTeam} — marcado como imprevisível (manualContext)` };
   }
 
   // ── Coleta de dados por critério ────────────────────────────────────────
   const powerFav = getTeamPower(favoredTeam);
   const powerOpp = getTeamPower(opponentTeam);
 
-  const ppgFav = side === 'home' ? num(raw.ppg_h) : num(raw.ppg_a);
-  const ppgOpp = side === 'home' ? num(raw.ppg_a) : num(raw.ppg_h);
+  const rankFav = getFifaRank(favoredTeam);
+  const rankOpp = getFifaRank(opponentTeam);
 
   const formFav = side === 'home' ? num(raw.home_form_score) : num(raw.away_form_score);
   const formOpp = side === 'home' ? num(raw.away_form_score) : num(raw.home_form_score);
 
   const gfFav = side === 'home' ? num(raw.avg_sc_h) : num(raw.avg_sc_a);
-  const gfOpp = side === 'home' ? num(raw.avg_sc_a) : num(raw.avg_sc_h);
-
-  const gaFav = side === 'home' ? num(raw.home_avg_conc_home) : num(raw.away_avg_conc_away);
   const gaOpp = side === 'home' ? num(raw.away_avg_conc_away) : num(raw.home_avg_conc_home);
 
   const formStrFav = side === 'home' ? homeFormString : awayFormString;
-  const formStrOpp = side === 'home' ? awayFormString : homeFormString;
-  const streakFav = computeStreakFromForm(formStrFav).unbeaten;
-  const streakOpp = computeStreakFromForm(formStrOpp).unbeaten;
 
   // ── Subscores por critério ──────────────────────────────────────────────
   const subscores = {
-    probabilidade:    scoreProbabilidade(winFav, winOpp),
-    fifaRanking:      scoreFifaRanking(powerFav.fifaRank, powerOpp.fifaRank),
-    elo:              scoreElo(powerFav.elo, powerOpp.elo),
-    valorMercado:     scoreValorMercado(powerFav.marketValueM, powerOpp.marketValueM),
-    formaRecente:     scoreFormaRecente(formFav, formOpp) ?? scoreManual0a100(
-                          ppgFav !== null ? (ppgFav / 3) * 100 : null,
-                          ppgOpp !== null ? (ppgOpp / 3) * 100 : null,
-                        ),
-    forcaOfensiva:    scoreForcaOfensiva(gfFav, gfOpp),
-    forcaDefensiva:   scoreForcaDefensiva(gaFav, gaOpp),
-    momentum:         scoreMomentum(formFav, formOpp, streakFav, streakOpp),
-    qualidadeElenco:  scoreManual0a100(ctxFav.squadQuality, ctxOpp.squadQuality),
-    historicoCopa:    scoreManual0a100(ctxFav.cupPedigree, ctxOpp.cupPedigree),
-    contextoGrupo:    scoreContextoGrupo(ctxFav.groupContext, ctxOpp.groupContext),
+    probabilidade: scoreProbabilidade(winFav, winOpp),
+    formaRecente:  scoreFormaRecente(formFav, formOpp),
+    fifaRanking:   scoreFifaRanking(rankFav, rankOpp),
+    valorElenco:   scoreValorElenco(powerFav.marketValueM, powerOpp.marketValueM),
+    ataqueDefesa:  scoreAtaqueDefesa(gfFav, gaOpp),
+    consistencia:  scoreConsistencia(formStrFav),
   };
 
   // ── Agregação ponderada com redistribuição de peso ──────────────────────
@@ -331,18 +346,9 @@ function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormStri
     return { rejected: true, rejectReason: 'nenhum critério com dado disponível' };
   }
 
-  let rawScore = weightedSum / availableWeight; // 0-100, já normalizado pelos critérios disponíveis
+  const rawScore = weightedSum / availableWeight;
 
-  // ── #13 — coerência estrutural: rejeita se favorito por probabilidade mas
-  // sem nenhuma vantagem estrutural real (ranking/elo/valor) disponível ──
-  const structural = ['fifaRanking', 'elo', 'valorMercado']
-    .map(k => subscores[k])
-    .filter(v => v !== null);
-  if (structural.length > 0 && structural.every(v => v < 50)) {
-    return { rejected: true, rejectReason: 'sem vantagem estrutural (ranking/elo/valor todos < 50) apesar da probabilidade favorável' };
-  }
-
-  // ── #12 — Desfalques (penalidade fora do pool de 100) ───────────────────
+  // ── Desfalques (penalidade fora do pool de 100) ─────────────────────────
   const missingFav = ctxFav.missingKeyPlayers || {};
   const missingOpp = ctxOpp.missingKeyPlayers || {};
   const favMissingCount = ['strikerOut', 'goalkeeperOut', 'centerBackOut'].filter(k => missingFav[k]).length;
@@ -350,17 +356,28 @@ function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormStri
   const desfalquePenalty = Math.min(favMissingCount * DESFALQUE_PENALTY_EACH, DESFALQUE_PENALTY_MAX);
   const desfalqueBonus   = Math.min(oppMissingCount * OPPONENT_DESFALQUE_BONUS_EACH, OPPONENT_DESFALQUE_BONUS_MAX);
 
-  let finalScore = clamp(rawScore - desfalquePenalty + desfalqueBonus);
+  const finalScore = clamp(rawScore - desfalquePenalty + desfalqueBonus);
 
-  // ── Cobertura mínima — sem dado real suficiente, trava em C (não aprova) ─
+  // ── Classificação ────────────────────────────────────────────────────────
   let grade;
   if (coverage < MIN_COVERAGE) {
-    grade = 'C';
-  } else if (finalScore >= 90) grade = 'A+';
-  else if (finalScore >= 85)   grade = 'A';
+    grade = 'C'; // sem dado real suficiente — trava, nunca aprova
+  } else if (
+    finalScore >= 90 &&
+    winFav >= ELITE_GATE.MIN_WIN_PROB &&
+    (winFav - winOpp) >= ELITE_GATE.MIN_MARGIN &&
+    (winDraw === null || winDraw <= ELITE_GATE.MAX_DRAW_PROB) &&
+    (subscores.fifaRanking !== null && subscores.fifaRanking >= ELITE_GATE.MIN_FIFA_SCORE) &&
+    (subscores.valorElenco !== null && subscores.valorElenco >= ELITE_GATE.MIN_ELENCO_SCORE)
+  ) {
+    grade = 'A+';
+  } else if (finalScore >= 85) grade = 'A';
   else if (finalScore >= 80)   grade = 'B';
   else if (finalScore >= 75)   grade = 'C';
   else                          grade = 'D';
+
+  const oddJusta = calcOddJusta(winFav);
+  const isValue  = calcIsValue(oddOferecida, oddJusta);
 
   return {
     rejected: false,
@@ -370,9 +387,17 @@ function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormStri
     grade,
     favoredTeam,
     opponentTeam,
+    winFav: Math.round(winFav * 10) / 10,
+    winOpp: Math.round(winOpp * 10) / 10,
+    margin: Math.round((winFav - winOpp) * 10) / 10,
+    drawProbability: winDraw,
+    fifaRankFav: rankFav,
+    fifaRankOpp: rankOpp,
     coverage,
     desfalquePenalty,
     desfalqueBonus,
+    oddJusta,
+    isValue,
     breakdown,
   };
 }
@@ -383,5 +408,6 @@ module.exports = {
   WORLD_CUP_LEAGUE_NAMES,
   WEIGHTS,
   GATE,
+  ELITE_GATE,
   MIN_COVERAGE,
 };
