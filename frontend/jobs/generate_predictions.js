@@ -55,6 +55,8 @@ const { computeWcResultadoFinal, computeWcResultadoFinalDebug, WORLD_CUP_LEAGUE_
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
 // [NOVO] Motores padrão para todos os campeonatos que NÃO são Copa do Mundo
 const { computeClubResultadoFinal, computeClubResultadoFinalDebug } = require('../lib/club_resultado_final.js');
+// [NOVO] Estatísticas balanceadas casa+fora (metodologia True Signal)
+const { computeTeamBalancedStats, computeBalancedWinProbabilities } = require('../lib/balanced_stats.js');
 const { computeClubDuplaChance }    = require('../lib/club_dupla_chance.js');
 
 // Curadoria manual (qualidade de elenco, histórico em Copa, contexto de grupo,
@@ -1489,18 +1491,31 @@ async function run() {
       const homeFormString = apiData.homeStats?.response?.form || null;
       const awayFormString = apiData.awayStats?.response?.form || null;
 
+      // [NOVO] Estatísticas balanceadas casa+fora (metodologia True Signal —
+      // "cada métrica = (média jogando em casa + média jogando fora) / 2").
+      // Calculado uma vez por jogo, usado pelos 4 motores Vencer/Vencer e
+      // Dupla Chance (Copa e clubes) como substituto opcional do dado bruto
+      // (win_home/win_draw/win_away, avg_sc_h/avg_sc_a, ppg_h/ppg_a). Não
+      // mexe em `raw` nem em nenhum outro mercado — isolado.
+      const homeBalanced = computeTeamBalancedStats(apiData.homeStats?.response);
+      const awayBalanced = computeTeamBalancedStats(apiData.awayStats?.response);
+      const balancedWin  = computeBalancedWinProbabilities(homeBalanced, awayBalanced);
+
       if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
         wcVitoria = computeWcResultadoFinal({
           raw,
           homeFormString,
           awayFormString,
           manualContext: WC_MANUAL_CONTEXT,
+          homeBalanced,
+          awayBalanced,
+          balancedWin,
         });
         vencerFonte = 'wc_resultado_final';
         if (wcVitoria) {
           LOG.ok(`  🏆 WC Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} cobertura=${wcVitoria.coverage}%`);
         } else {
-          const dbg = computeWcResultadoFinalDebug({ raw, homeFormString, awayFormString, manualContext: WC_MANUAL_CONTEXT });
+          const dbg = computeWcResultadoFinalDebug({ raw, homeFormString, awayFormString, manualContext: WC_MANUAL_CONTEXT, homeBalanced, awayBalanced, balancedWin });
           LOG.dim(`  🏆 WC Vencer/Vencer reprovado: ${dbg.rejectReason || `grade ${dbg.grade} (score ${dbg.score}) abaixo do mínimo`}`);
         }
 
@@ -1509,22 +1524,25 @@ async function run() {
           homeFormString,
           awayFormString,
           manualContext: WC_MANUAL_CONTEXT,
+          homeBalanced,
+          awayBalanced,
+          balancedWin,
         });
         duplaChanceFonte = 'wc_dupla_chance';
         if (wcDuplaChance) {
           LOG.ok(`  🛡️  WC Dupla Chance: ${wcDuplaChance.market} (${wcDuplaChance.favoredTeam}) — score=${wcDuplaChance.score} grade=${wcDuplaChance.grade} non_lose=${wcDuplaChance.nonLoseProbability}%`);
         }
       } else {
-        wcVitoria = computeClubResultadoFinal({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
+        wcVitoria = computeClubResultadoFinal({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null, homeBalanced, awayBalanced, balancedWin });
         vencerFonte = 'club_resultado_final';
         if (wcVitoria) {
           LOG.ok(`  🥅 Clube Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} ppg_diff=${wcVitoria.combinedPpg}`);
         } else {
-          const dbg = computeClubResultadoFinalDebug({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
+          const dbg = computeClubResultadoFinalDebug({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null, homeBalanced, awayBalanced, balancedWin });
           LOG.dim(`  🥅 Clube Vencer/Vencer reprovado: ${dbg.rejectReason || `grade ${dbg.grade} (score ${dbg.score}) abaixo do mínimo`}`);
         }
 
-        wcDuplaChance = computeClubDuplaChance({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
+        wcDuplaChance = computeClubDuplaChance({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null, homeBalanced, awayBalanced, balancedWin });
         duplaChanceFonte = 'club_dupla_chance';
         if (wcDuplaChance) {
           LOG.ok(`  🛡️  Clube Dupla Chance: ${wcDuplaChance.market} (${wcDuplaChance.favoredTeam}) — score=${wcDuplaChance.score} grade=${wcDuplaChance.grade} non_lose=${wcDuplaChance.nonLoseProbability}%`);
