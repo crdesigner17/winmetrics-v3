@@ -51,6 +51,8 @@ const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.j
 const { enrichOddsOddspapi }                        = require('../lib/enrich_odds_oddspapi.js'); // fallback OddsPapi
 // [NOVO] Mercado "Resultado Final (Vitória)" — exclusivo Copa do Mundo, isolado
 const { computeWcResultadoFinal, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
+// [NOVO] Mercado "Dupla Chance" (1X/X2) — exclusivo Copa do Mundo, isolado
+const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
 
 // Curadoria manual (qualidade de elenco, histórico em Copa, contexto de grupo,
 // desfalques) — não existe API pra isso. Carregado uma vez; se o arquivo não
@@ -950,13 +952,16 @@ async function upsertOdds(raw) {
  * Se houver linha alternativa, usa o label real (ex: Esc 9.5) e
  * salva os metadados original_market / final_market / is_alternative_line.
  *
- * @param {object|null} wcVitoria — [NOVO] sinal opcional do mercado "Resultado
- *   Final (Vitória)", exclusivo Copa do Mundo. Vem de
- *   computeWcResultadoFinal() (lib/wc_resultado_final.js) — já vem só A+/A,
- *   nunca grades inferiores (a função retorna null nesses casos). Isolado:
- *   não interfere nos 10 mercados padrão acima.
+ * @param {object|null} wcVitoria — [NOVO] sinal opcional do mercado "Vencer /
+ *   Vencer" (Resultado Final 1X2), exclusivo Copa do Mundo. Vem de
+ *   computeWcResultadoFinal() (lib/wc_resultado_final.js) — só vem A+/A/B
+ *   (score >= 80), nunca grades inferiores (a função retorna null nesses
+ *   casos). Isolado: não interfere nos 10 mercados padrão acima.
+ * @param {object|null} wcDuplaChance — [NOVO] sinal opcional do mercado
+ *   "Dupla Chance" (1X/X2), exclusivo Copa do Mundo. Vem de
+ *   computeWcDuplaChance() (lib/wc_dupla_chance.js) — mesma régua A+/A/B.
  */
-async function upsertPredictions(result, raw = {}, wcVitoria = null) {
+async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChance = null) {
   // Monta mapa de overrides de label a partir de altLines
   const altLabelByKey = {};
   for (const alt of (result.altLines || [])) {
@@ -1012,12 +1017,11 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null) {
     };
   }).filter(Boolean);
 
-  // [NOVO] Mercado "Resultado Final (Vitória)" — Copa do Mundo, isolado.
-  // market vem como 'Vitória da Casa' / 'Vitória do Visitante' — esses labels
-  // já são reconhecidos pelo frontend (smartMarketKey → homeWin/awayWin),
-  // então aparecem automaticamente no grupo "Resultado / Dupla Chance" dos
-  // cards da Copa do Mundo, sem precisar mudar nada no previsoes.html.
-  if (wcVitoria && wcVitoria.market && ['A+', 'A'].includes(wcVitoria.grade)) {
+  // [NOVO] Mercado "Vencer / Vencer" (Resultado Final 1X2) — Copa do Mundo, isolado.
+  // market vem como 'Vitória da Casa' / 'Vitória do Visitante'. Aprova A+/A/B
+  // (score >= 80) — computeWcResultadoFinal() já filtra isso, mas o check
+  // abaixo é redundante de propósito (defesa em profundidade).
+  if (wcVitoria && wcVitoria.market && ['A+', 'A', 'B'].includes(wcVitoria.grade)) {
     rows.push({
       fixture_id:         result.fixture_id,
       market:              wcVitoria.market,
@@ -1030,6 +1034,25 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null) {
       score_enriquecido:   null,
       grade_enriquecido:   null,
       odds_fonte:          'wc_resultado_final',
+      created_at:          new Date().toISOString(),
+    });
+  }
+
+  // [NOVO] Mercado "Dupla Chance" (1X/X2) — Copa do Mundo, isolado.
+  // market vem como 'Dupla Chance 1X' / 'Dupla Chance X2'. Mesma régua A+/A/B.
+  if (wcDuplaChance && wcDuplaChance.market && ['A+', 'A', 'B'].includes(wcDuplaChance.grade)) {
+    rows.push({
+      fixture_id:         result.fixture_id,
+      market:              wcDuplaChance.market,
+      score:               wcDuplaChance.score,
+      grade:               wcDuplaChance.grade,
+      passed_filter:       true,
+      under35_passed:      false,
+      is_best_market:      false,
+      odd:                 null,
+      score_enriquecido:   null,
+      grade_enriquecido:   null,
+      odds_fonte:          'wc_dupla_chance',
       created_at:          new Date().toISOString(),
     });
   }
@@ -1447,13 +1470,14 @@ async function run() {
         applyWorldCupBoost(result, raw, LOG);
       }
 
-      // ── [NOVO] WC RESULTADO FINAL (VITÓRIA) ─────────────────────────────
+      // ── [NOVO] WC RESULTADO FINAL (VITÓRIA) + DUPLA CHANCE ───────────────
       // ISOLADO: só roda para jogos de Copa do Mundo (mesma checagem de liga
       // usada no front-end — WC_LEAGUE_NAME sozinho não cobre todas as
       // variações de league_name observadas em produção).
       // Não altera result.scores nem result.grades dos 10 mercados existentes;
-      // gera um sinal à parte, salvo separadamente em upsertPredictions().
+      // gera sinais à parte, salvos separadamente em upsertPredictions().
       let wcVitoria = null;
+      let wcDuplaChance = null;
       if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
         const homeFormString = apiData.homeStats?.response?.form || null;
         const awayFormString = apiData.awayStats?.response?.form || null;
@@ -1464,7 +1488,17 @@ async function run() {
           manualContext: WC_MANUAL_CONTEXT,
         });
         if (wcVitoria) {
-          LOG.ok(`  🏆 WC Resultado Final: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} cobertura=${wcVitoria.coverage}%`);
+          LOG.ok(`  🏆 WC Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} cobertura=${wcVitoria.coverage}%`);
+        }
+
+        wcDuplaChance = computeWcDuplaChance({
+          raw,
+          homeFormString,
+          awayFormString,
+          manualContext: WC_MANUAL_CONTEXT,
+        });
+        if (wcDuplaChance) {
+          LOG.ok(`  🛡️  WC Dupla Chance: ${wcDuplaChance.market} (${wcDuplaChance.favoredTeam}) — score=${wcDuplaChance.score} grade=${wcDuplaChance.grade} non_lose=${wcDuplaChance.nonLoseProbability}%`);
         }
       }
 
@@ -1484,7 +1518,7 @@ async function run() {
         await upsertFixture(raw, entry.liga);
         await upsertMetrics(raw, result);
         await upsertOdds(raw);
-        await upsertPredictions(result, raw, wcVitoria);
+        await upsertPredictions(result, raw, wcVitoria, wcDuplaChance);
         savedSnapshot = await upsertSnapshot(result, raw);
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
