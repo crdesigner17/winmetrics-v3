@@ -1021,7 +1021,7 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
   // market vem como 'Vitória da Casa' / 'Vitória do Visitante'. Aprova A+/A/B
   // (score >= 80) — computeWcResultadoFinal() já filtra isso, mas o check
   // abaixo é redundante de propósito (defesa em profundidade).
-  if (wcVitoria && wcVitoria.market && ['A+', 'A', 'B'].includes(wcVitoria.grade)) {
+  if (wcVitoria && wcVitoria.market && ['A+', 'A', 'B', 'C'].includes(wcVitoria.grade)) {
     rows.push({
       fixture_id:         result.fixture_id,
       market:              wcVitoria.market,
@@ -1040,7 +1040,7 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
 
   // [NOVO] Mercado "Dupla Chance" (1X/X2) — Copa do Mundo, isolado.
   // market vem como 'Dupla Chance 1X' / 'Dupla Chance X2'. Mesma régua A+/A/B.
-  if (wcDuplaChance && wcDuplaChance.market && ['A+', 'A', 'B'].includes(wcDuplaChance.grade)) {
+  if (wcDuplaChance && wcDuplaChance.market && ['A+', 'A', 'B', 'C'].includes(wcDuplaChance.grade)) {
     rows.push({
       fixture_id:         result.fixture_id,
       market:              wcDuplaChance.market,
