@@ -47,8 +47,8 @@
  *
  * CLASSIFICAÇÃO
  *   A+ score >= 90   A  85-89   B  75-84   C  65-74   D  < 65
- *   Exibe apenas A+, A, e B "forte" (score >= 78) — B fraco (75-77.9) fica
- *   computado mas não aprovado. "Assertividade acima de volume."
+ *   Exibe A+, A, B e C (score >= 65) — só D fica de fora. Cada grade tem cor
+ *   própria no frontend (A+ verde, A dourado, B azul, C roxo).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -251,7 +251,7 @@ function scoreH2H(_h2hGoals) {
  * @returns {object|null} — null se reprovado ou não aprovado; senão:
  *   {
  *     market: 'Vitória da Casa' | 'Vitória do Visitante',
- *     score, grade,                 // grade só pode ser 'A+', 'A' ou 'B' (forte)
+ *     score, grade,                 // grade só pode ser 'A+', 'A', 'B' ou 'C'
  *     favoredTeam, opponentTeam, combinedPpg,
  *     coverage, breakdown,
  *     rejected: false
@@ -261,11 +261,7 @@ function scoreH2H(_h2hGoals) {
 function computeClubResultadoFinal(input = {}) {
   const result = computeClubResultadoFinalDebug(input);
   if (!result || result.rejected) return null;
-  if (result.grade === 'A+' || result.grade === 'A') {
-    const { rejected, rejectReason, ...approved } = result;
-    return approved;
-  }
-  if (result.grade === 'B' && result.score >= B_FORTE_MIN_SCORE) {
+  if (['A+', 'A', 'B', 'C'].includes(result.grade)) {
     const { rejected, rejectReason, ...approved } = result;
     return approved;
   }

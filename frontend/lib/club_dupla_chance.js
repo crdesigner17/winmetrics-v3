@@ -37,7 +37,7 @@
  *
  * CLASSIFICAÇÃO
  *   A+ score >= 90   A  85-89   B  80-84   C  70-79   D  < 70
- *   Exibe apenas A+, A, B (score >= 80 — a própria faixa de B já garante isso).
+ *   Exibe A+, A, B e C (score >= 70) — só D fica de fora.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -229,7 +229,7 @@ function scoreHistoricoCSV(csvData, side) {
  * @returns {object|null} — null se reprovado ou score < 80; senão:
  *   {
  *     market: 'Dupla Chance 1X' | 'Dupla Chance X2',
- *     score, grade,               // grade só pode ser 'A+', 'A' ou 'B'
+ *     score, grade,               // grade só pode ser 'A+', 'A', 'B' ou 'C'
  *     favoredTeam, opponentTeam, nonLoseProbability, ppgDifference,
  *     coverage, breakdown,
  *     rejected: false
@@ -238,7 +238,7 @@ function scoreHistoricoCSV(csvData, side) {
  */
 function computeClubDuplaChance(input = {}) {
   const result = computeClubDuplaChanceDebug(input);
-  if (!result || result.rejected || !['A+', 'A', 'B'].includes(result.grade)) return null;
+  if (!result || result.rejected || !['A+', 'A', 'B', 'C'].includes(result.grade)) return null;
   const { rejected, rejectReason, ...approved } = result;
   return approved;
 }
