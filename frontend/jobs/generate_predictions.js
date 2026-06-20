@@ -53,6 +53,9 @@ const { enrichOddsOddspapi }                        = require('../lib/enrich_odd
 const { computeWcResultadoFinal, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
 // [NOVO] Mercado "Dupla Chance" (1X/X2) — exclusivo Copa do Mundo, isolado
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
+// [NOVO] Motores padrão para todos os campeonatos que NÃO são Copa do Mundo
+const { computeClubResultadoFinal } = require('../lib/club_resultado_final.js');
+const { computeClubDuplaChance }    = require('../lib/club_dupla_chance.js');
 
 // Curadoria manual (qualidade de elenco, histórico em Copa, contexto de grupo,
 // desfalques) — não existe API pra isso. Carregado uma vez; se o arquivo não
@@ -961,7 +964,7 @@ async function upsertOdds(raw) {
  *   "Dupla Chance" (1X/X2), exclusivo Copa do Mundo. Vem de
  *   computeWcDuplaChance() (lib/wc_dupla_chance.js) — mesma régua A+/A/B.
  */
-async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChance = null) {
+async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChance = null, vencerFonte = 'wc_resultado_final', duplaChanceFonte = 'wc_dupla_chance') {
   // Monta mapa de overrides de label a partir de altLines
   const altLabelByKey = {};
   for (const alt of (result.altLines || [])) {
@@ -1033,7 +1036,7 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
       odd:                 null,
       score_enriquecido:   null,
       grade_enriquecido:   null,
-      odds_fonte:          'wc_resultado_final',
+      odds_fonte:          vencerFonte,
       created_at:          new Date().toISOString(),
     });
   }
@@ -1052,7 +1055,7 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
       odd:                 null,
       score_enriquecido:   null,
       grade_enriquecido:   null,
-      odds_fonte:          'wc_dupla_chance',
+      odds_fonte:          duplaChanceFonte,
       created_at:          new Date().toISOString(),
     });
   }
@@ -1470,23 +1473,30 @@ async function run() {
         applyWorldCupBoost(result, raw, LOG);
       }
 
-      // ── [NOVO] WC RESULTADO FINAL (VITÓRIA) + DUPLA CHANCE ───────────────
-      // ISOLADO: só roda para jogos de Copa do Mundo (mesma checagem de liga
-      // usada no front-end — WC_LEAGUE_NAME sozinho não cobre todas as
-      // variações de league_name observadas em produção).
+      // ── [NOVO] VENCER/VENCER + DUPLA CHANCE — Copa do Mundo OU Clubes ────
+      // Separação obrigatória: Copa do Mundo usa o motor especial (Ranking
+      // FIFA + valor de seleção); todos os demais campeonatos usam o motor
+      // padrão de clubes/ligas (sem FIFA, sem valor de seleção — PPG, forma,
+      // casa/fora, ataque/defesa, momento, H2H). Mesma checagem de liga usada
+      // no front-end — WC_LEAGUE_NAME sozinho não cobre todas as variações de
+      // league_name observadas em produção.
       // Não altera result.scores nem result.grades dos 10 mercados existentes;
       // gera sinais à parte, salvos separadamente em upsertPredictions().
       let wcVitoria = null;
       let wcDuplaChance = null;
+      let vencerFonte = null;
+      let duplaChanceFonte = null;
+      const homeFormString = apiData.homeStats?.response?.form || null;
+      const awayFormString = apiData.awayStats?.response?.form || null;
+
       if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
-        const homeFormString = apiData.homeStats?.response?.form || null;
-        const awayFormString = apiData.awayStats?.response?.form || null;
         wcVitoria = computeWcResultadoFinal({
           raw,
           homeFormString,
           awayFormString,
           manualContext: WC_MANUAL_CONTEXT,
         });
+        vencerFonte = 'wc_resultado_final';
         if (wcVitoria) {
           LOG.ok(`  🏆 WC Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} cobertura=${wcVitoria.coverage}%`);
         }
@@ -1497,8 +1507,21 @@ async function run() {
           awayFormString,
           manualContext: WC_MANUAL_CONTEXT,
         });
+        duplaChanceFonte = 'wc_dupla_chance';
         if (wcDuplaChance) {
           LOG.ok(`  🛡️  WC Dupla Chance: ${wcDuplaChance.market} (${wcDuplaChance.favoredTeam}) — score=${wcDuplaChance.score} grade=${wcDuplaChance.grade} non_lose=${wcDuplaChance.nonLoseProbability}%`);
+        }
+      } else {
+        wcVitoria = computeClubResultadoFinal({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
+        vencerFonte = 'club_resultado_final';
+        if (wcVitoria) {
+          LOG.ok(`  🥅 Clube Vencer/Vencer: ${wcVitoria.market} (${wcVitoria.favoredTeam}) — score=${wcVitoria.score} grade=${wcVitoria.grade} ppg_diff=${wcVitoria.combinedPpg}`);
+        }
+
+        wcDuplaChance = computeClubDuplaChance({ raw, homeFormString, awayFormString, csvData: apiData.packballCSV || null });
+        duplaChanceFonte = 'club_dupla_chance';
+        if (wcDuplaChance) {
+          LOG.ok(`  🛡️  Clube Dupla Chance: ${wcDuplaChance.market} (${wcDuplaChance.favoredTeam}) — score=${wcDuplaChance.score} grade=${wcDuplaChance.grade} non_lose=${wcDuplaChance.nonLoseProbability}%`);
         }
       }
 
@@ -1518,7 +1541,7 @@ async function run() {
         await upsertFixture(raw, entry.liga);
         await upsertMetrics(raw, result);
         await upsertOdds(raw);
-        await upsertPredictions(result, raw, wcVitoria, wcDuplaChance);
+        await upsertPredictions(result, raw, wcVitoria, wcDuplaChance, vencerFonte, duplaChanceFonte);
         savedSnapshot = await upsertSnapshot(result, raw);
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
