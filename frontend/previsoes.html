@@ -3097,26 +3097,52 @@ async function fetchWorldCupFixtures() {
   return data;
 }
 
-// Mercados de Vitória calculados pelo motor wc_resultado_final.js (só Copa do Mundo por enquanto)
+// Igual a fetchWorldCupFixtures(), mas SEM o filtro de liga — usada pelas
+// pills Vencer/Dupla Chance, que agora cobrem Copa do Mundo (motor
+// wc_resultado_final.js/wc_dupla_chance.js) E os demais campeonatos (motor
+// club_resultado_final.js/club_dupla_chance.js), já que os dois motores
+// gravam nos mesmos market labels ('Vitória da Casa/Visitante',
+// 'Dupla Chance 1X/X2') — basta filtrar por jogo+mercado+grade, sem
+// restringir liga.
+async function fetchAllFixturesInRange() {
+  const { start, end } = getDateRange();
+  let q = supabaseClient
+    .from('fixtures')
+    .select('fixture_id, match_date, hour, home_team, away_team, home_team_logo, away_team_logo, league_name, goals_home, goals_away, status')
+    .order('match_date', { ascending: true });
+
+  if (start) q = q.gte('match_date', start);
+  if (end)   q = q.lte('match_date', end);
+  if (searchQuery) {
+    const term = searchQuery.replace(/[%_,]/g, '').trim();
+    if (term) q = q.or(`home_team.ilike.%${term}%,away_team.ilike.%${term}%,league_name.ilike.%${term}%`);
+  }
+
+  const { data, error } = await q;
+  if (error || !data) return [];
+  return data;
+}
+
+// Mercados de Vitória calculados por wc_resultado_final.js (Copa do Mundo)
+// ou club_resultado_final.js (demais campeonatos) — mesmo market label.
 const WC_VENCER_MARKETS = ['Vitória da Casa', 'Vitória do Visitante'];
-// Mercados de Dupla Chance calculados pelo motor wc_dupla_chance.js (só Copa do Mundo por enquanto)
+// Mercados de Dupla Chance calculados por wc_dupla_chance.js (Copa do Mundo)
+// ou club_dupla_chance.js (demais campeonatos) — mesmo market label.
 const WC_DUPLA_CHANCE_MARKETS = ['Dupla Chance 1X', 'Dupla Chance X2'];
 
-// Grades aprovadas pelos motores Vencer/Vencer e Dupla Chance — score >= 80
-// ("mostrar apenas score >= 80, priorizar qualidade em vez de quantidade").
 // Grades aprovadas pelos motores Vencer/Vencer e Dupla Chance — score >= 75.
 // Cada grade tem cor própria já definida no CSS (.conf-aplus/.conf-a/.conf-b/
 // .conf-c): A+ verde, A dourado, B azul, C roxo. D (score < 75) nunca aparece.
 const WC_APPROVED_GRADES = ['A+', 'A', 'B', 'C'];
 
-// Pills "Vencer" e "Dupla Chance": buscam jogos da Copa do Mundo com o sinal
+// Pills "Vencer" e "Dupla Chance": buscam jogos de QUALQUER liga com o sinal
 // correspondente (tabela `predictions`, já que esses mercados ainda não são
 // salvos em prediction_snapshots) e devolvem no mesmo formato que
 // fetchSnapshots(), pra reaproveitar todo o pipeline de renderização da tabela.
-async function fetchWcMarketCopaSnapshots(page, markets) {
+async function fetchMarketPredictionSnapshots(page, markets) {
   const offset = (page - 1) * PAGE_SIZE;
 
-  const fixtures = await fetchWorldCupFixtures();
+  const fixtures = await fetchAllFixturesInRange();
   if (!fixtures.length) return { data: [], error: null, count: 0 };
 
   const fixtureIds = fixtures.map(f => f.fixture_id);
@@ -3166,11 +3192,11 @@ async function fetchWcMarketCopaSnapshots(page, markets) {
 }
 
 async function fetchVencerCopaSnapshots(page) {
-  return fetchWcMarketCopaSnapshots(page, WC_VENCER_MARKETS);
+  return fetchMarketPredictionSnapshots(page, WC_VENCER_MARKETS);
 }
 
 async function fetchDuplaChanceCopaSnapshots(page) {
-  return fetchWcMarketCopaSnapshots(page, WC_DUPLA_CHANCE_MARKETS);
+  return fetchMarketPredictionSnapshots(page, WC_DUPLA_CHANCE_MARKETS);
 }
 
 
@@ -3382,12 +3408,14 @@ OFFICIAL_SNAPSHOT_MARKET_ALIASES.forEach(alias => {
 });
 
 // Estrutura da barra de categorias (Vencer / Gols / Escanteios / Cartões).
-// "Vencer" tem duas pills, ambas exclusivas Copa do Mundo por enquanto (motor
-// geral pra todas as ligas ainda não existe): "Vencer" (Vitória 1X2, motor
-// wc_resultado_final.js, ativa por padrão ao clicar na aba) e "Dupla Chance"
-// (motor wc_dupla_chance.js). As pills de Escanteios/Cartões abaixo marcadas
-// com disabled:true ainda não têm motor de cálculo — entram só como
-// preparação visual até a lógica de cada mercado ser implementada.
+// "Vencer" tem duas pills: "Vencer" (Vitória 1X2, ativa por padrão ao clicar
+// na aba) e "Dupla Chance". Cobrem TODAS as ligas — Copa do Mundo usa o motor
+// especial (wc_resultado_final.js / wc_dupla_chance.js, com Ranking FIFA e
+// valor de seleção), os demais campeonatos usam o motor padrão de clubes
+// (club_resultado_final.js / club_dupla_chance.js, sem FIFA/valor de seleção
+// — PPG, forma, casa/fora, ataque/defesa, momento, H2H). As pills de
+// Escanteios/Cartões abaixo marcadas com disabled:true ainda não têm motor
+// de cálculo — entram só como preparação visual.
 const MARKET_CATEGORIES = {
   vencer: [
     { key: 'vencer',       label: 'Vencer' },
