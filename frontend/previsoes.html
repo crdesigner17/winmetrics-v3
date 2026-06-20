@@ -256,7 +256,14 @@
     color: var(--text-secondary); transition: all .15s;
   }
   .tab.active { background: var(--bg-hover); color: var(--text-primary); }
-  .tab[data-filter="hoje"].active {
+
+  /* "Hoje" sempre se destaca, mesmo quando não é a aba selecionada */
+  .tab-today { color: var(--green); font-weight: 700; position: relative; }
+  .tab-today:not(.active)::after {
+    content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--green);
+  }
+  .tab-today.active {
     background: linear-gradient(135deg, rgba(0,210,160,.22), rgba(108,99,255,.18));
     color: #fff;
     box-shadow: inset 0 0 0 1px rgba(0,210,160,.35);
@@ -3996,11 +4003,12 @@ function buildDateTabs() {
   const now   = new Date();
   const today = brtDateStr(now);
 
-  // Mobile: 2 dias passados + hoje + 4 futuros = 7 tabs
-  // Desktop: 6 passados + hoje + 6 futuros = 13 tabs
+  // Mobile: 4 dias passados + hoje + 8 futuros = 13 tabs
+  // Desktop: 12 passados + hoje + 14 futuros = 27 tabs
   const isMobile = window.innerWidth <= 768;
-  const past   = isMobile ? -2 : -6;
-  const future = isMobile ?  4 :  6;
+  group.dataset.mobile = String(isMobile);
+  const past   = isMobile ? -4 : -12;
+  const future = isMobile ?  8 :  14;
 
   const days = [];
   for (let i = past; i <= future; i++) {
@@ -4016,11 +4024,17 @@ function buildDateTabs() {
   }
 
   group.innerHTML = days.map(d => {
-    const cls = d.isToday ? 'tab active' : 'tab';
+    const cls = ['tab', d.isToday ? 'active tab-today' : ''].filter(Boolean).join(' ');
     return `<div class="${cls}" data-filter="dia" data-ymd="${d.ymd}">${d.label}</div>`;
   }).join('');
 
   _bindTabEvents();
+
+  // Garante que "Hoje" fique visível (centralizado) ao montar a barra, já
+  // que com mais datas o conteúdo passa a rolar e o navegador não centraliza
+  // automaticamente quando há overflow.
+  const todayEl = group.querySelector('.tab-today');
+  if (todayEl) todayEl.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 // section
@@ -4083,7 +4097,8 @@ function initTabs() {
   buildDateTabs();
   // Reconstrói tabs se orientação mudar (ex: portrait ↔ landscape)
   window.addEventListener('resize', debounce(() => {
-    const wasMobile = document.getElementById('date-tab-group').childElementCount <= 8;
+    const group = document.getElementById('date-tab-group');
+    const wasMobile = group?.dataset.mobile === 'true';
     const isMobile  = window.innerWidth <= 768;
     if (wasMobile !== isMobile) buildDateTabs();
   }, 300));
