@@ -3097,7 +3097,10 @@ const WC_DUPLA_CHANCE_MARKETS = ['Dupla Chance 1X', 'Dupla Chance X2'];
 
 // Grades aprovadas pelos motores Vencer/Vencer e Dupla Chance — score >= 80
 // ("mostrar apenas score >= 80, priorizar qualidade em vez de quantidade").
-const WC_APPROVED_GRADES = ['A+', 'A', 'B'];
+// Grades aprovadas pelos motores Vencer/Vencer e Dupla Chance — score >= 75.
+// Cada grade tem cor própria já definida no CSS (.conf-aplus/.conf-a/.conf-b/
+// .conf-c): A+ verde, A dourado, B azul, C roxo. D (score < 75) nunca aparece.
+const WC_APPROVED_GRADES = ['A+', 'A', 'B', 'C'];
 
 // Pills "Vencer" e "Dupla Chance": buscam jogos da Copa do Mundo com o sinal
 // correspondente (tabela `predictions`, já que esses mercados ainda não são
