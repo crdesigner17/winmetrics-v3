@@ -25,9 +25,17 @@
  *                 cobertura completa.
  *
  *   marketValueM — Valor de elenco em € milhões (estilo Transfermarkt).
- *               NÃO temos fonte automatizada nem pesquisada ainda — todos os
- *               valores ficam null até serem preenchidos manualmente.
- *               O motor PULA este critério quando ausente.
+ *               Fonte: Transfermarkt, snapshot via reportagem Times Brasil/CNBC
+ *               de 09/06/2026 (cruzado com Revista Fórum e CNN Brasil, mesma
+ *               base Transfermarkt). Preenchido APENAS para as seleções com
+ *               valor confirmado por essa fonte — top 10 do ranking de valor
+ *               de elenco da Copa, mais Marrocos/Haiti/Escócia (citadas à
+ *               parte na mesma reportagem, grupo do Brasil). As demais 35
+ *               seleções ficam com marketValueM:null até serem pesquisadas
+ *               — o motor PULA o critério quando algum dos dois lados está
+ *               null, nunca inventa valor.
+ *               → Atualize manualmente em transfermarkt.com se quiser
+ *                 cobertura completa das 48 seleções.
  *
  * MANUTENÇÃO:
  *   - Ranking FIFA muda a cada 4-6 semanas (próxima atualização: 20/07/2026).
@@ -47,16 +55,16 @@
 // Fonte: FIFA World Ranking, 11/06/2026 — todos os 48 classificados.
 // Fonte ELO: World Football Elo Ratings, top 20 mundial, snapshot 19/01/2026.
 const WC_TEAM_POWER = {
-  'Argentina':               { fifaRank: 1,  elo: 2113, marketValueM: null },
-  'Spain':                   { fifaRank: 2,  elo: 2171, marketValueM: null },
-  'France':                  { fifaRank: 3,  elo: 2063, marketValueM: null },
-  'England':                 { fifaRank: 4,  elo: 2042, marketValueM: null },
-  'Portugal':                { fifaRank: 5,  elo: 1976, marketValueM: null },
-  'Brazil':                  { fifaRank: 6,  elo: 1979, marketValueM: null },
-  'Morocco':                 { fifaRank: 7,  elo: null, marketValueM: null },
-  'Netherlands':             { fifaRank: 8,  elo: 1959, marketValueM: null },
-  'Belgium':                 { fifaRank: 9,  elo: 1849, marketValueM: null },
-  'Germany':                 { fifaRank: 10, elo: 1910, marketValueM: null },
+  'Argentina':               { fifaRank: 1,  elo: 2113, marketValueM: 782.5 },
+  'Spain':                   { fifaRank: 2,  elo: 2171, marketValueM: 1220 },
+  'France':                  { fifaRank: 3,  elo: 2063, marketValueM: 1520 },
+  'England':                 { fifaRank: 4,  elo: 2042, marketValueM: 1360 },
+  'Portugal':                { fifaRank: 5,  elo: 1976, marketValueM: 1100 },
+  'Brazil':                  { fifaRank: 6,  elo: 1979, marketValueM: 928.2 },
+  'Morocco':                 { fifaRank: 7,  elo: null, marketValueM: 498 },
+  'Netherlands':             { fifaRank: 8,  elo: 1959, marketValueM: 754.2 },
+  'Belgium':                 { fifaRank: 9,  elo: 1849, marketValueM: 547.5 },
+  'Germany':                 { fifaRank: 10, elo: 1910, marketValueM: 947 },
   'Croatia':                 { fifaRank: 11, elo: 1933, marketValueM: null },
   'Colombia':                { fifaRank: 13, elo: 1998, marketValueM: null },
   'Mexico':                  { fifaRank: 14, elo: null, marketValueM: null },
@@ -74,13 +82,13 @@ const WC_TEAM_POWER = {
   'Algeria':                 { fifaRank: 28, elo: null, marketValueM: null },
   'Egypt':                   { fifaRank: 29, elo: null, marketValueM: null },
   'Canada':                  { fifaRank: 30, elo: null, marketValueM: null },
-  'Norway':                  { fifaRank: 31, elo: 1922, marketValueM: null },
+  'Norway':                  { fifaRank: 31, elo: 1922, marketValueM: 589.9 },
   'Ivory Coast':             { fifaRank: 33, elo: null, marketValueM: null },
   'Panama':                  { fifaRank: 34, elo: null, marketValueM: null },
   'Sweden':                  { fifaRank: 38, elo: null, marketValueM: null },
   'Czechia':                 { fifaRank: 40, elo: null, marketValueM: null },
   'Paraguay':                { fifaRank: 41, elo: null, marketValueM: null },
-  'Scotland':                { fifaRank: 42, elo: null, marketValueM: null },
+  'Scotland':                { fifaRank: 42, elo: null, marketValueM: 170 },
   'Tunisia':                 { fifaRank: 45, elo: null, marketValueM: null },
   'DR Congo':                { fifaRank: 46, elo: null, marketValueM: null },
   'Uzbekistan':              { fifaRank: 50, elo: null, marketValueM: null },
@@ -93,7 +101,7 @@ const WC_TEAM_POWER = {
   'Cape Verde':              { fifaRank: 67, elo: null, marketValueM: null },
   'Ghana':                   { fifaRank: 73, elo: null, marketValueM: null },
   'Curacao':                 { fifaRank: 82, elo: null, marketValueM: null },
-  'Haiti':                   { fifaRank: 83, elo: null, marketValueM: null },
+  'Haiti':                   { fifaRank: 83, elo: null, marketValueM: 55.9 },
   'New Zealand':             { fifaRank: 85, elo: null, marketValueM: null },
 };
 
