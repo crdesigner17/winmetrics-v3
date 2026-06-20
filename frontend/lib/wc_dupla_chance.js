@@ -3,36 +3,49 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Motor de scoring EXCLUSIVO para jogos da Copa do Mundo. Aposta de proteção:
  * cobre vitória do favorito OU empate (1X se o favorito é o mandante, X2 se é
- * o visitante). Por isso o gate central é "não perder" (non_lose_probability),
- * não a vitória pura — diferente do mercado Vencer/Vencer.
+ * o visitante). Objetivo: selecionar equipes com probabilidade extremamente
+ * alta de NÃO PERDER — prioridade máxima é assertividade, não quantidade.
  *
  * ISOLADO — não altera nenhum outro mercado, engine ou liga. Só roda quando
  * chamado explicitamente para fixtures de Copa do Mundo (WORLD_CUP_LEAGUE_NAMES).
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * CRITÉRIOS OBRIGATÓRIOS (gates)
+ * CRITÉRIOS OBRIGATÓRIOS (gates — reprovam o jogo inteiro se não baterem)
  *
- *   #1 non_lose_probability = win_fav% + draw_probability%  >= 82%
- *   #2 draw_probability ENTRE 18% e 30% (fora desse range → reprovado —
- *      empate baixo demais não justifica a proteção, alto demais é arriscado)
- *   #3 Máximo 1 derrota nos últimos 5 jogos do favorito (quando o dado de
- *      forma está disponível; se ausente, não bloqueia sozinho)
- *   #4 Motivação: amistoso, classificação garantida ou risco de rotação
- *      confirmado em manualContext → reprovado (mesmo critério do Vencer)
+ *   #1 non_lose_probability = win_fav% + draw_probability%
+ *        1X → home_win_probability + draw_probability
+ *        X2 → away_win_probability + draw_probability
+ *      Mínimo 82% (abaixo disso, reprovado). Ideal >=85%. Elite >=88%.
+ *   #2 draw_probability < 15%  → reprovado (empate baixo demais não justifica
+ *      a proteção). Faixa ideal é 18-30%, mas isso NÃO reprova sozinho —
+ *      só entra como exigência extra no gate de A+.
+ *   #3 Jogo equilibrado: abs(home_win_probability - away_win_probability) < 8
+ *      → reprovado (sem favorito real o suficiente pra "não perder" fazer sentido).
+ *   #4 Máximo 1 derrota nos últimos 5 jogos do favorito (quando o dado de
+ *      forma está disponível; se ausente, não bloqueia sozinho).
+ *   #5 Motivação: amistoso, classificação garantida ou risco de rotação
+ *      confirmado em manualContext → reprovado (mesma cautela do Vencer/Vencer;
+ *      não estava no enunciado novo, mantido como camada extra de segurança —
+ *      "preferir perder oportunidades a aprovar partidas duvidosas").
  *
  * CRITÉRIOS DE SCORE (pool ponderado, 0-100, redistribuído quando faltar dado)
- *   Probabilidade (non_lose)  35%   Forma recente   20%   Ranking FIFA  15%
- *   Valor elenco              15%   Defesa          10%   Consistência   5%
+ *   Probabilidade (não perder)  40%   Forma recente   20%   Ranking FIFA  15%
+ *   Defesa                      15%   Adversário      10%
  *
- * CLASSIFICAÇÃO — mesma régua do Vencer/Vencer:
- *   A+ (Elite): score >= 90 E non_lose >= 88% E superioridade clara no
- *               Ranking FIFA E superioridade clara no valor de elenco.
+ * CLASSIFICAÇÃO
+ *   A+ (Elite): score >= 90 E SIMULTANEAMENTE:
+ *               non_lose_probability >= 88%
+ *               draw_probability entre 18% e 30%
+ *               forma recente do favorito >= 75%
+ *               máximo 1 derrota nos últimos 5 jogos
+ *               média sofrida do favorito (goals_conceded_avg) <= 1.0
  *   A: 85-89   B: 80-84   C: 75-79   D: <75
  *   → só retorna resultado aprovável quando grade final é A+, A ou B
- *     (score >= 80) — "priorizar qualidade em vez de quantidade".
+ *     (score >= 75, grade D nunca aprova) — "não aumentar quantidade de jogos; preferir perder
+ *     oportunidades do que aprovar partidas duvidosas".
  *
  * Ranking FIFA: snapshot fixo em data/wc_fifa_ranking.js (11/06/2026) — nunca
- * aprova sozinho, é só um dos 6 critérios do pool ponderado (peso 15%).
+ * aprova sozinho, é só um dos 5 critérios do pool ponderado (peso 15%).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -46,27 +59,34 @@ const { getFifaRank, calculateFifaRankingScore }         = require('../data/wc_f
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GATE = {
-  MIN_NON_LOSE_PROB: 82,  // win_fav% + draw% >= 82%
-  MIN_DRAW_PROB:     18,
-  MAX_DRAW_PROB:     30,
-  MAX_LOSSES_LAST5:   1,  // máximo 1 derrota do favorito nos últimos 5 jogos
+  MIN_NON_LOSE_PROB:   82,  // win_fav% + draw% >= 82% (abaixo disso, reprova)
+  IDEAL_NON_LOSE_PROB: 85,
+  ELITE_NON_LOSE_PROB: 88,
+  MIN_DRAW_PROB:       15,  // draw_probability < 15% → reprova
+  IDEAL_DRAW_MIN:      18,  // faixa ideal de empate (não reprova fora dela)
+  IDEAL_DRAW_MAX:      30,
+  MIN_EQUILIBRIO_GAP:   8,  // abs(home - away) < 8 → jogo equilibrado, reprova
+  MAX_LOSSES_LAST5:     1,  // máximo 1 derrota do favorito nos últimos 5 jogos
 };
 
 const ELITE_GATE = {
   MIN_NON_LOSE_PROB: 88,
-  MIN_FIFA_SCORE:    80, // gap de ranking >= 20 ("vantagem forte")
-  MIN_ELENCO_SCORE:  80, // ratio de valor de elenco >= 1.5
+  DRAW_MIN:          18,
+  DRAW_MAX:          30,
+  MIN_FORMA_FAV:     75,  // forma recente do favorito >= 75%
+  MAX_LOSSES_LAST5:   1,
+  MAX_GOALS_CONCEDED: 1.0, // média sofrida <= 1 gol
 };
 
-// Mesma distribuição de pesos do Vencer/Vencer (Ataque/Defesa vira só Defesa
-// aqui, já que o mercado é sobre não perder, não sobre marcar gols).
+// Pesos somam 100. Sem Valor de Elenco e sem Consistência nesta versão —
+// "Adversário" entra como critério próprio (irregularidade, baixa eficiência
+// ofensiva, sequência negativa do time adversário).
 const WEIGHTS = {
-  probabilidade: 35,
+  probabilidade: 40,
   formaRecente:  20,
   fifaRanking:   15,
-  valorElenco:   15,
-  defesa:        10,
-  consistencia:   5,
+  defesa:        15,
+  adversario:    10,
 };
 
 const MIN_COVERAGE = 60;
@@ -87,86 +107,85 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Últimos 5 resultados (mais recente = último char) — draws/losses/transitions. */
+/** Últimos 5 resultados (mais recente = último char) — draws/losses/transitions/trailingLosses. */
 function analyzeLast5(formString) {
   if (!formString || typeof formString !== 'string') return null;
   const chars = formString.toUpperCase().split('').filter(c => ['W', 'D', 'L'].includes(c));
   if (!chars.length) return null;
   const last5 = chars.slice(-5);
+  let trailingLosses = 0;
+  for (let i = last5.length - 1; i >= 0; i--) {
+    if (last5[i] === 'L') trailingLosses++;
+    else break;
+  }
   return {
     last5,
-    draws:       last5.filter(c => c === 'D').length,
-    losses:      last5.filter(c => c === 'L').length,
-    transitions: last5.slice(1).filter((c, i) => c !== last5[i]).length,
+    draws:           last5.filter(c => c === 'D').length,
+    losses:          last5.filter(c => c === 'L').length,
+    transitions:     last5.slice(1).filter((c, i) => c !== last5[i]).length,
+    trailingLosses,  // sequência negativa atual (derrotas seguidas mais recentes)
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SUBSCORES — 0-100, favorável ao FAVORITO, null se faltar dado
+// SUBSCORES — 0-100, favorável ao lado PROTEGIDO (favorito), null se faltar dado
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Probabilidade (non_lose) — 35%
+// Probabilidade (não perder) — 40%. Tiers: mínimo 82 / ideal 85 / elite 88.
 function scoreProbabilidade(nonLose) {
   if (nonLose === null) return null;
-  return clamp(50 + (nonLose - GATE.MIN_NON_LOSE_PROB) * 2.5);
+  if (nonLose >= 93) return 100;
+  if (nonLose >= GATE.ELITE_NON_LOSE_PROB)  return 90 + (nonLose - GATE.ELITE_NON_LOSE_PROB)  * 2; // 88→90 .. 93→100
+  if (nonLose >= GATE.IDEAL_NON_LOSE_PROB)  return 75 + (nonLose - GATE.IDEAL_NON_LOSE_PROB)  * 5; // 85→75 .. 88→90
+  if (nonLose >= GATE.MIN_NON_LOSE_PROB)    return 60 + (nonLose - GATE.MIN_NON_LOSE_PROB)    * 5; // 82→60 .. 85→75
+  return clamp(60 - (GATE.MIN_NON_LOSE_PROB - nonLose) * 5); // defensivo (não deveria chegar aqui — já reprovado pelo gate)
 }
 
-// Forma recente — 20% (mesmos limiares do Vencer: favorito ideal >=80%, adversário bom <=50%)
+// Forma recente — 20%. Equipe protegida ideal >=65%, adversário bom <=50%.
 function scoreFormaRecente(formFav, formOpp) {
   if (formFav === null && formOpp === null) return null;
   let s = 50;
   if (formFav !== null) {
-    if (formFav >= 80)      s += 25;
-    else if (formFav >= 70) s += 12;
-    else                     s -= 10;
+    if (formFav >= 85)      s += 30;
+    else if (formFav >= 65) s += 20;
+    else                     s -= 15;
   }
   if (formOpp !== null) {
     if (formOpp <= 50)      s += 15;
-    else if (formOpp > 70)  s -= 15;
+    else if (formOpp > 65)  s -= 15;
   }
   return clamp(s);
 }
 
-// Ranking FIFA — 15%
+// Ranking FIFA — 15%. Ideal >=10 posições de vantagem.
 function scoreFifaRanking(rankFav, rankOpp) {
   return calculateFifaRankingScore(rankFav, rankOpp);
 }
 
-// Valor de elenco — 15% (mesma régua do Vencer)
-function scoreValorElenco(valFav, valOpp) {
-  if (!valFav || !valOpp) return null;
-  const ratio = valFav / valOpp;
-  if (ratio >= 2.0) return 100;
-  if (ratio >= 1.5) return 80;
-  if (ratio >= 1.2) return 65;
-  if (ratio >= 1.0) return 55;
-  if (ratio >= 0.8) return 40;
+// Defesa — 15%. goals_conceded_avg do favorito: <=1.2 aceitável, ideal <=1.0.
+function scoreDefesa(gaFav) {
+  if (gaFav === null) return null;
+  if (gaFav <= 1.0) return 100;
+  if (gaFav <= 1.2) return 75;
+  if (gaFav <= 1.5) return 50;
   return 25;
 }
 
-// Defesa — 10%. Favorito sofrendo pouco + adversário marcando pouco = boa proteção.
-function scoreDefesa(gaFav, gfOpp) {
-  if (gaFav === null && gfOpp === null) return null;
+// Adversário — 10%. Pontua positivamente irregularidade, baixa eficiência
+// ofensiva e sequência negativa do ADVERSÁRIO (tudo isso é bom pra "não perder").
+function scoreAdversario(formStrOpp, gfOpp) {
+  const a = analyzeLast5(formStrOpp);
+  if (!a && gfOpp === null) return null;
   let s = 50;
-  if (gaFav !== null) {
-    if (gaFav <= 0.8)      s += 25;
-    else if (gaFav > 1.5)  s -= 20;
+  if (a) {
+    if (a.transitions >= 3)        s += 15; // sequência irregular
+    if (a.trailingLosses >= 2)     s += 15; // sequência negativa recente
+    else if (a.losses >= 2)        s += 8;  // várias derrotas, mesmo sem ser seguidas
   }
   if (gfOpp !== null) {
-    if (gfOpp <= 0.8)      s += 15;
-    else if (gfOpp > 1.5)  s -= 15;
+    if (gfOpp < 1.0)        s += 15; // baixa eficiência ofensiva
+    else if (gfOpp >= 1.8)  s -= 10; // adversário ofensivamente perigoso
   }
-  return clamp(s);
-}
-
-// Consistência — 5% (mesmo critério do Vencer/Vencer)
-function scoreConsistencia(formStrFav) {
-  const a = analyzeLast5(formStrFav);
-  if (!a) return null;
-  let s = 80;
-  s -= a.draws * 8;
-  s -= a.losses * 10;
-  if (a.transitions >= 3) s -= 10;
   return clamp(s);
 }
 
@@ -183,10 +202,10 @@ function scoreConsistencia(formStrFav) {
  * @param {string} [input.awayFormString]
  * @param {object} [input.manualContext]
  *
- * @returns {object|null} — null se reprovado ou score < 80; senão:
+ * @returns {object|null} — null se reprovado ou score < 75 (grade D); senão:
  *   {
  *     market: 'Dupla Chance 1X' | 'Dupla Chance X2',
- *     score, grade,               // grade só pode ser 'A+', 'A' ou 'B'
+ *     score, grade,               // grade só pode ser 'A+', 'A', 'B' ou 'C'
  *     favoredTeam, opponentTeam, nonLoseProbability,
  *     coverage, breakdown,
  *     rejected: false
@@ -195,7 +214,7 @@ function scoreConsistencia(formStrFav) {
  */
 function computeWcDuplaChance(input = {}) {
   const result = computeWcDuplaChanceDebug(input);
-  if (!result || result.rejected || !['A+', 'A', 'B'].includes(result.grade)) return null;
+  if (!result || result.rejected || !['A+', 'A', 'B', 'C'].includes(result.grade)) return null;
   const { rejected, rejectReason, ...approved } = result;
   return approved;
 }
@@ -214,13 +233,17 @@ function computeWcDuplaChanceDebug({ raw, homeFormString = null, awayFormString 
     return { rejected: true, rejectReason: 'sem draw_probability — não dá pra calcular non_lose_probability' };
   }
 
-  // ── GATE #2 — Probabilidade de empate precisa estar entre 18% e 30% ─────
-  if (winDraw < GATE.MIN_DRAW_PROB || winDraw > GATE.MAX_DRAW_PROB) {
-    return { rejected: true, rejectReason: `draw_probability ${winDraw}% fora da faixa ${GATE.MIN_DRAW_PROB}-${GATE.MAX_DRAW_PROB}%` };
+  // ── GATE #2 — draw_probability < 15% → reprova ──────────────────────────
+  if (winDraw < GATE.MIN_DRAW_PROB) {
+    return { rejected: true, rejectReason: `draw_probability ${winDraw}% < ${GATE.MIN_DRAW_PROB}%` };
   }
 
-  // Favorito = lado com maior probabilidade de vitória (não exige 62% aqui —
-  // o gate real desse mercado é non_lose_probability, não vitória pura).
+  // ── GATE #3 — Jogo equilibrado: abs(home - away) < 8 → reprova ──────────
+  if (Math.abs(winHome - winAway) < GATE.MIN_EQUILIBRIO_GAP) {
+    return { rejected: true, rejectReason: `jogo equilibrado — abs(home-away) < ${GATE.MIN_EQUILIBRIO_GAP}pp` };
+  }
+
+  // Favorito = lado com maior probabilidade de vitória.
   const side = winHome >= winAway ? 'home' : 'away';
   const favoredTeam  = side === 'home' ? raw.home_team : raw.away_team;
   const opponentTeam = side === 'home' ? raw.away_team : raw.home_team;
@@ -233,9 +256,8 @@ function computeWcDuplaChanceDebug({ raw, homeFormString = null, awayFormString 
     return { rejected: true, rejectReason: `non_lose_probability ${nonLoseProbability}% < ${GATE.MIN_NON_LOSE_PROB}%` };
   }
 
-  // ── GATE #4 — Motivação (mesmo critério do Vencer/Vencer) ───────────────
+  // ── GATE #5 — Motivação (camada extra de segurança, mesmo critério do Vencer) ─
   const ctxFav = (manualContext && manualContext[favoredTeam]) || {};
-  const ctxOpp = (manualContext && manualContext[opponentTeam]) || {};
   if (ctxFav.friendly) {
     return { rejected: true, rejectReason: `${favoredTeam} — partida amistosa (manualContext)` };
   }
@@ -249,17 +271,15 @@ function computeWcDuplaChanceDebug({ raw, homeFormString = null, awayFormString 
   const formStrFav = side === 'home' ? homeFormString : awayFormString;
   const formStrOpp = side === 'home' ? awayFormString : homeFormString;
 
-  // ── GATE #3 — Máximo 1 derrota nos últimos 5 jogos do favorito ──────────
+  // ── GATE #4 — Máximo 1 derrota nos últimos 5 jogos do favorito ──────────
   const last5Fav = analyzeLast5(formStrFav);
   if (last5Fav && last5Fav.losses > GATE.MAX_LOSSES_LAST5) {
     return { rejected: true, rejectReason: `${favoredTeam} teve ${last5Fav.losses} derrotas nos últimos 5 jogos (máx. ${GATE.MAX_LOSSES_LAST5})` };
   }
 
   // ── Coleta de dados por critério ────────────────────────────────────────
-  const powerFav = getTeamPower(favoredTeam);
-  const powerOpp = getTeamPower(opponentTeam);
-  const rankFav  = getFifaRank(favoredTeam);
-  const rankOpp  = getFifaRank(opponentTeam);
+  const rankFav = getFifaRank(favoredTeam);
+  const rankOpp = getFifaRank(opponentTeam);
 
   const formFav = side === 'home' ? num(raw.home_form_score) : num(raw.away_form_score);
   const formOpp = side === 'home' ? num(raw.away_form_score) : num(raw.home_form_score);
@@ -272,9 +292,8 @@ function computeWcDuplaChanceDebug({ raw, homeFormString = null, awayFormString 
     probabilidade: scoreProbabilidade(nonLoseProbability),
     formaRecente:  scoreFormaRecente(formFav, formOpp),
     fifaRanking:   scoreFifaRanking(rankFav, rankOpp),
-    valorElenco:   scoreValorElenco(powerFav.marketValueM, powerOpp.marketValueM),
-    defesa:        scoreDefesa(gaFav, gfOpp),
-    consistencia:  scoreConsistencia(formStrFav),
+    defesa:        scoreDefesa(gaFav),
+    adversario:    scoreAdversario(formStrOpp, gfOpp),
   };
 
   let weightedSum = 0;
@@ -305,8 +324,10 @@ function computeWcDuplaChanceDebug({ raw, homeFormString = null, awayFormString 
   } else if (
     finalScore >= 90 &&
     nonLoseProbability >= ELITE_GATE.MIN_NON_LOSE_PROB &&
-    (subscores.fifaRanking !== null && subscores.fifaRanking >= ELITE_GATE.MIN_FIFA_SCORE) &&
-    (subscores.valorElenco !== null && subscores.valorElenco >= ELITE_GATE.MIN_ELENCO_SCORE)
+    winDraw >= ELITE_GATE.DRAW_MIN && winDraw <= ELITE_GATE.DRAW_MAX &&
+    (formFav !== null && formFav >= ELITE_GATE.MIN_FORMA_FAV) &&
+    (last5Fav === null || last5Fav.losses <= ELITE_GATE.MAX_LOSSES_LAST5) &&
+    (gaFav !== null && gaFav <= ELITE_GATE.MAX_GOALS_CONCEDED)
   ) {
     grade = 'A+';
   } else if (finalScore >= 85) grade = 'A';
@@ -324,8 +345,11 @@ function computeWcDuplaChanceDebug({ raw, homeFormString = null, awayFormString 
     opponentTeam,
     nonLoseProbability,
     drawProbability: winDraw,
+    margin: Math.round(Math.abs(winHome - winAway) * 10) / 10,
     fifaRankFav: rankFav,
     fifaRankOpp: rankOpp,
+    formFav,
+    goalsConcededFav: gaFav,
     last5LossesFav: last5Fav ? last5Fav.losses : null,
     coverage,
     breakdown,

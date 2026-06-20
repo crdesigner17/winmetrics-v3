@@ -4,7 +4,7 @@
  * Motor de scoring EXCLUSIVO para jogos da Copa do Mundo. Reescrito em 2026-06
  * para a especificação de máxima assertividade (Carlos): poucos sinais, porém
  * com máxima confiabilidade. Prioriza qualidade sobre quantidade — só mostra
- * score >= 80 (grade B, A ou A+).
+ * score >= 75 (grade C, B, A ou A+).
  *
  * ISOLADO — não altera nenhum outro mercado, engine ou liga. Só roda quando
  * chamado explicitamente para fixtures de Copa do Mundo (WORLD_CUP_LEAGUE_NAMES).
@@ -31,8 +31,9 @@
  *               E  superioridade clara no valor de elenco.
  *   A:  85-89   B: 80-84   C: 75-79   D: <75
  *   → só retorna resultado aprovável quando grade final é A+, A ou B
- *     (score >= 80). C/D são calculados internamente (debug) mas nunca
- *     aprovados — "priorizar qualidade em vez de quantidade".
+ *     (score >= 75, grade D nunca aprova). "Priorizar qualidade em vez de
+ *     quantidade" — cada grade tem cor própria no frontend (A+ verde, A
+ *     dourado, B azul, C roxo).
  *
  * ODDS — nunca bloqueiam aprovação. Servidas apenas como informação (VALUE
  * quando odd_oferecida > odd_justa × 1.05). odd_justa = 100 / probabilidade.
@@ -237,10 +238,10 @@ function calcIsValue(oddOferecida, oddJusta) {
  * @param {number} [input.oddOferecida]   — odd real do mercado vencedor (se houver
  *                                          alguma fonte futura), só para o flag VALUE
  *
- * @returns {object|null} — null se reprovado ou score < 80; senão:
+ * @returns {object|null} — null se reprovado ou score < 75 (grade D); senão:
  *   {
  *     market: 'Vitória da Casa' | 'Vitória do Visitante',
- *     score, grade,                 // grade só pode ser 'A+', 'A' ou 'B'
+ *     score, grade,                 // grade só pode ser 'A+', 'A', 'B' ou 'C'
  *     favoredTeam, opponentTeam,
  *     coverage, breakdown,
  *     oddJusta, isValue,
@@ -250,7 +251,7 @@ function calcIsValue(oddOferecida, oddJusta) {
  */
 function computeWcResultadoFinal(input = {}) {
   const result = computeWcResultadoFinalDebug(input);
-  if (!result || result.rejected || !['A+', 'A', 'B'].includes(result.grade)) return null;
+  if (!result || result.rejected || !['A+', 'A', 'B', 'C'].includes(result.grade)) return null;
   const { rejected, rejectReason, ...approved } = result;
   return approved;
 }
