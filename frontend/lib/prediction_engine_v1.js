@@ -964,117 +964,106 @@ const PredictionEngine = (function () {
     ));
   }
 
-  function selectBestMkt(scores, filters, leagueKey, odds, raw) {
-    // ── Pesos da liga (Frente anterior) ──────────────────────────────────────
+  // ── CATEGORIAS DE MERCADO — cada uma elege seu próprio best independente ──
+  const MKT_CATEGORIES = {
+    gols:        ['over15','over25','btts','under45','under35'],
+    escanteios:  ['esc65','esc75','esc85','under115','under125','under135'],
+    cartoes:     ['cards25'],
+  };
+
+  /**
+   * selectBestMktPorCategoria(scores, filters, leagueKey, odds, raw)
+   * Retorna { gols, escanteios, cartoes } — cada um com o melhor mercado
+   * da sua categoria, completamente independente entre si.
+   * Cada mercado elegível também é retornado em `aprovados` para snapshot.
+   */
+  function selectBestMktPorCategoria(scores, filters, leagueKey, odds, raw) {
     const ws = {
-      over15:    applyLeagueWeight(scores.over15,    'over15',   leagueKey),
-      over25:    applyLeagueWeight(scores.over25,    'over25',   leagueKey),
-      btts:      scores.btts,
-      under45:   applyLeagueWeight(scores.under45,   'under45',  leagueKey),
-      under35:   applyLeagueWeight(scores.under35,   'under35',  leagueKey),
-      esc65:     applyLeagueWeight(scores.esc65,     'esc75',    leagueKey), // proxy esc75 até calibrar
-      esc75:     applyLeagueWeight(scores.esc75,     'esc75',    leagueKey),
-      esc85:     applyLeagueWeight(scores.esc85,     'esc85',    leagueKey),
-      under115:  applyLeagueWeight(scores.under115,  'esc75',    leagueKey), // proxy até calibrar
-      under125:  applyLeagueWeight(scores.under125,  'esc75',    leagueKey),
-      under135:  applyLeagueWeight(scores.under135,  'esc75',    leagueKey),
-      cards25:   applyLeagueWeight(scores.cards25,   'cart25',   leagueKey),
+      over15:   applyLeagueWeight(scores.over15,   'over15',  leagueKey),
+      over25:   applyLeagueWeight(scores.over25,   'over25',  leagueKey),
+      btts:     scores.btts,
+      under45:  applyLeagueWeight(scores.under45,  'under45', leagueKey),
+      under35:  applyLeagueWeight(scores.under35,  'under35', leagueKey),
+      esc65:    applyLeagueWeight(scores.esc65,    'esc75',   leagueKey),
+      esc75:    applyLeagueWeight(scores.esc75,    'esc75',   leagueKey),
+      esc85:    applyLeagueWeight(scores.esc85,    'esc85',   leagueKey),
+      under115: applyLeagueWeight(scores.under115, 'esc75',   leagueKey),
+      under125: applyLeagueWeight(scores.under125, 'esc75',   leagueKey),
+      under135: applyLeagueWeight(scores.under135, 'esc75',   leagueKey),
+      cards25:  applyLeagueWeight(scores.cards25,  'cart25',  leagueKey),
     };
 
-    // ── Candidatos ───────────────────────────────────────────────────────────
-    // Over 0.5 HT e Cart 3.5 removidos (Frente 1)
-    const candidatos = [
-      { market: 'Over 1.5',    key: 'over15',   score: scores.over15,   ws: ws.over15,   odd: odds?.over15,   eligible: filters.over15_passed          },
-      { market: 'Over 2.5',    key: 'over25',   score: scores.over25,   ws: ws.over25,   odd: odds?.over25,   eligible: true                           },
-      { market: 'BTTS',        key: 'btts',     score: scores.btts,     ws: scores.btts, odd: odds?.btts,     eligible: true                           },
-      { market: 'Under 4.5',   key: 'under45',  score: scores.under45,  ws: ws.under45,  odd: odds?.under45,  eligible: true                           },
-      { market: 'Under 3.5',   key: 'under35',  score: scores.under35,  ws: ws.under35,  odd: odds?.under35,  eligible: filters.under35_passed         },
-      { market: 'Esc 6.5',     key: 'esc65',    score: scores.esc65,    ws: ws.esc65,    odd: odds?.esc65,    eligible: true                           },
-      { market: 'Esc 7.5',     key: 'esc75',    score: scores.esc75,    ws: ws.esc75,    odd: odds?.esc75,    eligible: true                           },
-      { market: 'Esc 8.5',     key: 'esc85',    score: scores.esc85,    ws: ws.esc85,    odd: odds?.esc85,    eligible: true                           },
-      { market: 'Under 11.5',  key: 'under115', score: scores.under115, ws: ws.under115, odd: odds?.under115, eligible: filters.under115_passed        },
-      { market: 'Under 12.5',  key: 'under125', score: scores.under125, ws: ws.under125, odd: odds?.under125, eligible: filters.under125_passed        },
-      { market: 'Under 13.5',  key: 'under135', score: scores.under135, ws: ws.under135, odd: odds?.under135, eligible: filters.under135_passed        },
-      { market: 'Cart 2.5',    key: 'cards25',  score: scores.cards25,  ws: ws.cards25,  odd: odds?.cards25,  eligible: true                           },
+    const allCandidatos = [
+      { market: 'Over 1.5',   key: 'over15',   cat: 'gols',       score: scores.over15,   ws: ws.over15,   odd: odds?.over15,   eligible: filters.over15_passed   },
+      { market: 'Over 2.5',   key: 'over25',   cat: 'gols',       score: scores.over25,   ws: ws.over25,   odd: odds?.over25,   eligible: true                    },
+      { market: 'BTTS',       key: 'btts',     cat: 'gols',       score: scores.btts,     ws: scores.btts, odd: odds?.btts,     eligible: true                    },
+      { market: 'Under 4.5',  key: 'under45',  cat: 'gols',       score: scores.under45,  ws: ws.under45,  odd: odds?.under45,  eligible: true                    },
+      { market: 'Under 3.5',  key: 'under35',  cat: 'gols',       score: scores.under35,  ws: ws.under35,  odd: odds?.under35,  eligible: filters.under35_passed  },
+      { market: 'Esc 6.5',    key: 'esc65',    cat: 'escanteios', score: scores.esc65,    ws: ws.esc65,    odd: odds?.esc65,    eligible: true                    },
+      { market: 'Esc 7.5',    key: 'esc75',    cat: 'escanteios', score: scores.esc75,    ws: ws.esc75,    odd: odds?.esc75,    eligible: true                    },
+      { market: 'Esc 8.5',    key: 'esc85',    cat: 'escanteios', score: scores.esc85,    ws: ws.esc85,    odd: odds?.esc85,    eligible: true                    },
+      { market: 'Under 11.5', key: 'under115', cat: 'escanteios', score: scores.under115, ws: ws.under115, odd: odds?.under115, eligible: filters.under115_passed },
+      { market: 'Under 12.5', key: 'under125', cat: 'escanteios', score: scores.under125, ws: ws.under125, odd: odds?.under125, eligible: filters.under125_passed },
+      { market: 'Under 13.5', key: 'under135', cat: 'escanteios', score: scores.under135, ws: ws.under135, odd: odds?.under135, eligible: filters.under135_passed },
+      { market: 'Cart 2.5',   key: 'cards25',  cat: 'cartoes',    score: scores.cards25,  ws: ws.cards25,  odd: odds?.cards25,  eligible: true                    },
     ];
 
-    let best = null;
-
-    // Liga com restrição: filtra candidatos sem odd disponível na casa
     const requireOdd = leagueRequiresOdd(raw.league_name);
 
-    for (const c of candidatos) {
-      if (c.score === null || c.score === undefined) continue;
-
-      // Frente 2 — threshold mínimo de score original
+    // Para cada candidato: verifica threshold, eligibility, requireOdd
+    const aprovados = allCandidatos.filter(c => {
+      if (c.score === null || c.score === undefined) return false;
       const minScore = MIN_SCORE_FOR_BEST[c.key] ?? 65;
-      if (c.score < minScore) continue;
+      if (c.score < minScore) return false;
+      if (!c.eligible) return false;
+      if (requireOdd && (c.odd === null || c.odd === undefined)) return false;
+      return true;
+    });
 
-      if (!c.eligible) continue;
-
-      // Frente ODD — ligas restritas: exige odd disponível na casa
-      if (requireOdd && (c.odd === null || c.odd === undefined)) continue;
-
-      // Frente 3 — score efetivo = weighted × odd boost
-      const boost = oddBoost(c.odd);
-      const effectiveScore = (c.ws ?? c.score) * boost;
-
-      if (best === null || effectiveScore > best.effectiveScore) {
-        best = {
-          market:        c.market,
-          score:         c.score,         // score original — exibido na UI
-          effectiveScore,                  // score ponderado — apenas para seleção
-          eligible:      c.eligible,
-        };
-      }
+    // Elege o melhor por categoria (maior score efetivo dentro da categoria)
+    const bestPorCategoria = {};
+    for (const cat of Object.keys(MKT_CATEGORIES)) {
+      const catAprovados = aprovados.filter(c => c.cat === cat);
+      if (!catAprovados.length) { bestPorCategoria[cat] = null; continue; }
+      bestPorCategoria[cat] = catAprovados.reduce((best, c) => {
+        const eff = (c.ws ?? c.score) * oddBoost(c.odd);
+        const bestEff = (best.ws ?? best.score) * oddBoost(best.odd);
+        return eff > bestEff ? c : best;
+      });
     }
 
-    if (!best) return null;
+    return { bestPorCategoria, aprovados };
+  }
 
-    // ── FRENTE 5 — Over 1.5 prevalece quando score bruto for maior ─────────
-    // Se Over 1.5 é elegível e seu score BRUTO supera o score BRUTO do best_mkt,
-    // Over 1.5 vence — independente dos pesos de liga.
-    // O mercado perdedor vira alternative_mkt com badge "Liga".
-    let alternative_mkt = null;
+  // Mantém selectBestMkt como wrapper para compatibilidade com V1_COMPAT_MODE
+  /**
+   * selectBestMkt(scores, filters, leagueKey, odds, raw)
+   * Wrapper de compatibilidade — delega para selectBestMktPorCategoria e
+   * retorna o melhor mercado global (maior score efetivo entre todas as categorias).
+   * Usado pelo generate_predictions para popular result.best_mkt (campo legado).
+   * O novo fluxo usa selectBestMktPorCategoria diretamente para salvar
+   * um snapshot por mercado aprovado.
+   */
+  function selectBestMkt(scores, filters, leagueKey, odds, raw) {
+    const { bestPorCategoria, aprovados } = selectBestMktPorCategoria(scores, filters, leagueKey, odds, raw);
 
-    const over15c = candidatos.find(c => c.key === 'over15');
-    if (
-      best.market !== 'Over 1.5' &&
-      over15c &&
-      over15c.eligible &&
-      over15c.score !== null &&
-      over15c.score >= (MIN_SCORE_FOR_BEST['over15'] ?? 65) &&
-      over15c.score > best.score
-    ) {
-      // Over 1.5 score bruto > best_mkt score bruto → Over 1.5 assume
-      alternative_mkt = {
-        market:     best.market,
-        score:      best.score,
-        grade:      getGrade(best.score),
-        confidence: getConfidence(getGrade(best.score)),
-        badge:      'Liga',
-        tooltip:    'Mercado favorito pelo histórico desta liga — considere como complemento',
-      };
-      best = {
-        market:        'Over 1.5',
-        score:         over15c.score,
-        effectiveScore: (over15c.ws ?? over15c.score) * oddBoost(over15c.odd),
-        eligible:      true,
-      };
-    }
+    const todos = Object.values(bestPorCategoria).filter(Boolean);
+    if (!todos.length) return { best: null, alternative_mkt: null, aprovados };
+
+    // Melhor global entre categorias
+    const best = todos.reduce((a, b) => {
+      const aEff = (a.ws ?? a.score) * oddBoost(a.odd);
+      const bEff = (b.ws ?? b.score) * oddBoost(b.odd);
+      return aEff >= bEff ? a : b;
+    });
 
     const grade      = getGrade(best.score);
     const confidence = getConfidence(grade);
 
     return {
-      best: {
-        market:     best.market,
-        score:      best.score,
-        grade,
-        confidence,
-        eligible:   best.eligible,
-      },
-      alternative_mkt,
+      best: { market: best.market, score: best.score, grade, confidence, eligible: best.eligible },
+      alternative_mkt: null,
+      aprovados,
     };
   }
 
@@ -1332,7 +1321,7 @@ const PredictionEngine = (function () {
       // Filtros
       filters,
 
-      // Melhor mercado (best_mkt)
+      // Melhor mercado (best_mkt) — legado, usado para logs e compatibilidade
       best_mkt,
       best_score,
       best_grade,
@@ -1341,7 +1330,9 @@ const PredictionEngine = (function () {
       best_ev,
       main_markets,
       is_official,  // true se A+ ou A — entra em Melhores Previsões
-      alternative_mkt: alt_mkt,  // mercado alternativo com badge 'Liga'
+      alternative_mkt: alt_mkt,
+      // Mercados aprovados por categoria — cada um gera snapshot independente
+      aprovados: _bestResult?.aprovados ?? [],
     };
   }
 
