@@ -3146,6 +3146,8 @@ async function fetchMarketPredictionSnapshots(page, markets) {
   if (!fixtures.length) return { data: [], error: null, count: 0 };
 
   const fixtureIds = fixtures.map(f => f.fixture_id);
+
+  // Busca previsões na tabela predictions
   const { data: preds, error } = await supabaseClient
     .from('predictions')
     .select('fixture_id, market, score, grade, odd')
@@ -3155,6 +3157,21 @@ async function fetchMarketPredictionSnapshots(page, markets) {
 
   if (error) return { data: [], error, count: 0 };
 
+  // Busca result_status real na tabela prediction_snapshots para esses mercados
+  // (confirmar.js agora persiste green/red para Vencer e Dupla Chance)
+  const { data: snapResults } = await supabaseClient
+    .from('prediction_snapshots')
+    .select('fixture_id, market, result_status, confirmed_at')
+    .in('fixture_id', fixtureIds)
+    .in('market', markets);
+
+  // Índice rápido: fixture_id+market → { result_status, confirmed_at }
+  const snapIdx = {};
+  (snapResults || []).forEach(s => {
+    const key = `${s.fixture_id}__${s.market}`;
+    snapIdx[key] = { result_status: s.result_status, confirmed_at: s.confirmed_at };
+  });
+
   const fixturesById = {};
   fixtures.forEach(f => { fixturesById[f.fixture_id] = f; });
 
@@ -3162,6 +3179,8 @@ async function fetchMarketPredictionSnapshots(page, markets) {
     const f = fixturesById[p.fixture_id];
     if (!f) return null;
     const matchName = (f.home_team && f.away_team) ? `${f.home_team} x ${f.away_team}` : f.league_name;
+    const snapKey   = `${p.fixture_id}__${p.market}`;
+    const snapData  = snapIdx[snapKey] || {};
     return {
       fixture_id:      p.fixture_id,
       match_name:      matchName,
@@ -3174,8 +3193,8 @@ async function fetchMarketPredictionSnapshots(page, markets) {
       score:           p.score,
       grade:           p.grade,
       odd:             p.odd,
-      result_status:   null,
-      confirmed_at:    null,
+      result_status:   snapData.result_status  ?? null,
+      confirmed_at:    snapData.confirmed_at   ?? null,
       match_date:      f.match_date,
       hour:            f.hour,
       status:          f.status,
@@ -3564,7 +3583,7 @@ function formatDate(isoDate) {
 }
 
 function formatResult(snap) {
-  const status = snap.result_status || snap.status_result || null;
+  const status = snap.result_status || null; // V3: somente result_status (status_result era campo legado V1)
   if (!status || status === 'pending' || status === 'null') {
     return '<span style="color:var(--text-muted);font-size:11px;letter-spacing:.3px">-</span>';
   }
