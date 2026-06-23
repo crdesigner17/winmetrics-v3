@@ -107,19 +107,39 @@ function _parseCSV(filepath) {
  * Detecta o tipo de CSV pelo conteúdo da primeira linha (header).
  * Retorna: 'geral' | 'over_cr' | 'over01' | 'over02' | 'escanteios' | 'cartoes' | 'filtro01' | 'resultado' | 'unknown'
  */
-function _detectCSVType(rows) {
+function _detectCSVType(rows, filename = '') {
   if (!rows || rows.length < 2) return 'unknown';
   const row1  = (rows[1] || []);
   const ncols = row1.length;
+  const fname = filename.toLowerCase();
 
-  // ── Novos CSVs compactos (exportação atual do PackBall) ──────────
-  // Cartões — 21 colunas exatas
+  // ── Detecção por nome do arquivo (mais confiável) ─────────────────
+  if (fname.includes('escanteios') && ncols >= 35 && ncols <= 42) return 'esc_medio';
+  if (fname.includes('escanteios') && ncols >= 23 && ncols <= 27)  return 'esc_novo';
+  if (fname.includes('escanteios') && ncols >= 70 && ncols <= 76)  return 'escanteios';
+  if ((fname.includes('gols') || fname.includes('over gols')) && ncols >= 34 && ncols <= 40) return 'gols_medio';
+  if ((fname.includes('gols') || fname.includes('over gols')) && ncols >= 28 && ncols <= 31) return 'gols_novo';
+  if (fname.includes('cart') && ncols >= 25 && ncols <= 30) return 'cart_medio';
+  if (fname.includes('cart') && ncols >= 19 && ncols <= 22) return 'cart_novo';
+  if (fname.includes('resultado') && ncols >= 71 && ncols <= 76) return 'resultado_novo';
+
+  // ── Novos CSVs padrão PackBall 2026 (formato atual) ─────────────
+  // Escanteios novo — 38 cols (padrão atual a partir de 2026-06)
+  if (ncols >= 35 && ncols <= 42) return 'esc_medio';
+  // Gols novo — 37 cols (padrão atual)
+  if (ncols >= 34 && ncols <= 40) return 'gols_medio';
+  // Cartões novo — 27 cols (padrão atual)
+  if (ncols >= 25 && ncols <= 30) return 'cart_medio';
+  // Resultado Final novo — 73 cols (padrão atual 2026-06+)
+  // DEVE vir antes do 'resultado' legado (range sobrepostos)
+  if (ncols >= 71 && ncols <= 75) return 'resultado_novo';
+
+  // ── CSVs compactos anteriores ─────────────────────────────────────
+  // Cartões anterior — 21 colunas
   if (ncols >= 19 && ncols <= 22) return 'cart_novo';
-
-  // Escanteios — 27 colunas exatas
-  if (ncols >= 25 && ncols <= 27) return 'esc_novo';
-
-  // Gols — 29 colunas exatas (maior que ESC para evitar overlap)
+  // Escanteios anterior — 27 colunas
+  if (ncols >= 23 && ncols <= 27) return 'esc_novo';
+  // Gols anterior — 29 colunas
   if (ncols >= 28 && ncols <= 31) return 'gols_novo';
 
   // ── CSVs legados (formatos anteriores) ───────────────────────────
@@ -128,7 +148,7 @@ function _detectCSVType(rows) {
   if (ncols >= 70 && ncols <= 76) return 'escanteios';
   if (ncols >= 44 && ncols <= 48) return 'over02';
   if (ncols >= 68 && ncols <= 72) return 'over01';
-  if (ncols >= 70 && ncols <= 74) return 'resultado';
+  if (ncols >= 64 && ncols <= 70) return 'resultado';  // legado
   if (ncols >= 64 && ncols <= 68) return 'geral';
 
   return 'unknown';
@@ -371,6 +391,80 @@ function _extractGolsNovo(row) {
  *   col[23] = Over 7.5 % Casa | Fora
  *   col[24] = Over 8.5 % Casa | Fora
  */
+function _extractEscMedio(row) {
+  // Formato intermediário PackBall (~38 cols) identificado a partir de 2026-06.
+  // Mapeamento confirmado por correlação com avg_corners e valores históricos:
+  // [11]=avg_corners_home [12]=avg_corners_away [13-14]=outros
+  // [15]=avg_corners_global [16]=over65_c [17]=over75_c [18]=over85_c [19]=over95_c
+  return {
+    avg_corners: _n(row[15]),
+    over65_c:    _n(row[16]),
+    over75_c:    _n(row[17]),
+    over85_c:    _n(row[18]),
+    // Under: não há colunas diretas neste formato — mapper calcula da API
+    under115_c:  null,
+    under125_c:  null,
+    under135_c:  null,
+  };
+}
+
+function _extractGolsMedio(row) {
+  // Formato padrão PackBall OVER GOLS (~37 cols) a partir de 2026-06.
+  // [11-16] = avg_sc casa/fora por período
+  // [17] = over15_g%  [18] = over25_g%  [19] = btts_cf%
+  // [20] = over35_g%  [21] = under25_g% (ou btts_a)
+  // [22] = avg_sc_h   [23] = avg_sc_a
+  // [24] = over15_c_home% [25] = over15_c_away%
+  return {
+    over15_g:    _n(row[17]),
+    over25_g:    _n(row[18]),
+    btts_cf:     _n(row[19]),
+    avg_sc_h:    _n(row[22]),
+    avg_sc_a:    _n(row[23]),
+  };
+}
+
+function _extractCartMedio(row) {
+  // Formato padrão PackBall CARTÕES (~27 cols) a partir de 2026-06.
+  // [11-14] = média amarelos/vermelhos casa/fora
+  // [15] = avg_cards_global  [16] = n_jogos
+  // [17] = over25_cards%  [18] = over35_cards%
+  // [19] = over45_cards%  [20] = over55_cards%
+  // [22] = avg_cards_global2 (redundante, usar [15])
+  // [23-24] = avg_cards casa/fora  [25-26] = avg_vermelhos casa/fora
+  return {
+    avg_cards:    _n(row[15]),
+    over25_cards: _n(row[17]),
+    over35_cards: _n(row[18]),
+  };
+}
+
+function _extractResultadoNovo(row) {
+  // Formato padrão PackBall RESULTADO FINAL (~73 cols) a partir de 2026-06.
+  // Cabeçalhos não nomeados — mapeamento por correlação com outros CSVs do mesmo dia.
+  // [11-12] = odds casa/fora
+  // [13] = win_home_rate%  [14] = win_away_rate%
+  // [15] = win_home_h2h%   [16] = win_away_h2h%
+  // [17] = n_jogos_h2h
+  // [22] = over15_g%  [23] = over25_g%
+  // [62] = avg_corners (idêntico ao esc_medio[15])
+  // [71] = avg_cards   (idêntico ao cart_medio[15])
+  // [72] = n_jogos_cartoes
+  return {
+    win_home:     _n(row[13]),
+    win_away:     _n(row[14]),
+    over15_g:     _n(row[22]),
+    over25_g:     _n(row[23]),
+    avg_corners:  _n(row[62]),
+    over65_c:     null,  // não disponível neste CSV
+    over75_c:     null,
+    over85_c:     null,
+    avg_cards:    _n(row[71]),
+    over25_cards: null,
+    over35_cards: null,
+  };
+}
+
 function _extractEscNovo(row) {
   const splitH = (v) => { const p = String(v||'').split('|'); return _n(p[0]); };
   const splitA = (v) => { const p = String(v||'').split('|'); return _n(p[1]); };
@@ -636,11 +730,12 @@ class PackBallCSVEnricher {
     const rows = _parseCSV(filepath);
     if (rows.length < 2) return;
 
-    const type = _detectCSVType(rows);
+    const filename = path.basename(filepath);
+    const type = _detectCSVType(rows, filename);
     this.stats.types[type] = (this.stats.types[type] || 0) + 1;
 
     if (type === 'unknown') {
-      console.warn(`[CSVEnricher] Tipo desconhecido: ${path.basename(filepath)} (${rows[1]?.length} cols)`);
+      console.warn(`[CSVEnricher] Tipo desconhecido: ${filename} (${rows[1]?.length} cols)`);
       return;
     }
 
@@ -665,7 +760,11 @@ class PackBallCSVEnricher {
       let data = {};
       switch (type) {
         case 'gols_novo': data = _extractGolsNovo(row); break;
-        case 'esc_novo':  data = _extractEscNovo(row);  break;
+        case 'esc_medio':       data = _extractEscMedio(row);      break;
+        case 'esc_novo':        data = _extractEscNovo(row);       break;
+        case 'gols_medio':      data = _extractGolsMedio(row);     break;
+        case 'cart_medio':      data = _extractCartMedio(row);     break;
+        case 'resultado_novo':  data = _extractResultadoNovo(row); break;
         case 'cart_novo': data = _extractCartNovo(row); break;
         case 'over_cr':   data = _extractOverCR(row);   break;
         case 'filtro01':  data = _extractFiltro01(row);  break;
@@ -852,6 +951,7 @@ function applyCsvToRaw(raw, csvData, LOG) {
     'over15_g', 'over25_g',           // PackBall calcula melhor que predictions API
     'avg_corners', 'over65_c', 'over75_c', 'over85_c',  // cantos over
     'under115_c', 'under125_c', 'under135_c',             // cantos under
+    'win_home', 'win_away',                               // resultado final
     'avg_cards', 'over25_cards', 'over35_cards', 'over45_cards',  // cartões
     'over05_ht', 'over15_ht',         // half-time
     'btts_h', 'btts_a',              // BTTS
