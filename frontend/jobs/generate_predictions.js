@@ -1064,17 +1064,47 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
 
   if (rows.length === 0) return;
 
-  const { error: deletePredictionsError } = await supabase
-    .from('predictions')
-    .delete()
-    .eq('fixture_id', result.fixture_id);
-  if (deletePredictionsError) throw new Error(`upsertPredictions/delete: ${deletePredictionsError.message}`);
+  // C3 FIX: proteger predictions de Vencer/Dupla Chance que já foram confirmados.
+  // Se o pipeline reprocessar após confirmação (ex: push no main), não deve apagar
+  // as predictions que têm snapshot confirmado correspondente.
+  const VENCER_ALL = ['Vitória da Casa', 'Vitória do Visitante', 'Dupla Chance 1X', 'Dupla Chance X2'];
+  const { data: confirmedVencer } = await supabase
+    .from('prediction_snapshots')
+    .select('market')
+    .eq('fixture_id', result.fixture_id)
+    .in('market', VENCER_ALL)
+    .not('result_status', 'is', null);
 
-  const { error } = await supabase
-    .from('predictions')
-    .insert(rows);
+  const protectedMarkets = (confirmedVencer || []).map(s => s.market);
 
-  if (error) throw new Error(`upsertPredictions: ${error.message}`);
+  if (protectedMarkets.length > 0) {
+    // Deleta tudo EXCETO os mercados Vencer/Dupla Chance já confirmados
+    const { error: deleteErr1 } = await supabase
+      .from('predictions')
+      .delete()
+      .eq('fixture_id', result.fixture_id)
+      .not('market', 'in', `(${protectedMarkets.map(m => `"${m}"`).join(',')})`);
+    if (deleteErr1) throw new Error(`upsertPredictions/delete-safe: ${deleteErr1.message}`);
+
+    // Filtra rows para não tentar re-inserir os mercados protegidos
+    const safeRows = rows.filter(r => !protectedMarkets.includes(r.market));
+    if (safeRows.length === 0) return;
+
+    const { error } = await supabase.from('predictions').insert(safeRows);
+    if (error) throw new Error(`upsertPredictions/insert-safe: ${error.message}`);
+  } else {
+    // Nenhum snapshot confirmado de Vencer/Dupla Chance — comportamento normal
+    const { error: deletePredictionsError } = await supabase
+      .from('predictions')
+      .delete()
+      .eq('fixture_id', result.fixture_id);
+    if (deletePredictionsError) throw new Error(`upsertPredictions/delete: ${deletePredictionsError.message}`);
+
+    const { error } = await supabase
+      .from('predictions')
+      .insert(rows);
+    if (error) throw new Error(`upsertPredictions: ${error.message}`);
+  }
 }
 
 /**
@@ -1455,10 +1485,13 @@ async function run() {
             .sort((a, b) => b.score - a.score)[0];
 
           if (best) {
-            LOG.dim(`  Cascata nível 3: best_mkt "${result.best_mkt}" → "${best.market}" score=${best.score} (cantos/cartões bloqueados, dados multi-liga)`);
+            // A3 FIX: best_score deve respeitar o cap (65) dos dados multi-liga
+            const cappedScore = Math.min(best.score, SCORE_CAP_FALLBACK);
+            LOG.dim(`  Cascata nível 3: best_mkt "${result.best_mkt}" → "${best.market}" score=${cappedScore} (cantos/cartões bloqueados, dados multi-liga)`);
             result.best_mkt    = best.market;
-            result.best_score  = best.score;
-            result.best_grade  = result.grades?.[best.market.toLowerCase().replace(/[^a-z0-9]/g,'')] ?? result.best_grade;
+            result.best_score  = cappedScore;
+            result.best_grade  = PredictionEngine.getGrade(cappedScore);
+            result.best_confidence = PredictionEngine.getConfidence(result.best_grade);
           }
         }
 
@@ -1487,9 +1520,10 @@ async function run() {
       }
 
       // ── [WC BOOST] Camada especializada Copa do Mundo ─────────────────────
-      // ISOLADO: aplica SOMENTE quando raw.league_name === 'World: World Cup'
-      // Não afeta nenhuma outra liga, competição ou lógica do engine principal.
-      if (raw.league_name === WC_LEAGUE_NAME) {
+      // Usa WORLD_CUP_LEAGUE_NAMES para cobrir as 3 variações de nome da Copa
+      // ('World: World Cup', 'FIFA World Cup', 'World Cup') — mesmo array
+      // usado pelo computeWcResultadoFinal, evitando divergência de cobertura.
+      if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
         applyWorldCupBoost(result, raw, LOG);
       }
 
