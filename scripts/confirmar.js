@@ -83,11 +83,20 @@ const MKT_RESULTADO = {
   'Over 7.5 cantos':   'esc75_ok',
   'Esc 8.5':           'esc85_ok',
   'Over 8.5 cantos':   'esc85_ok',
-  // Cartões — FIX BUG 2 e 3: Over 3.5 e Over 5.5 estavam ausentes
+  // Cartões
   'Cart 2.5':          'cart25_ok',
   'Over 2.5 cartão':   'cart25_ok',
   'Cart 3.5':          'cart35_ok',
   'Over 3.5 cartão':   'cart35_ok',
+  // Vencer (Resultado Final 1X2) — wc_resultado_final / club_resultado_final
+  // Esses mercados dependem de home_team/away_team para saber quem ganhou.
+  // calcResultStatus() usa lógica especial (ver abaixo) quando campo = 'vitoria_casa_ok' / 'vitoria_visitante_ok'.
+  'Vitória da Casa':      'vitoria_casa_ok',
+  'Vitória do Visitante': 'vitoria_visitante_ok',
+  // Dupla Chance — wc_dupla_chance / club_dupla_chance
+  // 1X = casa vence OU empata. X2 = fora vence OU empata.
+  'Dupla Chance 1X':    'dupla_chance_1x_ok',
+  'Dupla Chance X2':    'dupla_chance_x2_ok',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -207,12 +216,23 @@ async function buscarResultado(fixtureId) {
     }
   }
 
+  // Nomes dos times para resolver mercados Vencer/Dupla Chance
+  const homeTeamApi = fx.teams?.home?.name ?? null;
+  const awayTeamApi = fx.teams?.away?.name ?? null;
+
+  // Quem ganhou?
+  const homeWon  = gh_ft > ga_ft;
+  const awayWon  = ga_ft > gh_ft;
+  const draw     = gh_ft === ga_ft;
+
   return {
     status,
     goals_home:   gh_ft,
     goals_away:   ga_ft,
     gols_total:   gh_ft + ga_ft,
     gols_ht:      gh_ht + ga_ht,
+    home_team_api: homeTeamApi,
+    away_team_api: awayTeamApi,
     // Campos de resultado por mercado (idêntico ao V1)
     over15_ok:    (gh_ft + ga_ft) >= 2,
     over25_ok:    (gh_ft + ga_ft) >= 3,
@@ -226,6 +246,12 @@ async function buscarResultado(fixtureId) {
     cart35_ok:    cardsTotal   !== null ? cardsTotal   > 3.5  : null,
     corners_total: cornersTotal,
     cards_total:   cardsTotal,
+    // Vencer (Resultado Final 1X2)
+    vitoria_casa_ok:       homeWon,
+    vitoria_visitante_ok:  awayWon,
+    // Dupla Chance: 1X = casa vence OU empata; X2 = fora vence OU empata
+    dupla_chance_1x_ok:    homeWon || draw,
+    dupla_chance_x2_ok:    awayWon || draw,
   };
 }
 
@@ -261,7 +287,7 @@ async function fetchSnapshotsPendentes(dateStr) {
 
   let q = supabase
     .from('prediction_snapshots')
-    .select('id, fixture_id, market, result_status, match_name, match_date')
+    .select('id, fixture_id, market, result_status, match_name, match_date, home_team, away_team')
     .gte('match_date', start)
     .lte('match_date', end)
     .order('fixture_id');
@@ -325,35 +351,157 @@ async function atualizarFixture(fixtureId, resultado) {
 // PROCESSAR UM DIA
 // ─────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────
+// MERCADOS VENCER / DUPLA CHANCE — buscar em predictions e confirmar
+// ─────────────────────────────────────────────────────────────────
+
+const VENCER_MARKETS      = ['Vitória da Casa', 'Vitória do Visitante'];
+const DUPLA_CHANCE_MARKETS = ['Dupla Chance 1X', 'Dupla Chance X2'];
+const VENCER_ALL_MARKETS  = [...VENCER_MARKETS, ...DUPLA_CHANCE_MARKETS];
+
+/**
+ * Busca previsões de Vencer/Dupla Chance na tabela `predictions` para fixtures
+ * do dia que ainda não têm snapshot confirmado nesses mercados.
+ */
+async function fetchVencerPendentes(fixtureIds) {
+  if (!fixtureIds.length) return [];
+
+  // Busca predictions de Vencer/Dupla Chance
+  const { data: preds, error } = await supabase
+    .from('predictions')
+    .select('fixture_id, market, score, grade, odd')
+    .in('fixture_id', fixtureIds)
+    .in('market', VENCER_ALL_MARKETS);
+
+  if (error || !preds?.length) return [];
+
+  // Verifica quais já foram confirmados em prediction_snapshots
+  const { data: existing } = await supabase
+    .from('prediction_snapshots')
+    .select('fixture_id, market, result_status')
+    .in('fixture_id', fixtureIds)
+    .in('market', VENCER_ALL_MARKETS);
+
+  const confirmedSet = new Set(
+    (existing || [])
+      .filter(s => s.result_status !== null)
+      .map(s => `${s.fixture_id}__${s.market}`)
+  );
+
+  // Retorna apenas os ainda pendentes (ou todos se FORCE)
+  return preds.filter(p =>
+    FORCE || !confirmedSet.has(`${p.fixture_id}__${p.market}`)
+  );
+}
+
+/**
+ * Cria ou atualiza snapshot em prediction_snapshots para mercados Vencer/Dupla Chance.
+ * Usa dados do fixture (da tabela fixtures) para montar o row completo.
+ */
+async function confirmarVencerPred(pred, resultado, fixtureInfo) {
+  const resultStatus = calcResultStatus(pred.market, resultado);
+  if (resultStatus === null) return null;
+
+  const row = {
+    fixture_id:     pred.fixture_id,
+    match_name:     fixtureInfo.match_name,
+    home_team:      fixtureInfo.home_team,
+    away_team:      fixtureInfo.away_team,
+    home_team_logo: fixtureInfo.home_team_logo ?? null,
+    away_team_logo: fixtureInfo.away_team_logo ?? null,
+    league_name:    fixtureInfo.league_name,
+    match_date:     fixtureInfo.match_date,
+    hour:           fixtureInfo.hour ?? null,
+    market:         pred.market,
+    score:          pred.score,
+    grade:          pred.grade,
+    odd:            pred.odd ?? null,
+    result_status:  resultStatus,
+    confirmed_at:   new Date().toISOString(),
+    source:         'confirmar_vencer',
+    created_at:     new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('prediction_snapshots')
+    .upsert(row, { onConflict: 'fixture_id,market' });
+
+  if (error) {
+    LOG.error(`  Erro ao salvar snapshot Vencer ${pred.fixture_id} ${pred.market}:`, error.message);
+    return null;
+  }
+  return resultStatus;
+}
+
 async function processarDia(dateStr) {
   LOG.info(`Confirmando resultados para ${dateStr}...`);
 
   const snapshots = await fetchSnapshotsPendentes(dateStr);
-  if (!snapshots.length) {
+
+  // Coletar todos os fixture_ids do dia (snapshots normais + fixtures direto)
+  const allFixtureIds = [...new Set(snapshots.map(s => s.fixture_id))];
+
+  // Buscar também fixtures do dia para processar Vencer (que não têm snapshot ainda)
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const startDate = new Date(Date.UTC(y, m - 1, d, 3, 0, 0));
+  const endDate   = new Date(Date.UTC(y, m - 1, d, 3, 0, 0));
+  endDate.setUTCDate(endDate.getUTCDate() + 1);
+  endDate.setUTCMinutes(endDate.getUTCMinutes() - 1);
+
+  const { data: fixturesDia } = await supabase
+    .from('fixtures')
+    .select('fixture_id, home_team, away_team, home_team_logo, away_team_logo, league_name, match_date, hour')
+    .gte('match_date', startDate.toISOString())
+    .lte('match_date', endDate.toISOString());
+
+  const fixturesDiaIds = (fixturesDia || []).map(f => f.fixture_id);
+  const fixturesById   = {};
+  (fixturesDia || []).forEach(f => {
+    fixturesById[f.fixture_id] = {
+      ...f,
+      match_name: (f.home_team && f.away_team) ? `${f.home_team} x ${f.away_team}` : String(f.fixture_id),
+    };
+  });
+
+  // Buscar predictions de Vencer/Dupla Chance pendentes
+  const vencerPreds = await fetchVencerPendentes(fixturesDiaIds);
+
+  const totalPendentes = snapshots.length + vencerPreds.length;
+
+  if (!totalPendentes) {
     LOG.dim(`  Nenhum snapshot pendente em ${dateStr}`);
     return { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
   }
 
-  LOG.info(`  ${snapshots.length} snapshot(s) para confirmar`);
+  LOG.info(`  ${snapshots.length} snapshot(s) normais + ${vencerPreds.length} Vencer/Dupla Chance para confirmar`);
 
-  // Agrupa por fixture_id para buscar API uma vez por jogo
+  // Agrupa tudo por fixture_id para chamar API uma vez por jogo
   const byFixture = {};
+
   for (const snap of snapshots) {
-    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = [];
-    byFixture[snap.fixture_id].push(snap);
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [] };
+    byFixture[snap.fixture_id].snaps.push(snap);
+  }
+
+  for (const pred of vencerPreds) {
+    if (!byFixture[pred.fixture_id]) byFixture[pred.fixture_id] = { snaps: [], vencers: [] };
+    byFixture[pred.fixture_id].vencers.push(pred);
   }
 
   const stats = { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
 
-  for (const [fixtureId, snaps] of Object.entries(byFixture)) {
-    const matchName = snaps[0].match_name || fixtureId;
+  for (const [fixtureId, grupo] of Object.entries(byFixture)) {
+    const matchName = grupo.snaps[0]?.match_name
+      || fixturesById[Number(fixtureId)]?.match_name
+      || fixtureId;
 
     await delay(500);   // evita rate limit
     const resultado = await buscarResultado(Number(fixtureId));
 
     if (!resultado) {
       LOG.dim(`  ⏳ ${matchName} — ainda não finalizado`);
-      stats.nao_finalizado += snaps.length;
+      const total = grupo.snaps.length + grupo.vencers.length;
+      stats.nao_finalizado += total;
       continue;
     }
 
@@ -362,7 +510,8 @@ async function processarDia(dateStr) {
 
     const placar = `${resultado.goals_home}-${resultado.goals_away}`;
 
-    for (const snap of snaps) {
+    // ── Snapshots normais (Gols, Escanteios, Cartões) ──
+    for (const snap of grupo.snaps) {
       const resultStatus = calcResultStatus(snap.market, resultado);
 
       if (resultStatus === null) {
@@ -377,6 +526,28 @@ async function processarDia(dateStr) {
         const cor   = resultStatus === 'green' ? '\x1b[32m' : '\x1b[31m';
         LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | ${snap.market} → ${resultStatus.toUpperCase()}`);
         stats[resultStatus]++;
+      }
+    }
+
+    // ── Vencer / Dupla Chance (vêm de predictions, precisam criar snapshot) ──
+    for (const pred of grupo.vencers) {
+      const fixtureInfo = fixturesById[Number(fixtureId)];
+      if (!fixtureInfo) {
+        LOG.warn(`  ? ${matchName} — fixture não encontrado para ${pred.market}`);
+        stats.sem_dados++;
+        continue;
+      }
+
+      const rs = await confirmarVencerPred(pred, resultado, fixtureInfo);
+
+      if (rs === null) {
+        LOG.warn(`  ? ${matchName} ${placar} | ${pred.market} (${pred.grade}) — sem dados suficientes`);
+        stats.sem_dados++;
+      } else {
+        const emoji = rs === 'green' ? '✓' : '✗';
+        const cor   = rs === 'green' ? '\x1b[32m' : '\x1b[31m';
+        LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | ${pred.market} (${pred.grade}) → ${rs.toUpperCase()}`);
+        stats[rs]++;
       }
     }
   }
