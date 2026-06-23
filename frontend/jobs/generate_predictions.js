@@ -1136,6 +1136,91 @@ const ESC_OVER_MARKETS = [
   { market: 'Esc 6.5', key: 'esc65', oddKey: 'odd_esc65', minScore: 72 },
 ];
 
+/**
+ * upsertEscOverAutonomo(result, raw)
+ * Salva snapshots de Over escanteios que atingiram o threshold mínimo,
+ * INDEPENDENTE de qual foi o best_mkt (ou mesmo se best_mkt = null).
+ * Chamado separadamente do upsertSnapshot para garantir que jogos sem
+ * best_mkt (ex: mercado de gols reprovado) ainda gerem palpites de cantos.
+ */
+async function upsertEscOverAutonomo(result, raw) {
+  const escOverElegiveis = ESC_OVER_MARKETS.filter(e => {
+    const score = result.scores?.[e.key] ?? null;
+    return score !== null && score >= e.minScore;
+  });
+
+  if (!escOverElegiveis.length) return 0;
+
+  // Buscar snapshots existentes do fixture
+  const { data: allExisting } = await supabase
+    .from('prediction_snapshots')
+    .select('id, market, result_status')
+    .eq('fixture_id', result.fixture_id);
+
+  const confirmedSnap = (allExisting || []).find(
+    s => s.result_status !== null && s.result_status !== undefined
+  );
+
+  if (confirmedSnap && !REPROCESS_ENGINE) {
+    LOG.dim(`    [EscOver] Fixture ${result.fixture_id} já confirmado — preservado.`);
+    return 0;
+  }
+
+  const baseRow = {
+    fixture_id:        result.fixture_id,
+    match_name:        result.jogo,
+    home_team:         result.home_team,
+    away_team:         result.away_team,
+    home_team_logo:    raw.home_team_logo || null,
+    away_team_logo:    raw.away_team_logo || null,
+    league_name:       result.league_name,
+    match_date:        result.match_date,
+    hour:              result.hour         ?? null,
+    result_status:     null,
+    source:            'generate_predictions',
+    score_enriquecido: null,
+    grade_enriquecido: null,
+    odds_fonte:        raw.odds_fonte || 'packball',
+    alternative_mkt:   null,
+    created_at:        new Date().toISOString(),
+  };
+
+  let savedCount = 0;
+
+  for (const escMkt of escOverElegiveis) {
+    const escScore = result.scores?.[escMkt.key] ?? null;
+    const escGrade = escScore !== null ? PredictionEngine.getGrade(escScore) : null;
+
+    const escExisting = (allExisting || []).find(s => s.market === escMkt.market);
+    if (escExisting?.result_status && !REPROCESS_ENGINE) {
+      LOG.dim(`    [EscOver] ${escMkt.market} já confirmado (${escExisting.result_status}) - preservado.`);
+      continue;
+    }
+
+    const escRow = {
+      ...baseRow,
+      market: escMkt.market,
+      score:  pyRound(escScore, 1),
+      grade:  escGrade,
+      odd:    raw[escMkt.oddKey] ?? null,
+      ...(REPROCESS_ENGINE && escExisting?.result_status ? { result_status: escExisting.result_status } : {}),
+    };
+
+    const { error } = await supabase
+      .from('prediction_snapshots')
+      .upsert(escRow, { onConflict: 'fixture_id,market' });
+
+    if (error) {
+      LOG.warn(`    [EscOver] ${escMkt.market} falhou:`, error.message);
+    } else {
+      LOG.dim(`    Esc Over autônomo: ${escMkt.market} score=${escScore} grade=${escGrade}`);
+      savedCount++;
+    }
+  }
+
+  return savedCount;
+}
+
 async function upsertSnapshot(result, raw) {
   if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
 
@@ -1697,7 +1782,12 @@ async function run() {
         await upsertPredictions(result, raw, wcVitoria, wcDuplaChance, vencerFonte, duplaChanceFonte);
         savedSnapshot = await upsertSnapshot(result, raw);
 
+        // Over escanteios autônomos — rodam sempre, independente do best_mkt
+        // Cobre o caso em que best_mkt=null mas o jogo tem cantos elegíveis
+        const escOverSaved = await upsertEscOverAutonomo(result, raw);
+
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
+        if (escOverSaved)   stats.snapshots += Number(escOverSaved);
         LOG.ok(`  Salvo: fixture ${fixtureId}  ${scoredMarkets} mercados  ${savedSnapshot ? `${savedSnapshot} snapshot(s) ✓` : ''}`);
       } else if (DRY_RUN) {
         // Em dry-run: simula o snapshot se elegível
