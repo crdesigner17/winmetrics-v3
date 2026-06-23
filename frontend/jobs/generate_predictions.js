@@ -1121,6 +1121,27 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
  *
  * @returns {boolean} true se snapshot foi salvo
  */
+// ─────────────────────────────────────────────────────────────────
+// CASCATA DE ESCANTEIOS OVER
+// Quando o best_mkt for um Over de escanteios, os Overs de linhas
+// mais fáceis são aprovados automaticamente — quem passa na linha
+// mais difícil, passa em todas as mais fáceis com certeza.
+// Regra: Esc 8.5 aprovado → também salva Esc 7.5 e Esc 6.5
+//        Esc 7.5 aprovado → também salva Esc 6.5
+//        Esc 6.5 aprovado → só ele
+// ─────────────────────────────────────────────────────────────────
+const ESC_OVER_CASCADE = {
+  'Esc 8.5':  ['Esc 7.5', 'Esc 6.5'],
+  'Esc 7.5':  ['Esc 6.5'],
+  'Esc 6.5':  [],
+};
+const ESC_OVER_SCORE_KEY = {
+  'Esc 8.5': 'esc85', 'Esc 7.5': 'esc75', 'Esc 6.5': 'esc65',
+};
+const ESC_OVER_ODD_KEY = {
+  'Esc 8.5': 'odd_esc85', 'Esc 7.5': 'odd_esc75', 'Esc 6.5': 'odd_esc65',
+};
+
 async function upsertSnapshot(result, raw) {
   if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
 
@@ -1129,11 +1150,14 @@ async function upsertSnapshot(result, raw) {
   );
   const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
 
+  // Mercados Over escanteios que serão salvos junto com o best_mkt (cascata)
+  const cascadeMarkets = ESC_OVER_CASCADE[canonicalMarket] || [];
+
+  // Lista de todos os markets que este fixture vai ter snapshot
+  // (best_mkt + cascata Over escanteios)
+  const allSnapshotMarkets = [canonicalMarket, ...cascadeMarkets];
+
   // ── GUARD: verifica se QUALQUER snapshot deste fixture já foi confirmado ──
-  // Deve rodar ANTES do delete para impedir que um snapshot red/green seja
-  // apagado quando o engine troca de mercado numa reexecução posterior.
-  // (Bug: pipeline reprocessava após confirmar, trocava Over 2.5 red por
-  //  Over 1.5 green porque o delete ocorria antes da verificação.)
   const { data: allExisting } = await supabase
     .from('prediction_snapshots')
     .select('id, market, result_status')
@@ -1149,17 +1173,18 @@ async function upsertSnapshot(result, raw) {
   }
   // ── FIM DO GUARD ──
 
-  // Só limpa snapshots antigos de mercados diferentes quando fixture não confirmado
+  // Limpa snapshots de mercados que não fazem mais parte do conjunto atual
+  // (ex: se antes era Esc 7.5 + Esc 6.5 e agora virou Over 2.5, limpa os dois)
   if (!confirmedSnap) {
     const { error: deleteOldSnapshotsError } = await supabase
       .from('prediction_snapshots')
       .delete()
       .eq('fixture_id', result.fixture_id)
-      .neq('market', canonicalMarket);
+      .not('market', 'in', `(${allSnapshotMarkets.map(m => `"${m}"`).join(',')})`);
     if (deleteOldSnapshotsError) throw new Error(`upsertSnapshot/cleanup: ${deleteOldSnapshotsError.message}`);
   }
 
-  // Snapshots confirmados (green/red) sao imutaveis.
+  // ── Salvar best_mkt principal ──────────────────────────────────────────────
   const existing = (allExisting || []).find(s => s.market === canonicalMarket) || null;
 
   if (existing?.result_status && existing.result_status !== null) {
@@ -1170,13 +1195,10 @@ async function upsertSnapshot(result, raw) {
     LOG.dim(`    Snapshot ${result.fixture_id} ${canonicalMarket} confirmado mas reprocessando engine...`);
   }
 
-  // [NOVO] Opção B: usa score/grade enriquecidos se disponíveis
-  // O score enriquecido combina PackBall (60%) + prob. implícita da odd externa (40%)
-  // Isso permite que jogos antes em B/C subam para A/A+ quando o mercado confirma
   const scoreFinal = result.best_score_enriquecido ?? result.best_score;
   const gradeFinal = result.best_grade_enriquecido ?? result.best_grade;
 
-  const row = {
+  const baseRow = {
     fixture_id:        result.fixture_id,
     match_name:        result.jogo,
     home_team:         result.home_team,
@@ -1186,28 +1208,73 @@ async function upsertSnapshot(result, raw) {
     league_name:       result.league_name,
     match_date:        result.match_date,
     hour:              result.hour         ?? null,
-    market:            canonicalMarket,
-    score:             pyRound(scoreFinal, 1),
-    grade:             gradeFinal,
-    odd:               result.best_odd  ?? null,
     result_status:     null,
     source:            'generate_predictions',
-    // auditoria: score original PackBall + fonte das odds
     score_enriquecido: result.best_score_enriquecido !== null ? pyRound(result.best_score_enriquecido, 1) : null,
     grade_enriquecido: result.best_grade_enriquecido ?? null,
     odds_fonte:        raw.odds_fonte || 'packball',
     alternative_mkt:   result.alternative_mkt ? JSON.stringify(result.alternative_mkt) : null,
     created_at:        new Date().toISOString(),
-    // Ao reprocessar engine: preservar result_status existente
     ...(REPROCESS_ENGINE && existing?.result_status ? { result_status: existing.result_status } : {}),
   };
 
-  const { error } = await supabase
-    .from('prediction_snapshots')
-    .upsert(row, { onConflict: 'fixture_id,market' });
+  const mainRow = {
+    ...baseRow,
+    market: canonicalMarket,
+    score:  pyRound(scoreFinal, 1),
+    grade:  gradeFinal,
+    odd:    result.best_odd ?? null,
+  };
 
-  if (error) throw new Error(`upsertSnapshot: ${error.message}`);
-  return 1;
+  const { error: mainErr } = await supabase
+    .from('prediction_snapshots')
+    .upsert(mainRow, { onConflict: 'fixture_id,market' });
+  if (mainErr) throw new Error(`upsertSnapshot: ${mainErr.message}`);
+
+  let savedCount = 1;
+
+  // ── Cascata Over escanteios: salvar linhas mais fáceis como snapshots adicionais ──
+  // Exemplo: best_mkt = Esc 7.5 → também salva Esc 6.5 (linha mais fácil que vai bater)
+  for (const cascMkt of cascadeMarkets) {
+    const scoreKey = ESC_OVER_SCORE_KEY[cascMkt];
+    const oddKey   = ESC_OVER_ODD_KEY[cascMkt];
+    const cascScore = result.scores?.[scoreKey] ?? null;
+    const cascGrade = cascScore !== null ? PredictionEngine.getGrade(cascScore) : null;
+
+    if (cascScore === null) continue;
+
+    // Não sobrescreve snapshot da cascata se já confirmado
+    const cascExisting = (allExisting || []).find(s => s.market === cascMkt);
+    if (cascExisting?.result_status && !REPROCESS_ENGINE) {
+      LOG.dim(`    Cascata: ${cascMkt} já confirmado (${cascExisting.result_status}) - preservado.`);
+      continue;
+    }
+
+    const cascRow = {
+      ...baseRow,
+      market:            cascMkt,
+      score:             pyRound(cascScore, 1),
+      grade:             cascGrade,
+      odd:               raw[oddKey] ?? null,
+      score_enriquecido: null,
+      grade_enriquecido: null,
+      alternative_mkt:   null,
+      ...(REPROCESS_ENGINE && cascExisting?.result_status ? { result_status: cascExisting.result_status } : {}),
+    };
+
+    const { error: cascErr } = await supabase
+      .from('prediction_snapshots')
+      .upsert(cascRow, { onConflict: 'fixture_id,market' });
+
+    if (cascErr) {
+      LOG.warn(`    Cascata ${cascMkt} falhou:`, cascErr.message);
+    } else {
+      LOG.dim(`    Cascata Esc Over: ${cascMkt} score=${cascScore} grade=${cascGrade}`);
+      savedCount++;
+    }
+  }
+
+  return savedCount;
 }
 
 // ─────────────────────────────────────────────────────────────────
