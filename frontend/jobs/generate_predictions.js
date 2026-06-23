@@ -780,8 +780,12 @@ const MKT_TO_LABEL = {
   over05ht: 'Over 0.5 HT',
   under45:  'Under 4.5',
   under35:  'Under 3.5',
+  esc65:    'Esc 6.5',
   esc75:    'Esc 7.5',
   esc85:    'Esc 8.5',
+  under115: 'Under 11.5',
+  under125: 'Under 12.5',
+  under135: 'Under 13.5',
   cards25:  'Cart 2.5',
   cards35:  'Cart 3.5',
 };
@@ -1455,13 +1459,17 @@ async function run() {
       // esses mercados não podem ser best_mkt.
       // Nível 4 (sem dados): nenhum ajuste necessário — campos já são nulos.
       if (apiData.historicDataLevel === 3) {
-        const BLOCKED_MKTS_FALLBACK = new Set(['Esc 7.5', 'Esc 8.5', 'Cart 2.5', 'Cart 3.5']);
+        const BLOCKED_MKTS_FALLBACK = new Set(['Esc 6.5', 'Esc 7.5', 'Esc 8.5', 'Under 11.5', 'Under 12.5', 'Under 13.5', 'Cart 2.5', 'Cart 3.5']);
         const SCORE_CAP_FALLBACK = 65;
 
         // Aplicar cap nos scores de cantos e cartões
         if (result.scores) {
-          if (result.scores.esc75  !== null) result.scores.esc75  = Math.min(result.scores.esc75,  SCORE_CAP_FALLBACK);
-          if (result.scores.esc85  !== null) result.scores.esc85  = Math.min(result.scores.esc85,  SCORE_CAP_FALLBACK);
+          if (result.scores.esc65  !== null)  result.scores.esc65   = Math.min(result.scores.esc65,   SCORE_CAP_FALLBACK);
+          if (result.scores.esc75  !== null)  result.scores.esc75   = Math.min(result.scores.esc75,   SCORE_CAP_FALLBACK);
+          if (result.scores.esc85  !== null)  result.scores.esc85   = Math.min(result.scores.esc85,   SCORE_CAP_FALLBACK);
+          if (result.scores.under115 !== null) result.scores.under115 = Math.min(result.scores.under115, SCORE_CAP_FALLBACK);
+          if (result.scores.under125 !== null) result.scores.under125 = Math.min(result.scores.under125, SCORE_CAP_FALLBACK);
+          if (result.scores.under135 !== null) result.scores.under135 = Math.min(result.scores.under135, SCORE_CAP_FALLBACK);
           if (result.scores.cards25 !== null) result.scores.cards25 = Math.min(result.scores.cards25, SCORE_CAP_FALLBACK);
           if (result.scores.cards35 !== null) result.scores.cards35 = Math.min(result.scores.cards35, SCORE_CAP_FALLBACK);
         }
@@ -1511,7 +1519,7 @@ async function run() {
       enrichResultScores(result, raw);
       // ODDS PIPELINE TRACE — remove after debugging
       if (process.env.DEBUG_ODDS === '1') {
-        const mktKeys = ['over15','over25','btts','over05ht','under45','under35','esc75','esc85','cards25','cards35'];
+        const mktKeys = ['over15','over25','btts','over05ht','under45','under35','esc65','esc75','esc85','under115','under125','under135','cards25','cards35'];
         const resultOdds = mktKeys.map(k => `${k}=${result.odds[k]}`).join(' | ');
         const resultEvs  = mktKeys.map(k => `${k}=${result.evs[k]}`).join(' | ');
         console.log(`[PIPELINE] result.odds  — ${resultOdds}`);
@@ -1806,7 +1814,9 @@ async function runExample() {
   console.log('\n  odds (linhas inseridas):');
   const oddMap = {
     'Over 1.5': raw.odd_o15, 'Over 2.5': raw.odd_o25, 'BTTS': raw.odd_btts,
-    'Esc 7.5': raw.odd_esc75, 'Esc 8.5': raw.odd_esc85, 'Cart 2.5': raw.odd_c25,
+    'Esc 6.5': raw.odd_esc65 ?? null, 'Esc 7.5': raw.odd_esc75, 'Esc 8.5': raw.odd_esc85,
+    'Under 11.5': raw.odd_u115 ?? null, 'Under 12.5': raw.odd_u125 ?? null, 'Under 13.5': raw.odd_u135 ?? null,
+    'Cart 2.5': raw.odd_c25,
   };
   Object.entries(oddMap).filter(([,v])=>v).forEach(([m,o]) => console.log(`    ${m.padEnd(12)} odd=${o}`));
 
@@ -2137,7 +2147,8 @@ async function runMockToSupabase() {
   console.log('  Linhas a inserir:');
   const MKT_TO_LABEL_LOCAL = {
     over15:'Over 1.5', over25:'Over 2.5', btts:'BTTS', over05ht:'Over 0.5 HT',
-    under45:'Under 4.5', under35:'Under 3.5', esc75:'Esc 7.5', esc85:'Esc 8.5',
+    under45:'Under 4.5', under35:'Under 3.5', esc65:'Esc 6.5', esc75:'Esc 7.5', esc85:'Esc 8.5',
+    under115:'Under 11.5', under125:'Under 12.5', under135:'Under 13.5',
     cards25:'Cart 2.5', cards35:'Cart 3.5',
   };
   Object.entries(MKT_TO_LABEL_LOCAL).forEach(([k, m]) => {
