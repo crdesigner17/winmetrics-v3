@@ -864,7 +864,7 @@ async function initDashboard(isoStart, isoEnd, filtrado) {
   let q = sbClient
     .from('prediction_snapshots')
     .select('fixture_id, match_name, home_team, away_team, league_name, market, score, grade, odd, result_status, match_date, hour')
-    .in('grade', ['A+', 'A', 'B', 'C'])
+    .in('grade', ['A+'])  // Apenas Elite entram na contagem de assertividade
     .gte('match_date', queryStart)
     .lte('match_date', queryEnd)
     .order('match_date', { ascending: true })
