@@ -3931,7 +3931,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     const leagueName = snap.league_name || '';
     const matchName = cleanMatchName(snap.match_name);
     // Escanteios não exibem PLACAR (cantos não têm placar de gols)
-    const isEscanteios = activeTab === 'escanteios';
+    const isEscanteios = document.querySelector('.mkt-cat-tab.active')?.dataset.cat === 'escanteios';
     const placarCell = isEscanteios
       ? ''
       : `<td class="col-scoreboard">${formatPlacar(snap)}</td>`;
