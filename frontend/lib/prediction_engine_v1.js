@@ -727,8 +727,8 @@ const PredictionEngine = (function () {
   /**
    * getGrade(score)
    * Converte score numérico (0–100) em grade.
-   * Thresholds v1:
-   *   A+: >= 88  |  A: >= 80  |  B: >= 70  |  C: >= 60  |  D: < 60
+   * Thresholds modo API (coletar.py) — definidos em GRADE_THRESHOLDS:
+   *   A+: >= 85  |  A: >= 75  |  B: >= 65  |  C: >= 50  |  D: < 50
    *
    * @param {number|null} score
    * @returns {string}  'A+' | 'A' | 'B' | 'C' | 'D'
