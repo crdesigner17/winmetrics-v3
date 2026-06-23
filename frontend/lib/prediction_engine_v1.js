@@ -601,6 +601,106 @@ const PredictionEngine = (function () {
     ]);
   }
 
+
+  /**
+   * scoreEsc65(raw, d, norm)
+   * §4.7b — Over 6.5 Escanteios — linha mais fácil (~83% globalmente).
+   * Threshold alto (72) porque odds baixas exigem certeza elevada.
+   *
+   * ws([(cant_n,45),(over65_c,35),(shots_n,12),(ppg_n,8)])
+   */
+  function scoreEsc65(raw, d, norm) {
+    return ws([
+      [norm.cant_n,   45],
+      [raw.over65_c,  35],
+      [norm.shots_n,  12],
+      [norm.ppg_n,     8],
+    ]);
+  }
+
+  /**
+   * scoreUnder115(raw, d, norm)
+   * §4.7c — Under 11.5 Escanteios — linha restritiva (~50–60%).
+   * Lógica invertida: alta média de cantos → score baixo.
+   * Gate obrigatório via filtroUnderCantos().
+   *
+   * ws([(100-cant_n,50),(under115_c,35),(100-shots_n,10),(100-ppg_n,5)])
+   */
+  function scoreUnder115(raw, d, norm) {
+    const cantInv  = norm.cant_n  !== null ? 100 - norm.cant_n  : null;
+    const shotsInv = norm.shots_n !== null ? 100 - norm.shots_n : null;
+    const ppgInv   = norm.ppg_n   !== null ? 100 - norm.ppg_n   : null;
+    return ws([
+      [cantInv,         50],
+      [raw.under115_c,  35],
+      [shotsInv,        10],
+      [ppgInv,           5],
+    ]);
+  }
+
+  /**
+   * scoreUnder125(raw, d, norm)
+   * §4.7d — Under 12.5 Escanteios — linha intermediária (~65–75%).
+   * Gate obrigatório via filtroUnderCantos().
+   *
+   * ws([(100-cant_n,48),(under125_c,37),(100-shots_n,10),(100-ppg_n,5)])
+   */
+  function scoreUnder125(raw, d, norm) {
+    const cantInv  = norm.cant_n  !== null ? 100 - norm.cant_n  : null;
+    const shotsInv = norm.shots_n !== null ? 100 - norm.shots_n : null;
+    const ppgInv   = norm.ppg_n   !== null ? 100 - norm.ppg_n   : null;
+    return ws([
+      [cantInv,         48],
+      [raw.under125_c,  37],
+      [shotsInv,        10],
+      [ppgInv,           5],
+    ]);
+  }
+
+  /**
+   * scoreUnder135(raw, d, norm)
+   * §4.7e — Under 13.5 Escanteios — linha mais fácil do bloco Under (~75–85%).
+   * Gate obrigatório via filtroUnderCantos().
+   *
+   * ws([(100-cant_n,45),(under135_c,38),(100-shots_n,10),(100-ppg_n,7)])
+   */
+  function scoreUnder135(raw, d, norm) {
+    const cantInv  = norm.cant_n  !== null ? 100 - norm.cant_n  : null;
+    const shotsInv = norm.shots_n !== null ? 100 - norm.shots_n : null;
+    const ppgInv   = norm.ppg_n   !== null ? 100 - norm.ppg_n   : null;
+    return ws([
+      [cantInv,         45],
+      [raw.under135_c,  38],
+      [shotsInv,        10],
+      [ppgInv,           7],
+    ]);
+  }
+
+  /**
+   * filtroUnderCantos(raw, score, line)
+   * Gate de assertividade para mercados Under de escanteios.
+   * Reprova se QUALQUER condição falhar:
+   *   1. score < 70
+   *   2. avg_corners > limiar da linha (U11.5=9.0 | U12.5=10.0 | U13.5=11.0)
+   *   3. over85_c > 50% (jogo tende a ter muitos cantos)
+   *   4. % histórica do under < 55%
+   */
+  function filtroUnderCantos(raw, score, line) {
+    if (score === null || score < 70) return false;
+    const maxAvg = { under115: 9.0, under125: 10.0, under135: 11.0 };
+    if (raw.avg_corners !== null && raw.avg_corners !== undefined) {
+      if (raw.avg_corners > (maxAvg[line] ?? 10.0)) return false;
+    }
+    if (raw.over85_c !== null && raw.over85_c !== undefined) {
+      if (raw.over85_c > 50) return false;
+    }
+    const underPct = raw[`${line}_c`];
+    if (underPct !== null && underPct !== undefined) {
+      if (underPct < 55) return false;
+    }
+    return true;
+  }
+
   /**
    * scoreCards25(raw, d, norm)
    * §4.9 — Cartões Over 2.5
@@ -804,6 +904,12 @@ const PredictionEngine = (function () {
     'esc75':   68,   // Esc 7.5   — erros abaixo de 65
     'cards25': 68,   // Cart 2.5
     // Over 0.5 HT e Cart 3.5: removidos de best_mkt (0% e 60% no período)
+    // Novos mercados de escanteios
+    'esc65':       72,   // Over 6.5  — linha fácil, odds baixas: exige score alto
+    'esc85':       72,   // Over 8.5  — linha mais difícil que Esc 7.5
+    'under115':    75,   // Under 11.5 — linha restritiva, threshold máximo
+    'under125':    72,   // Under 12.5 — linha intermediária
+    'under135':    70,   // Under 13.5 — linha mais fácil do bloco Under
   };
 
   // ── FRENTE 3 — Boost de odds: odd de mercado como sinal adicional ─────────
@@ -861,25 +967,35 @@ const PredictionEngine = (function () {
   function selectBestMkt(scores, filters, leagueKey, odds, raw) {
     // ── Pesos da liga (Frente anterior) ──────────────────────────────────────
     const ws = {
-      over15:   applyLeagueWeight(scores.over15,   'over15',  leagueKey),
-      over25:   applyLeagueWeight(scores.over25,   'over25',  leagueKey),
-      btts:     scores.btts,
-      under45:  applyLeagueWeight(scores.under45,  'under45', leagueKey),
-      under35:  applyLeagueWeight(scores.under35,  'under35', leagueKey),
-      esc75:    applyLeagueWeight(scores.esc75,    'esc75',   leagueKey),
-      cards25:  applyLeagueWeight(scores.cards25,  'cart25',  leagueKey),
+      over15:    applyLeagueWeight(scores.over15,    'over15',   leagueKey),
+      over25:    applyLeagueWeight(scores.over25,    'over25',   leagueKey),
+      btts:      scores.btts,
+      under45:   applyLeagueWeight(scores.under45,   'under45',  leagueKey),
+      under35:   applyLeagueWeight(scores.under35,   'under35',  leagueKey),
+      esc65:     applyLeagueWeight(scores.esc65,     'esc75',    leagueKey), // proxy esc75 até calibrar
+      esc75:     applyLeagueWeight(scores.esc75,     'esc75',    leagueKey),
+      esc85:     applyLeagueWeight(scores.esc85,     'esc85',    leagueKey),
+      under115:  applyLeagueWeight(scores.under115,  'esc75',    leagueKey), // proxy até calibrar
+      under125:  applyLeagueWeight(scores.under125,  'esc75',    leagueKey),
+      under135:  applyLeagueWeight(scores.under135,  'esc75',    leagueKey),
+      cards25:   applyLeagueWeight(scores.cards25,   'cart25',   leagueKey),
     };
 
     // ── Candidatos ───────────────────────────────────────────────────────────
     // Over 0.5 HT e Cart 3.5 removidos (Frente 1)
     const candidatos = [
-      { market: 'Over 1.5',  key: 'over15',  score: scores.over15,  ws: ws.over15,  odd: odds?.over15,  eligible: filters.over15_passed  },
-      { market: 'Over 2.5',  key: 'over25',  score: scores.over25,  ws: ws.over25,  odd: odds?.over25,  eligible: true                   },
-      { market: 'BTTS',      key: 'btts',    score: scores.btts,    ws: scores.btts,odd: odds?.btts,    eligible: true                   },
-      { market: 'Under 4.5', key: 'under45', score: scores.under45, ws: ws.under45, odd: odds?.under45, eligible: true                   },
-      { market: 'Under 3.5', key: 'under35', score: scores.under35, ws: ws.under35, odd: odds?.under35, eligible: filters.under35_passed },
-      { market: 'Esc 7.5',   key: 'esc75',   score: scores.esc75,   ws: ws.esc75,   odd: odds?.esc75,   eligible: true                   },
-      { market: 'Cart 2.5',  key: 'cards25', score: scores.cards25, ws: ws.cards25, odd: odds?.cards25, eligible: true                   },
+      { market: 'Over 1.5',    key: 'over15',   score: scores.over15,   ws: ws.over15,   odd: odds?.over15,   eligible: filters.over15_passed          },
+      { market: 'Over 2.5',    key: 'over25',   score: scores.over25,   ws: ws.over25,   odd: odds?.over25,   eligible: true                           },
+      { market: 'BTTS',        key: 'btts',     score: scores.btts,     ws: scores.btts, odd: odds?.btts,     eligible: true                           },
+      { market: 'Under 4.5',   key: 'under45',  score: scores.under45,  ws: ws.under45,  odd: odds?.under45,  eligible: true                           },
+      { market: 'Under 3.5',   key: 'under35',  score: scores.under35,  ws: ws.under35,  odd: odds?.under35,  eligible: filters.under35_passed         },
+      { market: 'Esc 6.5',     key: 'esc65',    score: scores.esc65,    ws: ws.esc65,    odd: odds?.esc65,    eligible: true                           },
+      { market: 'Esc 7.5',     key: 'esc75',    score: scores.esc75,    ws: ws.esc75,    odd: odds?.esc75,    eligible: true                           },
+      { market: 'Esc 8.5',     key: 'esc85',    score: scores.esc85,    ws: ws.esc85,    odd: odds?.esc85,    eligible: true                           },
+      { market: 'Under 11.5',  key: 'under115', score: scores.under115, ws: ws.under115, odd: odds?.under115, eligible: filters.under115_passed        },
+      { market: 'Under 12.5',  key: 'under125', score: scores.under125, ws: ws.under125, odd: odds?.under125, eligible: filters.under125_passed        },
+      { market: 'Under 13.5',  key: 'under135', score: scores.under135, ws: ws.under135, odd: odds?.under135, eligible: filters.under135_passed        },
+      { market: 'Cart 2.5',    key: 'cards25',  score: scores.cards25,  ws: ws.cards25,  odd: odds?.cards25,  eligible: true                           },
     ];
 
     let best = null;
@@ -964,16 +1080,20 @@ const PredictionEngine = (function () {
 
   function buildMainMarkets(scores, grades, odds, evs, filters) {
     const candidatos = [
-      { key: 'over15',   market: 'Over 1.5'    },
-      { key: 'over25',   market: 'Over 2.5'    },
-      { key: 'btts',     market: 'BTTS'        },
-      { key: 'over05ht', market: 'Over 0.5 HT' },
-      { key: 'under45',  market: 'Under 4.5'   },
-      { key: 'under35',  market: 'Under 3.5'   },
-      { key: 'esc75',    market: 'Esc 7.5'     },
-      { key: 'esc85',    market: 'Esc 8.5'     },
-      { key: 'cards25',  market: 'Cart 2.5'    },
-      { key: 'cards35',  market: 'Cart 3.5'    },
+      { key: 'over15',    market: 'Over 1.5'    },
+      { key: 'over25',    market: 'Over 2.5'    },
+      { key: 'btts',      market: 'BTTS'        },
+      { key: 'over05ht',  market: 'Over 0.5 HT' },
+      { key: 'under45',   market: 'Under 4.5'   },
+      { key: 'under35',   market: 'Under 3.5'   },
+      { key: 'esc65',     market: 'Esc 6.5'     },
+      { key: 'esc75',     market: 'Esc 7.5'     },
+      { key: 'esc85',     market: 'Esc 8.5'     },
+      { key: 'under115',  market: 'Under 11.5'  },
+      { key: 'under125',  market: 'Under 12.5'  },
+      { key: 'under135',  market: 'Under 13.5'  },
+      { key: 'cards25',   market: 'Cart 2.5'    },
+      { key: 'cards35',   market: 'Cart 3.5'    },
     ];
 
     return candidatos
@@ -1088,27 +1208,38 @@ const PredictionEngine = (function () {
     const s_05ht   = scoreOver05HT(raw, d, norm);
     const s_u45    = scoreUnder45(raw, d, norm, poiss);
     const s_u35    = scoreUnder35(raw, d, norm, poiss);
-    const s_esc75  = scoreEsc75(raw, d, norm);
-    const s_esc85  = scoreEsc85(raw, d, norm);
-    const s_c25    = scoreCards25(raw, d, norm);
-    const s_c35    = scoreCards35(raw, d, norm);
+    const s_esc65   = scoreEsc65(raw, d, norm);
+    const s_esc75   = scoreEsc75(raw, d, norm);
+    const s_esc85   = scoreEsc85(raw, d, norm);
+    const s_u115    = scoreUnder115(raw, d, norm);
+    const s_u125    = scoreUnder125(raw, d, norm);
+    const s_u135    = scoreUnder135(raw, d, norm);
+    const s_c25     = scoreCards25(raw, d, norm);
+    const s_c35     = scoreCards35(raw, d, norm);
 
     // ── Etapa 5: Filtros ───────────────────────────────────────
-    const filtro15   = filtroOver15(raw, d);
-    const under35_ok = filtroUnder35(raw, d, s_u35, poiss);
+    const filtro15       = filtroOver15(raw, d);
+    const under35_ok     = filtroUnder35(raw, d, s_u35, poiss);
+    const under115_ok    = filtroUnderCantos(raw, s_u115, 'under115');
+    const under125_ok    = filtroUnderCantos(raw, s_u125, 'under125');
+    const under135_ok    = filtroUnderCantos(raw, s_u135, 'under135');
 
     // ── Etapa 6: Scores agrupados ──────────────────────────────
     const scores = {
-      over15:   s15,
-      over25:   s25,
-      btts:     s_btts,
-      over05ht: s_05ht,
-      under45:  s_u45,
-      under35:  s_u35,
-      esc75:    s_esc75,
-      esc85:    s_esc85,
-      cards25:  s_c25,
-      cards35:  s_c35,
+      over15:    s15,
+      over25:    s25,
+      btts:      s_btts,
+      over05ht:  s_05ht,
+      under45:   s_u45,
+      under35:   s_u35,
+      esc65:     s_esc65,
+      esc75:     s_esc75,
+      esc85:     s_esc85,
+      under115:  s_u115,
+      under125:  s_u125,
+      under135:  s_u135,
+      cards25:   s_c25,
+      cards35:   s_c35,
     };
 
     // ── Etapa 7: Grades ────────────────────────────────────────
@@ -1117,22 +1248,30 @@ const PredictionEngine = (function () {
       grades[mkt] = getGrade(sc);
     }
     // Over 1.5: grade D se não passou o filtro
-    if (!filtro15.passed) grades.over15 = 'D';
+    if (!filtro15.passed)   grades.over15   = 'D';
     // Under 3.5: grade D se não passou o filtro
-    if (!under35_ok) grades.under35 = 'D';
+    if (!under35_ok)        grades.under35  = 'D';
+    // Under de cantos: grade D se não passou gate
+    if (!under115_ok)       grades.under115 = 'D';
+    if (!under125_ok)       grades.under125 = 'D';
+    if (!under135_ok)       grades.under135 = 'D';
 
     // ── Etapa 8: Odds por mercado ──────────────────────────────
     const odds = {
-      over15:   raw.odd_o15   ?? null,
-      over25:   raw.odd_o25   ?? null,
-      btts:     raw.odd_btts  ?? null,
-      over05ht: raw.odd_05ht  ?? null,
-      under45:  raw.odd_u45   ?? null,
-      under35:  raw.odd_u35   ?? null,
-      esc75:    raw.odd_esc75 ?? null,
-      esc85:    raw.odd_esc85 ?? null,
-      cards25:  raw.odd_c25   ?? null,
-      cards35:  raw.odd_c35   ?? null,
+      over15:    raw.odd_o15     ?? null,
+      over25:    raw.odd_o25     ?? null,
+      btts:      raw.odd_btts    ?? null,
+      over05ht:  raw.odd_05ht    ?? null,
+      under45:   raw.odd_u45     ?? null,
+      under35:   raw.odd_u35     ?? null,
+      esc65:     raw.odd_esc65   ?? null,
+      esc75:     raw.odd_esc75   ?? null,
+      esc85:     raw.odd_esc85   ?? null,
+      under115:  raw.odd_u115    ?? null,
+      under125:  raw.odd_u125    ?? null,
+      under135:  raw.odd_u135    ?? null,
+      cards25:   raw.odd_c25     ?? null,
+      cards35:   raw.odd_c35     ?? null,
     };
 
     // ── Etapa 9: EV por mercado ────────────────────────────────
@@ -1143,9 +1282,12 @@ const PredictionEngine = (function () {
 
     // ── Etapa 10: Filtros e best_mkt ──────────────────────────
     const filters = {
-      over15_passed: filtro15.passed,
-      over15_via:    filtro15.via,
-      under35_passed: under35_ok,
+      over15_passed:   filtro15.passed,
+      over15_via:      filtro15.via,
+      under35_passed:  under35_ok,
+      under115_passed: under115_ok,
+      under125_passed: under125_ok,
+      under135_passed: under135_ok,
     };
 
     const leagueKey = getLeagueKey(raw.league_name, raw.country);
@@ -1214,8 +1356,12 @@ const PredictionEngine = (function () {
     'Over 0.5 HT': 'over05ht',
     'Under 4.5':   'under45',
     'Under 3.5':   'under35',
+    'Esc 6.5':     'esc65',
     'Esc 7.5':     'esc75',
     'Esc 8.5':     'esc85',
+    'Under 11.5':  'under115',
+    'Under 12.5':  'under125',
+    'Under 13.5':  'under135',
     'Cart 2.5':    'cards25',
     'Cart 3.5':    'cards35',
   };
@@ -1246,8 +1392,13 @@ const PredictionEngine = (function () {
     scoreOver05HT,
     scoreUnder45,
     scoreUnder35,
+    scoreEsc65,
     scoreEsc75,
     scoreEsc85,
+    scoreUnder115,
+    scoreUnder125,
+    scoreUnder135,
+    filtroUnderCantos,
     scoreCards25,
     scoreCards35,
 

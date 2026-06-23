@@ -403,12 +403,19 @@ const PackBallMapper = (function () {
     const avg_sot     = _avg(sot_list);
 
     // Taxas de cantos
-    const over65_c = corners_list.length > 0
-      ? (corners_list.filter(c => c > 6.5).length / corners_list.length) * 100 : null;
-    const over75_c = corners_list.length > 0
-      ? (corners_list.filter(c => c > 7.5).length / corners_list.length) * 100 : null;
-    const over85_c = corners_list.length > 0
-      ? (corners_list.filter(c => c > 8.5).length / corners_list.length) * 100 : null;
+    const over65_c  = corners_list.length > 0
+      ? (corners_list.filter(c => c > 6.5).length  / corners_list.length) * 100 : null;
+    const over75_c  = corners_list.length > 0
+      ? (corners_list.filter(c => c > 7.5).length  / corners_list.length) * 100 : null;
+    const over85_c  = corners_list.length > 0
+      ? (corners_list.filter(c => c > 8.5).length  / corners_list.length) * 100 : null;
+    // Under de escanteios — calculados dos últimos 10 jogos (mesma fonte)
+    const under115_c = corners_list.length > 0
+      ? (corners_list.filter(c => c < 11.5).length / corners_list.length) * 100 : null;
+    const under125_c = corners_list.length > 0
+      ? (corners_list.filter(c => c < 12.5).length / corners_list.length) * 100 : null;
+    const under135_c = corners_list.length > 0
+      ? (corners_list.filter(c => c < 13.5).length / corners_list.length) * 100 : null;
 
     // Taxas de cartões
     const over25_cards = cards_list.length > 0
@@ -423,7 +430,7 @@ const PackBallMapper = (function () {
     const over15_ht = valid > 0 ? (ht_games_with_2goals / valid) * 100 : null;
 
     return {
-      avg_corners, over65_c, over75_c, over85_c,
+      avg_corners, over65_c, over75_c, over85_c, under115_c, under125_c, under135_c,
       avg_cards, over25_cards, over35_cards, over45_cards,
       avg_shots, avg_sot,
       over05_ht, over15_ht,
@@ -453,6 +460,9 @@ const PackBallMapper = (function () {
       over65_c:      avg2(hm.over65_c,      am.over65_c),
       over75_c:      avg2(hm.over75_c,      am.over75_c),
       over85_c:      avg2(hm.over85_c,      am.over85_c),
+      under115_c:    avg2(hm.under115_c,    am.under115_c),
+      under125_c:    avg2(hm.under125_c,    am.under125_c),
+      under135_c:    avg2(hm.under135_c,    am.under135_c),
       avg_cards:     avg2(hm.avg_cards,     am.avg_cards),
       over25_cards:  avg2(hm.over25_cards,  am.over25_cards),
       over35_cards:  avg2(hm.over35_cards,  am.over35_cards),
@@ -801,7 +811,7 @@ const PackBallMapper = (function () {
     const merged      = _mergeHistoric(homeMetrics, awayMetrics);
 
     const {
-      avg_corners, over65_c, over75_c, over85_c,
+      avg_corners, over65_c, over75_c, over85_c, under115_c, under125_c, under135_c,
       avg_cards, over25_cards, over35_cards, over45_cards,
       avg_shots, avg_sot,
       over05_ht, over15_ht,
@@ -875,6 +885,9 @@ const PackBallMapper = (function () {
       over65_c,
       over75_c,
       over85_c,
+      under115_c,
+      under125_c,
+      under135_c,
       avg_cards,
       over25_cards,
       over35_cards,
@@ -954,6 +967,7 @@ const PackBallMapper = (function () {
       btts_h: raw.btts_h,  btts_a: raw.btts_a,
       over05_ht: raw.over05_ht, over15_ht: raw.over15_ht,
       over65_c: raw.over65_c,   over75_c: raw.over75_c,  over85_c: raw.over85_c,
+      under115_c: raw.under115_c, under125_c: raw.under125_c, under135_c: raw.under135_c,
       over25_cards: raw.over25_cards, over35_cards: raw.over35_cards, over45_cards: raw.over45_cards,
       under25_h: raw.under25_h, under25_a: raw.under25_a,
     };

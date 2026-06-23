@@ -249,11 +249,17 @@ function _extractOver02(row) {
  *   [71] over75_c_alt
  */
 function _extractEscanteios(row) {
+  // Cols identificadas por correlação com avg_corners (França 9.3, Argentina 8.4 etc.)
+  // [49]=over6.5 [50]=over7.5 [51]=over8.5 [52]=over9.5 [53]=over10.5
+  // [54]=under13.5 [55]=under12.5 [56]=under11.5
   return {
     avg_corners: _n(row[37]) ?? _n(row[14]),
     over65_c:    _n(row[49]),
     over75_c:    _n(row[50]),
     over85_c:    _n(row[51]),
+    under135_c:  _n(row[54]),
+    under125_c:  _n(row[55]),
+    under115_c:  _n(row[56]),
   };
 }
 
@@ -372,12 +378,17 @@ function _extractEscNovo(row) {
     const h = splitH(v), a = splitA(v);
     return (h !== null && a !== null) ? Math.round((h+a)/2*10)/10 : null;
   };
+  // col[14]=over9.5, col[15]=over10.5, col[16]=over11.5 (quando existem)
+  // Under de cantos: calculados a partir de over_c quando não há coluna direta
+  // (over 6.5 + over 7.5 + over 8.5 disponíveis no formato legado — aqui usamos o que temos)
   return {
     avg_corners:  _n(row[11]),
+    over65_c:     _n(row[12]) !== null ? null : null, // CSV novo não tem over65 — API calcula
     over75_c:     _n(row[12]),
     over85_c:     _n(row[13]),
     avg_shots:    avgSplit(row[17]),
     avg_sot:      avgSplit(row[18]),
+    // Under: não há coluna direta no formato novo — mapper calcula da lista de jogos da API
   };
 }
 
@@ -839,7 +850,8 @@ function applyCsvToRaw(raw, csvData, LOG) {
   // Campos onde CSV tem PRIORIDADE TOTAL (sempre substitui, mesmo com dado da API)
   const csvPriority = [
     'over15_g', 'over25_g',           // PackBall calcula melhor que predictions API
-    'avg_corners', 'over65_c', 'over75_c', 'over85_c',  // cantos
+    'avg_corners', 'over65_c', 'over75_c', 'over85_c',  // cantos over
+    'under115_c', 'under125_c', 'under135_c',             // cantos under
     'avg_cards', 'over25_cards', 'over35_cards', 'over45_cards',  // cartões
     'over05_ht', 'over15_ht',         // half-time
     'btts_h', 'btts_a',              // BTTS
