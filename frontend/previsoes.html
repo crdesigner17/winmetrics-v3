@@ -3365,7 +3365,10 @@ const FUNCTIONAL_MARKETS = new Set([
 
 const OFFICIAL_SNAPSHOT_MARKET_KEYS = new Set([
   'over15', 'over25', 'btts', 'over05ht',
-  'under45', 'under35', 'esc75', 'esc85', 'cards25', 'cards35',
+  'under45', 'under35',
+  'esc65', 'esc75', 'esc85',
+  'under115', 'under125', 'under135',
+  'cards25', 'cards35',
 ]);
 
 const OFFICIAL_SNAPSHOT_MARKET_ALIASES = [
@@ -3375,8 +3378,12 @@ const OFFICIAL_SNAPSHOT_MARKET_ALIASES = [
   'Over 0.5 HT',
   'Under 4.5', 'Under 4.5 Gols', 'Under 4.5 gols',
   'Under 3.5', 'Under 3.5 Gols', 'Under 3.5 gols',
+  'Esc 6.5', 'Over 6.5 Escanteios', 'Over 6.5 cantos',
   'Esc 7.5', 'Over 7.5 Escanteios', 'Over 7.5 cantos',
   'Esc 8.5', 'Over 8.5 Escanteios', 'Over 8.5 cantos',
+  'Under 11.5', 'Under 11.5 cantos',
+  'Under 12.5', 'Under 12.5 cantos',
+  'Under 13.5', 'Under 13.5 cantos',
   'Cart 2.5', 'Over 2.5 Cartao', 'Over 2.5 Cartão',
   'Cart 3.5', 'Over 3.5 Cartao', 'Over 3.5 Cartão',
 ];
@@ -3393,8 +3400,12 @@ function displayMarket(market) {
   if (norm === 'under 3.5' || norm === 'under 3.5 gols') return 'Under 3.5';
   if (norm === 'under 4.5' || norm === 'under 4.5 gols') return 'Under 4.5';
   if (norm === 'over 0.5 ht') return 'Over 0.5 HT';
+  if (norm === 'esc 6.5' || norm === 'over 6.5 cantos' || norm === 'over 6.5 escanteios') return 'Esc 6.5';
   if (norm === 'esc 7.5' || norm === 'over 7.5 cantos' || norm === 'over 7.5 escanteios') return 'Esc 7.5';
   if (norm === 'esc 8.5' || norm === 'over 8.5 cantos' || norm === 'over 8.5 escanteios') return 'Esc 8.5';
+  if (norm === 'under 11.5' || norm === 'under 11.5 cantos') return 'Under 11.5';
+  if (norm === 'under 12.5' || norm === 'under 12.5 cantos') return 'Under 12.5';
+  if (norm === 'under 13.5' || norm === 'under 13.5 cantos') return 'Under 13.5';
   if (norm === 'cart 2.5' || norm === 'over 2.5 cartao' || norm === 'over 2.5 cartao') return 'Cart 2.5';
   if (norm === 'cart 3.5' || norm === 'over 3.5 cartao' || norm === 'over 3.5 cartao') return 'Cart 3.5';
   if (norm === 'cart 5.5' || norm === 'over 5.5 cartao' || norm === 'over 5.5 cartoes') return 'Cart 5.5';
@@ -3410,8 +3421,12 @@ function canonicalMarketKey(market) {
   if (label === 'under 4.5') return 'under45';
   if (label === 'btts') return 'btts';
   if (label === 'over 0.5 ht') return 'over05ht';
+  if (label === 'esc 6.5') return 'esc65';
   if (label === 'esc 7.5') return 'esc75';
   if (label === 'esc 8.5') return 'esc85';
+  if (label === 'under 11.5') return 'under115';
+  if (label === 'under 12.5') return 'under125';
+  if (label === 'under 13.5') return 'under135';
   if (label === 'cart 2.5') return 'cards25';
   if (label === 'cart 3.5') return 'cards35';
   if (label === 'cart 5.5') return 'cards55';
@@ -3451,9 +3466,10 @@ const MARKET_CATEGORIES = {
   escanteios: [
     { key: 'esc75',      label: 'Esc 7.5' },
     { key: 'esc85',      label: 'Esc 8.5' },
-    { key: 'esc65',      label: 'Over 6.5',   disabled: true },
-    { key: 'esc_under125', label: 'Under 12.5', disabled: true },
-    { key: 'esc_under135', label: 'Under 13.5', disabled: true },
+    { key: 'esc65',      label: 'Over 6.5'   },
+    { key: 'under115',   label: 'Under 11.5' },
+    { key: 'under125',   label: 'Under 12.5' },
+    { key: 'under135',   label: 'Under 13.5' },
   ],
   cartoes: [
     { key: 'cards25', label: 'Cart 2.5' },
@@ -3688,7 +3704,7 @@ function smartMarketKey(market) {
   if (label === 'vitória da casa' || label === 'vitoria da casa') return 'homeWin';
   if (label === 'vitória do visitante' || label === 'vitoria do visitante') return 'awayWin';
   if (label === 'empate' || label === 'draw') return 'draw';
-  if (label === 'esc 6.5' || label === 'over 6.5 escanteios') return 'esc65';
+  if (label === 'esc 6.5' || label === 'over 6.5 escanteios' || label === 'over 6.5 cantos') return 'esc65';
   if (label === 'esc 7.5' || label === 'over 7.5 escanteios') return 'esc75';
   if (label === 'esc 8.5' || label === 'over 8.5 escanteios') return 'esc85';
   if (label === 'esc 9.5' || label === 'over 9.5 escanteios') return 'esc95';
