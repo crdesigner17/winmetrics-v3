@@ -1095,20 +1095,38 @@ async function upsertSnapshot(result, raw) {
   );
   const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
 
-  const { error: deleteOldSnapshotsError } = await supabase
+  // ── GUARD: verifica se QUALQUER snapshot deste fixture já foi confirmado ──
+  // Deve rodar ANTES do delete para impedir que um snapshot red/green seja
+  // apagado quando o engine troca de mercado numa reexecução posterior.
+  // (Bug: pipeline reprocessava após confirmar, trocava Over 2.5 red por
+  //  Over 1.5 green porque o delete ocorria antes da verificação.)
+  const { data: allExisting } = await supabase
     .from('prediction_snapshots')
-    .delete()
-    .eq('fixture_id', result.fixture_id)
-    .neq('market', canonicalMarket);
-  if (deleteOldSnapshotsError) throw new Error(`upsertSnapshot/cleanup: ${deleteOldSnapshotsError.message}`);
+    .select('id, market, result_status')
+    .eq('fixture_id', result.fixture_id);
+
+  const confirmedSnap = (allExisting || []).find(
+    s => s.result_status !== null && s.result_status !== undefined
+  );
+
+  if (confirmedSnap && !REPROCESS_ENGINE) {
+    LOG.dim(`    Fixture ${result.fixture_id} já tem snapshot confirmado (${confirmedSnap.market} → ${confirmedSnap.result_status}) — pipeline preservado integralmente.`);
+    return 0;
+  }
+  // ── FIM DO GUARD ──
+
+  // Só limpa snapshots antigos de mercados diferentes quando fixture não confirmado
+  if (!confirmedSnap) {
+    const { error: deleteOldSnapshotsError } = await supabase
+      .from('prediction_snapshots')
+      .delete()
+      .eq('fixture_id', result.fixture_id)
+      .neq('market', canonicalMarket);
+    if (deleteOldSnapshotsError) throw new Error(`upsertSnapshot/cleanup: ${deleteOldSnapshotsError.message}`);
+  }
 
   // Snapshots confirmados (green/red) sao imutaveis.
-  const { data: existing } = await supabase
-    .from('prediction_snapshots')
-    .select('id, result_status')
-    .eq('fixture_id', result.fixture_id)
-    .eq('market', canonicalMarket)
-    .single();
+  const existing = (allExisting || []).find(s => s.market === canonicalMarket) || null;
 
   if (existing?.result_status && existing.result_status !== null) {
     if (!REPROCESS_ENGINE) {
