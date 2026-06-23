@@ -1317,11 +1317,9 @@ async function getCurrentProfile() {
             <th class="col-star"></th>
             <th class="col-game">JOGO</th>
             <th class="col-date center">DATA</th>
-            <th class="col-pick">MELHOR PALPITE</th>
-            <th class="col-alts">ALTERNATIVAS</th>
             <th class="col-score center">WIN SCORE</th>
             <th class="col-odd center">ODD</th>
-            <th class="col-scoreboard center">PLACAR</th>
+            <th class="col-scoreboard center js-col-placar">PLACAR</th>
             <th class="col-result center">RESULTADO</th>
             <th class="col-confidence center">CONFIANÇA</th>
           </tr>
@@ -3800,11 +3798,9 @@ const THEAD_NORMAL = `
   <th class="col-star"></th>
   <th class="col-game">JOGO</th>
   <th class="col-date center">DATA</th>
-  <th class="col-pick">MELHOR PALPITE</th>
-  <th class="col-alts">ALTERNATIVAS</th>
   <th class="col-score center">WIN SCORE</th>
   <th class="col-odd center">ODD</th>
-  <th class="col-scoreboard center">PLACAR</th>
+  <th class="col-scoreboard center js-col-placar">PLACAR</th>
   <th class="col-result center">RESULTADO</th>
   <th class="col-confidence center">CONFIANÇA</th>
 `;
@@ -3818,6 +3814,9 @@ function applyWcThead() {
   // Ajusta min-width da tabela para acomodar as colunas extras
   const table = document.querySelector('.table-wrap table');
   if (table) table.style.minWidth = '1040px';
+  // Atualiza visibilidade da coluna PLACAR conforme categoria ativa
+  const activeCatEl = document.querySelector('.mkt-cat-tab.active');
+  if (activeCatEl) updateTableHeader(activeCatEl.dataset.cat);
 }
 
 function renderEmpty() {
@@ -3860,14 +3859,20 @@ function renderMobileCards(snapshots, predictionsMap, snapshotsMap = {}) {
     return;
   }
 
+  const isEscanteiosMobile = document.querySelector('.mkt-cat-tab.active')?.dataset.cat === 'escanteios';
+
   container.innerHTML = snapshots.map(snap => {
     const hora       = snap.hour || formatHour(snap.fixture_match_date || snap.match_date);
     const data       = formatDate(snap.match_date);
     const matchName  = cleanMatchName(snap.match_name);
     const leagueName = snap.league_name || '';
-    const mainPicks  = getMainPalpites(snap, predictionsMap);
+    const conf       = getConf(snap);
+    const score      = Number(snap.score) || 0;
     const resultHtml = formatResult(snap);
     const placar     = formatPlacar(snap);
+    const marketLabel = displayMarket(snap.market) || snap.market || '';
+    const odd        = getOdd(snap);
+    const oddStr     = odd !== null ? odd.toFixed(2) : '-';
 
     return `
     <div class="m-card">
@@ -3881,14 +3886,25 @@ function renderMobileCards(snapshots, predictionsMap, snapshotsMap = {}) {
         </div>
       </div>
       <div class="m-card-bottom">
-        <div class="m-card-pick">${renderMainPalpites(mainPicks)}</div>
+        <div class="m-card-pick"><span class="pick-label">${marketLabel}</span></div>
         <div class="m-card-result">
-          ${placar !== '<span style="color:var(--text-muted);font-size:11px">-</span>' ? `<div style="font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;margin-bottom:2px">${placar}</div>` : ''}
+          ${(!isEscanteiosMobile && placar !== '<span style="color:var(--text-muted);font-size:11px">-</span>') ? `<div style="font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;margin-bottom:2px">${placar}</div>` : ''}
           ${resultHtml}
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+
+// Atualiza o cabeçalho da tabela conforme a categoria ativa
+// Escanteios: sem PLACAR (cantos não têm placar de gols)
+function updateTableHeader(cat) {
+  const isEscanteios = cat === 'escanteios';
+  const thPlacar = document.querySelector('th.js-col-placar');
+  if (thPlacar) {
+    thPlacar.style.display = isEscanteios ? 'none' : '';
+  }
 }
 
 function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, snapshotsMap = {}) {
@@ -3914,6 +3930,12 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     const smartSuggestions = [];
     const leagueName = snap.league_name || '';
     const matchName = cleanMatchName(snap.match_name);
+    // Escanteios não exibem PLACAR (cantos não têm placar de gols)
+    const isEscanteios = activeTab === 'escanteios';
+    const placarCell = isEscanteios
+      ? ''
+      : `<td class="col-scoreboard">${formatPlacar(snap)}</td>`;
+
     return `
   <tr>
     <td class="col-star"><div class="star-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></td>
@@ -3929,11 +3951,6 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
       <div style="font-weight:600;color:var(--text-primary);font-size:12px;">${data}</div>
       <div style="font-size:11px;margin-top:2px">${hora}</div>
     </td>
-    <td class="col-pick mercado-cell" style="text-align:left;">
-      
-      ${renderMainPalpites(mainPicks)}${altBadge}
-    </td>
-    <td class="col-alts" style="padding:10px 12px;text-align:left;">${renderAlts(alts, snapshotsMap, snap.fixture_id, snap)}</td>
     <td class="col-score">${(() => {
       const metrics = metricsMap ? (metricsMap[String(snap.fixture_id)] || metricsMap[snap.fixture_id] || null) : null;
       const dataLevel = metrics?.historic_data_level ?? null;
@@ -3945,7 +3962,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">${ringHtml(score, gradeToRingColor(conf))}${badge}</div>`;
     })()}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">${oddStr}</span>`}</td>
-    <td class="col-scoreboard">${formatPlacar(snap)}</td>
+    ${placarCell}
     <td class="col-result">${formatResult(snap)}</td>
     <td class="col-confidence">${confBadge(conf)}</td>
   </tr>`;
@@ -4144,6 +4161,7 @@ function initMarketCategoryTabs() {
       renderMarketPills(cat);
       filterMarket = firstEnabled ? activePillKey : '__none__';
       currentPage  = 1;
+      updateTableHeader(cat);
       loadPrevisoes();
     });
   });
@@ -4154,6 +4172,7 @@ function initMarketCategoryTabs() {
   activePillKey = firstEnabled ? firstEnabled.key : '';
   renderMarketPills(initialCat);
   filterMarket = firstEnabled ? activePillKey : '__none__';
+  updateTableHeader(initialCat);
 }
 
 function initTabs() {
