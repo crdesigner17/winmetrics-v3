@@ -1122,25 +1122,19 @@ async function upsertPredictions(result, raw = {}, wcVitoria = null, wcDuplaChan
  * @returns {boolean} true se snapshot foi salvo
  */
 // ─────────────────────────────────────────────────────────────────
-// CASCATA DE ESCANTEIOS OVER
-// Quando o best_mkt for um Over de escanteios, os Overs de linhas
-// mais fáceis são aprovados automaticamente — quem passa na linha
-// mais difícil, passa em todas as mais fáceis com certeza.
-// Regra: Esc 8.5 aprovado → também salva Esc 7.5 e Esc 6.5
-//        Esc 7.5 aprovado → também salva Esc 6.5
-//        Esc 6.5 aprovado → só ele
+// SNAPSHOTS AUTÔNOMOS DE ESCANTEIOS OVER
+// Cada Over de escanteios que atingir o threshold mínimo gera seu
+// próprio snapshot — independente de quem ganhou o best_mkt.
+// Regra de cascata por score: se Esc 8.5 passou (score >= 72),
+// Esc 7.5 e Esc 6.5 também passam automaticamente (linhas mais fáceis
+// do mesmo jogo). Mas qualquer um dos três pode gerar snapshot sozinho
+// mesmo que best_mkt seja outro mercado (ex: Cart 2.5).
 // ─────────────────────────────────────────────────────────────────
-const ESC_OVER_CASCADE = {
-  'Esc 8.5':  ['Esc 7.5', 'Esc 6.5'],
-  'Esc 7.5':  ['Esc 6.5'],
-  'Esc 6.5':  [],
-};
-const ESC_OVER_SCORE_KEY = {
-  'Esc 8.5': 'esc85', 'Esc 7.5': 'esc75', 'Esc 6.5': 'esc65',
-};
-const ESC_OVER_ODD_KEY = {
-  'Esc 8.5': 'odd_esc85', 'Esc 7.5': 'odd_esc75', 'Esc 6.5': 'odd_esc65',
-};
+const ESC_OVER_MARKETS = [
+  { market: 'Esc 8.5', key: 'esc85', oddKey: 'odd_esc85', minScore: 72 },
+  { market: 'Esc 7.5', key: 'esc75', oddKey: 'odd_esc75', minScore: 68 },
+  { market: 'Esc 6.5', key: 'esc65', oddKey: 'odd_esc65', minScore: 72 },
+];
 
 async function upsertSnapshot(result, raw) {
   if (!result.best_mkt || result.best_score === null || result.best_score === undefined) return 0;
@@ -1151,12 +1145,6 @@ async function upsertSnapshot(result, raw) {
   const canonicalMarket = _altForCanonical ? _altForCanonical.original_market : result.best_mkt;
 
   // Mercados Over escanteios que serão salvos junto com o best_mkt (cascata)
-  const cascadeMarkets = ESC_OVER_CASCADE[canonicalMarket] || [];
-
-  // Lista de todos os markets que este fixture vai ter snapshot
-  // (best_mkt + cascata Over escanteios)
-  const allSnapshotMarkets = [canonicalMarket, ...cascadeMarkets];
-
   // ── GUARD: verifica se QUALQUER snapshot deste fixture já foi confirmado ──
   const { data: allExisting } = await supabase
     .from('prediction_snapshots')
@@ -1173,8 +1161,19 @@ async function upsertSnapshot(result, raw) {
   }
   // ── FIM DO GUARD ──
 
+  // Determinar quais Over escanteios serão salvos como snapshots autônomos
+  // (independente do best_mkt — cada um com score >= seu threshold próprio)
+  const escOverParaSalvar = ESC_OVER_MARKETS.filter(e => {
+    const score = result.scores?.[e.key] ?? null;
+    return score !== null && score >= e.minScore;
+  });
+
+  // Conjunto de todos os markets que este fixture vai ter snapshot
+  // (best_mkt + Over escanteios elegíveis)
+  const escOverMarketNames = escOverParaSalvar.map(e => e.market);
+  const allSnapshotMarkets = [...new Set([canonicalMarket, ...escOverMarketNames])];
+
   // Limpa snapshots de mercados que não fazem mais parte do conjunto atual
-  // (ex: se antes era Esc 7.5 + Esc 6.5 e agora virou Over 2.5, limpa os dois)
   if (!confirmedSnap) {
     const { error: deleteOldSnapshotsError } = await supabase
       .from('prediction_snapshots')
@@ -1233,43 +1232,46 @@ async function upsertSnapshot(result, raw) {
 
   let savedCount = 1;
 
-  // ── Cascata Over escanteios: salvar linhas mais fáceis como snapshots adicionais ──
-  // Exemplo: best_mkt = Esc 7.5 → também salva Esc 6.5 (linha mais fácil que vai bater)
-  for (const cascMkt of cascadeMarkets) {
-    const scoreKey = ESC_OVER_SCORE_KEY[cascMkt];
-    const oddKey   = ESC_OVER_ODD_KEY[cascMkt];
-    const cascScore = result.scores?.[scoreKey] ?? null;
-    const cascGrade = cascScore !== null ? PredictionEngine.getGrade(cascScore) : null;
+  // ── Over escanteios autônomos: salvar cada um que atingiu threshold ───────
+  // Independente do best_mkt — se Esc 6.5 tem score >= 72, aparece na pill
+  // Over 6.5 mesmo que best_mkt seja Cart 2.5 ou Over 1.5.
+  // Cascata implícita: se Esc 8.5 passou (score >= 72), Esc 7.5 (threshold 68)
+  // e Esc 6.5 (threshold 72) provavelmente também passam — cada um salvo de forma independente.
+  for (const escMkt of escOverParaSalvar) {
+    // Não salvar de novo se já é o best_mkt (já foi salvo acima)
+    if (escMkt.market === canonicalMarket) continue;
 
-    if (cascScore === null) continue;
+    const escScore = result.scores?.[escMkt.key] ?? null;
+    const escGrade = escScore !== null ? PredictionEngine.getGrade(escScore) : null;
 
-    // Não sobrescreve snapshot da cascata se já confirmado
-    const cascExisting = (allExisting || []).find(s => s.market === cascMkt);
-    if (cascExisting?.result_status && !REPROCESS_ENGINE) {
-      LOG.dim(`    Cascata: ${cascMkt} já confirmado (${cascExisting.result_status}) - preservado.`);
+    if (escScore === null) continue;
+
+    const escExisting = (allExisting || []).find(s => s.market === escMkt.market);
+    if (escExisting?.result_status && !REPROCESS_ENGINE) {
+      LOG.dim(`    Esc Over autônomo: ${escMkt.market} já confirmado (${escExisting.result_status}) - preservado.`);
       continue;
     }
 
-    const cascRow = {
+    const escRow = {
       ...baseRow,
-      market:            cascMkt,
-      score:             pyRound(cascScore, 1),
-      grade:             cascGrade,
-      odd:               raw[oddKey] ?? null,
+      market:            escMkt.market,
+      score:             pyRound(escScore, 1),
+      grade:             escGrade,
+      odd:               raw[escMkt.oddKey] ?? null,
       score_enriquecido: null,
       grade_enriquecido: null,
       alternative_mkt:   null,
-      ...(REPROCESS_ENGINE && cascExisting?.result_status ? { result_status: cascExisting.result_status } : {}),
+      ...(REPROCESS_ENGINE && escExisting?.result_status ? { result_status: escExisting.result_status } : {}),
     };
 
-    const { error: cascErr } = await supabase
+    const { error: escErr } = await supabase
       .from('prediction_snapshots')
-      .upsert(cascRow, { onConflict: 'fixture_id,market' });
+      .upsert(escRow, { onConflict: 'fixture_id,market' });
 
-    if (cascErr) {
-      LOG.warn(`    Cascata ${cascMkt} falhou:`, cascErr.message);
+    if (escErr) {
+      LOG.warn(`    Esc Over ${escMkt.market} falhou:`, escErr.message);
     } else {
-      LOG.dim(`    Cascata Esc Over: ${cascMkt} score=${cascScore} grade=${cascGrade}`);
+      LOG.dim(`    Esc Over autônomo: ${escMkt.market} score=${escScore} grade=${escGrade}`);
       savedCount++;
     }
   }
