@@ -55,6 +55,7 @@ const { computeWcVencer } = require('../lib/wc_vencer_engine.js');
 const { computeWcResultadoFinal, computeWcResultadoFinalDebug, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
 // [NOVO] Mercado "Dupla Chance" (1X/X2) — exclusivo Copa do Mundo, isolado
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
+const { computeWcGols }         = require('../lib/wc_gols_engine.js');
 // [NOVO] Motores padrão para todos os campeonatos que NÃO são Copa do Mundo
 const { computeClubResultadoFinal, computeClubResultadoFinalDebug } = require('../lib/club_resultado_final.js');
 // [NOVO] Estatísticas balanceadas casa+fora (metodologia True Signal)
@@ -1266,8 +1267,86 @@ async function upsertSnapshot(result, raw) {
 // Grava em wc_vencer_snapshots — TODOS os jogos WC, sempre.
 // Preserva result_status se já confirmado (não sobrescreve green/red).
 // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// WC GOLS SNAPSHOTS — grava previsões de gols para jogos WC
+// ─────────────────────────────────────────────────────────────────
+
+async function upsertWcGolsSnapshots(raw, wcGols) {
+  if (!wcGols?.markets) return;
+
+  const base = {
+    fixture_id:     raw.fixture_id,
+    match_name:     raw.jogo || `${raw.home_team} x ${raw.away_team}`,
+    home_team:      raw.home_team,
+    away_team:      raw.away_team,
+    home_team_logo: raw.home_team_logo || null,
+    away_team_logo: raw.away_team_logo || null,
+    league_name:    raw.league_name,
+    match_date:     raw.match_date,
+    hour:           raw.hour || null,
+    source:         'wc_gols_engine',
+    updated_at:     new Date().toISOString(),
+  };
+
+  const { MARKETS } = require('../lib/wc_gols_engine.js');
+
+  for (const marketKey of MARKETS) {
+    const m = wcGols.markets[marketKey];
+    if (!m) continue;
+
+    const row = {
+      ...base,
+      market_key:   marketKey,
+      market:       m.market,
+      probability:  m.probability,
+      odd:          m.odd    ?? null,
+      ev:           m.ev     ?? null,
+      score:        m.score  ?? null,
+      grade:        m.grade  ?? null,
+      confidence:   m.confidence ?? null,
+      recommended:  m.recommended ?? false,
+      // Preserva result_status se já confirmado
+    };
+
+    // Insert ou update parcial (não toca em result_status/confirmed_at)
+    const { data: existing } = await supabase
+      .from('wc_gols_snapshots')
+      .select('id, result_status, confirmed_at')
+      .eq('fixture_id', raw.fixture_id)
+      .eq('market_key', marketKey)
+      .maybeSingle();
+
+    let error;
+    if (!existing) {
+      ({ error } = await supabase
+        .from('wc_gols_snapshots')
+        .insert({ ...row, result_status: null, confirmed_at: null }));
+    } else {
+      ({ error } = await supabase
+        .from('wc_gols_snapshots')
+        .update(row)
+        .eq('fixture_id', raw.fixture_id)
+        .eq('market_key', marketKey));
+    }
+
+    if (error) {
+      LOG.warn(`  [WC Gols] Erro ao gravar ${marketKey} para fixture ${raw.fixture_id}: ${error.message}`);
+    }
+  }
+}
+
 async function upsertWcVencerSnapshot(raw, wcVencer) {
   if (!wcVencer) return;
+
+  // Verificar se já foi confirmado — preservar result_status
+  const { data: existing } = await supabase
+    .from('wc_vencer_snapshots')
+    .select('id, result_status, confirmed_at')
+    .eq('fixture_id', raw.fixture_id)
+    .maybeSingle();
+
+  const isConfirmed = existing?.result_status !== null &&
+                      existing?.result_status !== undefined;
 
   const row = {
     fixture_id:    raw.fixture_id,
@@ -1292,36 +1371,22 @@ async function upsertWcVencerSnapshot(raw, wcVencer) {
     grade:         wcVencer.grade,
     score:         wcVencer.score,
     is_evitar:     wcVencer.isEvitar,
-    // Odd do mercado vencedor: usa odd_home se pick=home, odd_away se pick=away
-    odd:           wcVencer.pick === 'home' ? (raw.odd_home || null)
-                 : wcVencer.pick === 'away' ? (raw.odd_away || null)
-                 : null,
+    odd:           raw.odd_o15 || null, // melhor odd disponível como referência
     source:        'wc_vencer_engine',
     updated_at:    new Date().toISOString(),
+    // Preserva result_status se já confirmado
+    ...(isConfirmed ? {
+      result_status: existing.result_status,
+      confirmed_at:  existing.confirmed_at,
+    } : {
+      result_status: null,
+      confirmed_at:  null,
+    }),
   };
 
-  // Estratégia: tenta INSERT primeiro. Se já existe (conflito), faz UPDATE
-  // apenas nos campos de palpite — nunca toca em result_status/confirmed_at.
-  const { data: existing2 } = await supabase
+  const { error } = await supabase
     .from('wc_vencer_snapshots')
-    .select('id, result_status, confirmed_at')
-    .eq('fixture_id', raw.fixture_id)
-    .maybeSingle();
-
-  let error;
-  if (!existing2) {
-    // Novo registro — INSERT com result_status null
-    ({ error } = await supabase
-      .from('wc_vencer_snapshots')
-      .insert({ ...row, result_status: null, confirmed_at: null }));
-  } else {
-    // Registro existente — UPDATE só nos campos de palpite, preserva result_status
-    const { result_status: _rs, confirmed_at: _ca, ...palpiteFields } = row;
-    ({ error } = await supabase
-      .from('wc_vencer_snapshots')
-      .update(palpiteFields)
-      .eq('fixture_id', raw.fixture_id));
-  }
+    .upsert(row, { onConflict: 'fixture_id' });
 
   if (error) throw new Error(`upsertWcVencerSnapshot: ${error.message}`);
 }
@@ -1650,9 +1715,37 @@ async function run() {
       const homeFormString = apiData.homeStats?.response?.form || null;
       const awayFormString = apiData.awayStats?.response?.form || null;
 
+      // ── [WC GOLS ENGINE] — gols exclusivo Copa do Mundo ─────────────────
+      let wcGolsSnap = null;
+      if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+        try {
+          wcGolsSnap = computeWcGols({
+            raw,
+            homeFormString,
+            awayFormString,
+            h2hGames:      apiData.h2hGames || [],
+            manualContext: WC_MANUAL_CONTEXT,
+            odds: {
+              over05ht: raw.odd_over05ht ?? null,
+              over15:   raw.odd_o15     ?? null,
+              over25:   raw.odd_o25     ?? null,
+              under35:  raw.odd_u35     ?? null,
+              under45:  raw.odd_u45     ?? null,
+              btts:     raw.odd_btts    ?? null,
+              nobtts:   raw.odd_nobtts  ?? null,
+            },
+          });
+          const best = wcGolsSnap.bestMarket ?? 'sem recomendação';
+          const bestProb = wcGolsSnap.markets[wcGolsSnap.bestMarket]?.probability ?? '-';
+          LOG.ok(`  ⚽ WC Gols Engine: best=${best} prob=${bestProb}% avgGoals=${wcGolsSnap._debug.avgTotalGoals?.toFixed(1)}`);
+        } catch (e) {
+          LOG.warn(`  [WC Gols] Erro ao calcular fixture ${fixtureId}: ${e.message}`);
+        }
+      }
+
       // ── [NOVO] WC VENCER ENGINE — todos os jogos WC ──────────────────────
       // Roda para qualquer jogo da Copa do Mundo. Grava SEMPRE em
-      // wc_vencer_snapshots — inclusive jogos equilibrados ("Evitar 1X2").
+      // wc_vencer_snapshots — inclusive jogos equilibrados.
       // Independente do wc_resultado_final.js (que só aprova fortes).
       let wcVencerSnap = null;
       if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
@@ -1782,6 +1875,11 @@ async function run() {
         // [NOVO] WC Vencer Engine — grava TODOS os jogos WC
         if (wcVencerSnap) {
           await upsertWcVencerSnapshot(raw, wcVencerSnap);
+        }
+
+        // Grava gols WC
+        if (wcGolsSnap && WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+          await upsertWcGolsSnapshots(raw, wcGolsSnap);
         }
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
