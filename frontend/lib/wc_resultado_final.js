@@ -251,9 +251,14 @@ function calcIsValue(oddOferecida, oddJusta) {
  */
 function computeWcResultadoFinal(input = {}) {
   const result = computeWcResultadoFinalDebug(input);
-  if (!result || result.rejected || !['A+', 'A', 'B', 'C'].includes(result.grade)) return null;
-  const { rejected, rejectReason, ...approved } = result;
-  return approved;
+  if (!result) return null;
+
+  const { rejected, rejectReason, ...data } = result;
+
+  // Mesmo que reprovado pelos gates, retorna o favorito identificado
+  // para o frontend exibir quem vai ganhar com a categoria correta
+  // (em vez de "Evitar 1X2"). A categoria/grade já cuida do nível de confiança.
+  return data;
 }
 
 function computeWcResultadoFinalDebug({ raw, homeFormString = null, awayFormString = null, manualContext = {}, oddOferecida = null, homeBalanced = null, awayBalanced = null, balancedWin = null } = {}) {
