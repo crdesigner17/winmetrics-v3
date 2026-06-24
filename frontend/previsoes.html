@@ -4501,9 +4501,9 @@ function renderWcGolsRows(rows) {
     // Badge de probabilidade com cor por nível
     const probColor  = row.probability === null  ? 'var(--text-muted)'
                      : row.probability >= 85     ? 'var(--green)'
-                     : row.probability >= 75     ? 'var(--teal)'
-                     : row.probability >= 65     ? '#a78bfa'
-                     : 'var(--text-secondary)';
+                     : row.probability >= 75     ? 'var(--gold)'
+                     : row.probability >= 65     ? '#60a5fa'
+                     : '#a78bfa';
 
     const probCell = row.probability !== null
       ? `<span style="font-size:16px;font-weight:700;color:${probColor}">${prob}</span>
