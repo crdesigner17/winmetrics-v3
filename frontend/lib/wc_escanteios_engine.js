@@ -423,30 +423,38 @@ function computeWcEscanteios(input = {}) {
   const ctxAway = manualContext[awayTeam] || {};
 
   // ── Dados brutos ───────────────────────────────────────────────────────────
-  // Escanteios a favor (avg corners for)
-  const avgCornH = num(raw?.avg_corners_h) ?? num(raw?.avg_corners_home);
-  const avgCornA = num(raw?.avg_corners_a) ?? num(raw?.avg_corners_away);
+  // Média total de escanteios (campo combinado do pipeline)
+  // O pipeline grava avg_corners (total) e over75_corners (frequência Over 7.5)
+  const avgCornTotal = num(raw?.avg_corners)
+    ?? num(raw?.avg_corners_total)
+    ?? (num(raw?.avg_sc_h) !== null && num(raw?.avg_sc_a) !== null
+        ? null // não usa gols como proxy para cantos
+        : null);
 
-  // Escanteios contra (avg corners against)
-  const avgConcCornH = num(raw?.avg_corners_conc_h) ?? num(raw?.avg_corners_conc_home);
-  const avgConcCornA = num(raw?.avg_corners_conc_a) ?? num(raw?.avg_corners_conc_away);
+  // Divide a média total em home/away (estimativa 50/50 quando não há separado)
+  const avgCornH = num(raw?.avg_corners_h) ?? num(raw?.avg_corners_home)
+    ?? (avgCornTotal !== null ? avgCornTotal / 2 : null);
+  const avgCornA = num(raw?.avg_corners_a) ?? num(raw?.avg_corners_away)
+    ?? (avgCornTotal !== null ? avgCornTotal / 2 : null);
 
-  // Média total combinada
-  const avgCornTotal = (avgCornH !== null && avgCornA !== null)
-    ? avgCornH + avgCornA
-    : null;
+  // Escanteios contra (proxy: metade da média total)
+  const avgConcCornH = num(raw?.avg_corners_conc_h) ?? (avgCornTotal !== null ? avgCornTotal / 2 : null);
+  const avgConcCornA = num(raw?.avg_corners_conc_a) ?? (avgCornTotal !== null ? avgCornTotal / 2 : null);
 
-  // Frequência Over escanteios dos dados brutos
-  const freqOver75H  = num(raw?.over75_corners_h)  !== null ? num(raw?.over75_corners_h)  * 100 : null;
-  const freqOver75A  = num(raw?.over75_corners_a)  !== null ? num(raw?.over75_corners_a)  * 100 : null;
-  const freqOver85H  = num(raw?.over85_corners_h)  !== null ? num(raw?.over85_corners_h)  * 100 : null;
-  const freqOver85A  = num(raw?.over85_corners_a)  !== null ? num(raw?.over85_corners_a)  * 100 : null;
+  // Frequência Over 7.5 — campo 'over75_c' do pipeline (0-100)
+  const freqOver75 = num(raw?.over75_c)
+    ?? num(raw?.over75_corners_pct)
+    ?? (avgCornTotal !== null ? estimateCornerOverFreq(avgCornTotal, 7) : null);
 
-  // Fallback via campos já existentes (esc75, esc85)
-  const escFreqH75 = freqOver75H ?? (num(raw?.esc75_h) !== null ? num(raw?.esc75_h) * 100 : null);
-  const escFreqA75 = freqOver75A ?? (num(raw?.esc75_a) !== null ? num(raw?.esc75_a) * 100 : null);
-  const escFreqH85 = freqOver85H ?? (num(raw?.esc85_h) !== null ? num(raw?.esc85_h) * 100 : null);
-  const escFreqA85 = freqOver85A ?? (num(raw?.esc85_a) !== null ? num(raw?.esc85_a) * 100 : null);
+  // Frequência Over 8.5 — campo 'over85_c' ou estimativa Poisson
+  const freqOver85 = num(raw?.over85_c)
+    ?? (avgCornTotal !== null ? estimateCornerOverFreq(avgCornTotal, 8) : null);
+
+  // Usa mesma frequência para home e away (dados combinados)
+  const escFreqH75 = freqOver75;
+  const escFreqA75 = freqOver75;
+  const escFreqH85 = freqOver85;
+  const escFreqA85 = freqOver85;
 
   // Escanteios H2H
   const h2hCorners = h2hAvgCorners(h2hGames);
