@@ -4319,15 +4319,26 @@ const THEAD_VENCER_WC = `
   <th class="col-confidence center">CONFIANÇA</th>
 `;
 
-// Thead World Cup — substitui col-alts por 4 colunas específicas
-
+// Thead exclusivo da aba Gols (Copa do Mundo) — sem PALPITE, com PROBABILIDADE
+const THEAD_GOLS_WC = `
+  <th class="col-star"></th>
+  <th class="col-game">JOGO</th>
+  <th class="col-date center">DATA</th>
+  <th class="col-prob center" style="min-width:90px">PROBABILIDADE</th>
+  <th class="col-odd center">ODD</th>
+  <th class="col-scoreboard center js-col-placar">PLACAR</th>
+  <th class="col-result center">RESULTADO</th>
+  <th class="col-confidence center">CONFIANÇA</th>
+`;
 
 function applyWcThead() {
   const thead = document.querySelector('thead tr');
   if (!thead) return;
   const activeCatEl = document.querySelector('.mkt-cat-tab.active');
-  const isVencer = activeCatEl?.dataset.cat === 'vencer';
-  thead.innerHTML = isVencer ? THEAD_VENCER_WC : THEAD_NORMAL;
+  const cat = activeCatEl?.dataset.cat || '';
+  thead.innerHTML = cat === 'vencer' ? THEAD_VENCER_WC
+                  : cat === 'gols'   ? THEAD_GOLS_WC
+                  : THEAD_NORMAL;
   // Ajusta min-width da tabela
   const table = document.querySelector('.table-wrap table');
   if (table) table.style.minWidth = isVencer ? '980px' : '920px';
