@@ -3500,7 +3500,17 @@ async function fetchAllWcFixturesForVencer(page) {
     .in('fixture_id', fixtureIds)
     .in('market', [...WC_VENCER_MARKETS]);
 
-  // Busca result_status já confirmado
+  // Busca wc_vencer_snapshots — fonte de odd e result_status para jogos WC
+  const { data: wcVencerSnaps } = await supabaseClient
+    .from('wc_vencer_snapshots')
+    .select('fixture_id, pick, odd, result_status, confirmed_at')
+    .in('fixture_id', fixtureIds);
+
+  // Indexa wc_vencer_snapshots por fixture_id
+  const wcVencerIdx = {};
+  (wcVencerSnaps || []).forEach(s => { wcVencerIdx[s.fixture_id] = s; });
+
+  // Busca result_status já confirmado (prediction_snapshots como fallback)
   const { data: snapResults } = await supabaseClient
     .from('prediction_snapshots')
     .select('fixture_id, market, result_status, confirmed_at')
@@ -3542,15 +3552,20 @@ async function fetchAllWcFixturesForVencer(page) {
     // Calcula palpite
     const vencer = computeWcVencerFrontend(f, pf, mf);
 
-    // Odd: pega da prediction existente se houver
-    let odd = null;
-    if (pf.length) {
+    // Odd: prioriza wc_vencer_snapshots, fallback para predictions
+    const wcSnap = wcVencerIdx[f.fixture_id] || null;
+    let odd = wcSnap?.odd ?? null;
+    if (!odd && pf.length) {
       const bestPred = pf.find(p => {
         const mk = String(p.market||'').toLowerCase();
         return mk.includes('vitoria da casa') || mk.includes('vitoria do visitante');
       });
       if (bestPred && bestPred.odd) odd = bestPred.odd;
     }
+
+    // result_status: prioriza wc_vencer_snapshots, fallback para prediction_snapshots
+    const resultStatus = wcSnap?.result_status ?? snapData.result_status ?? null;
+    const confirmedAt  = wcSnap?.confirmed_at  ?? snapData.confirmed_at  ?? null;
 
     return {
       fixture_id:     f.fixture_id,
@@ -3575,8 +3590,8 @@ async function fetchAllWcFixturesForVencer(page) {
       score:          vencer.score,
       grade:          vencer.confGrade,
       odd:            odd,
-      result_status:  snapData.result_status ?? null,
-      confirmed_at:   snapData.confirmed_at  ?? null,
+      result_status:  resultStatus,
+      confirmed_at:   confirmedAt,
       // Flag para renderRows saber que é WC com palpite calculado inline
       _isWcVencer:    true,
     };
