@@ -473,14 +473,23 @@ async function fetchWcVencerPendentes(fixtureIds) {
  * Calcula e grava result_status em wc_vencer_snapshots.
  */
 async function confirmarWcVencer(snap, resultado, fixtureInfo) {
-  // Mapear pick para market equivalente e calcular resultado
+  // Mapear pick para market equivalente e calcular resultado.
+  // Se pick = 'evitar' (snapshots antigos), usa favored_team para descobrir
+  // se era home ou away e confirma normalmente.
   let resultStatus = null;
-  if (snap.pick === 'home' || snap.market === 'Vitória da Casa') {
+  let effectivePick = snap.pick;
+
+  // Resolve pick 'evitar' usando favored_team vs home_team
+  if (effectivePick === 'evitar' && snap.favored_team) {
+    const norm = s => String(s||'').toLowerCase().trim();
+    effectivePick = norm(snap.favored_team) === norm(fixtureInfo.home_team) ? 'home' : 'away';
+  }
+
+  if (effectivePick === 'home' || snap.market === 'Vitória da Casa') {
     resultStatus = calcResultStatus('Vitória da Casa', resultado);
-  } else if (snap.pick === 'away' || snap.market === 'Vitória do Visitante') {
+  } else if (effectivePick === 'away' || snap.market === 'Vitória do Visitante') {
     resultStatus = calcResultStatus('Vitória do Visitante', resultado);
-  } else if (snap.pick === 'draw' || snap.market === 'Empate') {
-    // Empate: goals_home === goals_away
+  } else if (effectivePick === 'draw' || snap.market === 'Empate') {
     if (resultado.goals_home !== null && resultado.goals_away !== null) {
       resultStatus = resultado.goals_home === resultado.goals_away ? 'green' : 'red';
     }
