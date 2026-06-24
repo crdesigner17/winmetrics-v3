@@ -349,33 +349,20 @@ function computeWcVencer(input = {}) {
   );
 
   // Regras de entrada: só recomenda vitória seca quando seguro
-  const drawAlert = probDraw >= 30 || (probDraw >= 25 && margin < 14);
-  const hasMinimumData =
-    rankHome !== null && rankAway !== null &&
-    (
-      num(raw?.home_form_score) !== null ||
-      num(raw?.away_form_score) !== null ||
-      num(raw?.ppg_h) !== null ||
-      num(raw?.ppg_a) !== null ||
-      num(raw?.avg_sc_h) !== null ||
-      num(raw?.avg_sc_a) !== null
-    );
-
+  // isEvitar mantido apenas como flag informativo — não altera o pickLabel.
+  // A categoria (Arriscado/Moderada/Alta/Elite) já comunica o nível de risco.
   const isEvitar = (
-    pick !== 'draw' && (probability < 65 || margin < 10 || pickScore < 75 || drawAlert || !hasMinimumData)
+    pick !== 'draw' && (probability < 65 || margin < 10 || pickScore < 55)
   ) || (
-    pick === 'draw'
+    pick === 'draw' && probability < 65
   );
 
-  // Labels
+  // Labels — sempre mostra quem vai ganhar, nunca "Evitar 1X2"
   const favoredTeam  = pick === 'home' ? homeTeam : pick === 'away' ? awayTeam : '';
   const opponentTeam = pick === 'home' ? awayTeam : pick === 'away' ? homeTeam : '';
 
   let pickLabel, market;
-  if (isEvitar) {
-    pickLabel = 'Evitar 1X2';
-    market    = 'Evitar 1X2';
-  } else if (pick === 'home') {
+  if (pick === 'home') {
     pickLabel = homeTeam ? `${homeTeam} vence` : 'Casa Vence';
     market    = 'Vitória da Casa';
   } else if (pick === 'away') {
@@ -386,23 +373,20 @@ function computeWcVencer(input = {}) {
     market    = 'Empate';
   }
 
-  // Confiança
-  const prob = isEvitar ? Math.max(probHome, probAway, probDraw) : probability;
+  // Confiança — baseada na probabilidade real; jogos arriscados ficam em 'C'
   let confidence, grade;
-  if (prob >= 85)      { confidence = 'Elite';     grade = 'A+'; }
-  else if (prob >= 75) { confidence = 'Alta';      grade = 'A';  }
-  else if (prob >= 65) { confidence = 'Moderada';  grade = 'B';  }
-  else                 { confidence = 'Arriscado'; grade = 'C';  }
-
-  if (isEvitar) { confidence = 'Arriscado'; grade = 'C'; }
+  if (probability >= 85)      { confidence = 'Elite';     grade = 'A+'; }
+  else if (probability >= 75) { confidence = 'Alta';      grade = 'A';  }
+  else if (probability >= 65) { confidence = 'Moderada';  grade = 'B';  }
+  else                        { confidence = 'Arriscado'; grade = 'C';  }
 
   return {
-    pick: isEvitar ? 'evitar' : pick,
+    pick,
     market,
     pickLabel,
     favoredTeam,
     opponentTeam,
-    probability: isEvitar ? prob : probability,
+    probability,
     probHome,
     probAway,
     probDraw,
