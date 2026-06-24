@@ -1302,7 +1302,10 @@ async function upsertWcVencerSnapshot(raw, wcVencer) {
     grade:         wcVencer.grade,
     score:         wcVencer.score,
     is_evitar:     wcVencer.isEvitar,
-    odd:           raw.odd_o15 || null, // melhor odd disponível como referência
+    // Odd do mercado vencedor: usa odd_home se pick=home, odd_away se pick=away
+    odd:           wcVencer.pick === 'home' ? (raw.odd_home || null)
+                 : wcVencer.pick === 'away' ? (raw.odd_away || null)
+                 : null,
     source:        'wc_vencer_engine',
     updated_at:    new Date().toISOString(),
     // Preserva result_status se já confirmado
