@@ -248,13 +248,13 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .tab-group { display: flex; justify-content: flex-start; gap: 4px; background: var(--bg-card2); border-radius: 8px; padding: 4px; border: 1px solid var(--border); overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; flex: 1 1 auto; min-width: 0; width: 0; }
+  .tab-group { display: flex; justify-content: space-between; gap: 2px; background: var(--bg-card2); border-radius: 8px; padding: 4px; border: 1px solid var(--border); overflow: hidden; flex: 1 1 auto; min-width: 0; width: 0; }
   .tab-group::-webkit-scrollbar { display: none; }
   .tab {
-    padding: 8px 14px; border-radius: 6px;
-    font-size: 13px; font-weight: 500; cursor: pointer;
+    padding: 7px 0; border-radius: 6px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
     color: var(--text-secondary); transition: all .15s;
-    white-space: nowrap; flex-shrink: 0;
+    white-space: nowrap; flex: 1 1 0; text-align: center;
   }
   .tab.active { background: var(--bg-hover); color: var(--text-primary); }
 
@@ -346,6 +346,26 @@
     text-align: left; white-space: nowrap;
   }
   thead th.center { text-align: center; }
+
+  /* Centraliza conteúdo interno de todas as colunas centralizadas */
+  td.col-date, td.col-prob, td.col-odd, td.col-scoreboard,
+  td.col-result, td.col-confidence, td.col-score {
+    text-align: center;
+    vertical-align: middle;
+  }
+  td.col-date > *, td.col-prob > *, td.col-odd > *,
+  td.col-scoreboard > *, td.col-result > *,
+  td.col-confidence > *, td.col-score > * {
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    width: fit-content;
+  }
+  /* Confiança — centralizada inclusive o badge */
+  td.col-confidence .conf-badge { margin: 0 auto; display: inline-block; }
+
+  /* Jogo e Palpite — alinhados à esquerda, conteúdo ajusta ao texto */
+  td.col-game, td.col-pick { text-align: left; vertical-align: middle; }
   thead th .sort-arrow { margin-left: 4px; opacity: .5; }
 
   tbody tr {
@@ -362,7 +382,7 @@
   th.col-star, td.col-star { width: 36px; min-width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; white-space: nowrap; }
   th.col-game, td.col-game { min-width: 180px; text-align: left; }
   th.col-date, td.col-date { width: 62px; min-width: 62px; text-align: center; white-space: nowrap; }
-  th.col-pick, td.col-pick { min-width: 140px; width: 160px; text-align: left; white-space: nowrap; }
+  th.col-pick, td.col-pick { min-width: 140px; width: 160px; text-align: left; white-space: normal; }
   th.col-prob, td.col-prob { width: 120px; min-width: 100px; text-align: center; white-space: nowrap; }
   th.col-alts, td.col-alts { min-width: 120px; width: 140px; text-align: left; }
   /* World Cup mode — colunas específicas por mercado */
@@ -406,7 +426,7 @@
   th.col-odd, td.col-odd { width: 80px; min-width: 70px; text-align: center; white-space: nowrap; }
   th.col-scoreboard, td.col-scoreboard { width: 85px; min-width: 70px; text-align: center; white-space: nowrap; }
   th.col-result, td.col-result { width: 105px; min-width: 90px; text-align: center; white-space: nowrap; }
-  th.col-confidence, td.col-confidence { width: 110px; min-width: 90px; text-align: right; white-space: nowrap; padding-right: 16px; }
+  th.col-confidence, td.col-confidence { width: 110px; min-width: 90px; text-align: center; white-space: nowrap; padding-right: 0; }
   .table-wrap thead th:not(.col-game):not(.col-pick):not(.col-alts),
   .table-wrap tbody td:not(.col-game):not(.col-pick):not(.col-alts) { text-align: center; }
 
@@ -4612,11 +4632,11 @@ function buildDateTabs() {
   const today = brtDateStr(now);
 
   // Mobile: 4 dias passados + hoje + 8 futuros = 13 tabs
-  // Desktop: 12 passados + hoje + 14 futuros = 27 tabs
+  // Desktop: 12 passados + hoje + 13 futuros = 26 tabs (sem scroll)
   const isMobile = window.innerWidth <= 768;
   group.dataset.mobile = String(isMobile);
   const past   = isMobile ? -4 : -12;
-  const future = isMobile ?  8 :  14;
+  const future = isMobile ?  8 :  13;
 
   const days = [];
   for (let i = past; i <= future; i++) {
