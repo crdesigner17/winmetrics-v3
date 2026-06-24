@@ -1281,7 +1281,7 @@ async function getCurrentProfile() {
     <!-- section -->
     <div class="snapshot-notice">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Esta página exibe apenas previsões com classificação <strong style="margin:0 3px">Alta</strong> e <strong style="margin:0 3px">Elite</strong> geradas pelo Prediction Engine.
+      Na aba Vencer, todos os jogos do dia da Copa do Mundo aparecem com o vencedor mais provável, probabilidade e confiança.
     </div>
 
     <!-- Modal de filtro por intervalo de datas — comentado junto com o botão de Filtros
@@ -1366,8 +1366,8 @@ async function getCurrentProfile() {
       <div class="metric-card">
         <div class="metric-icon mi-blue">&#128737;&#65039;</div>
         <div class="metric-text">
-          <h4>Win Score</h4>
-          <p>Pontuação de 0 a 100 que representa a qualidade da previsão.</p>
+          <h4>Probabilidade</h4>
+          <p>Chance calculada para o palpite escolhido, sem exibir as três vias separadamente.</p>
         </div>
       </div>
       <div class="metric-card">
@@ -3438,12 +3438,18 @@ function computeWcVencerFrontend(snap, predsForFixture, metrics) {
                      probDraw - Math.max(probHome, probAway)
   );
 
-  // Para vitória seca: exige >= 65%, diferença >= 10pp, score interno >= 55
+  // Para vitória seca: exige >= 65%, diferença >= 10pp, score interno >= 75,
+  // sem alerta forte de empate e com dados mínimos disponíveis.
+  const drawAlert = probDraw >= 30 || (probDraw >= 25 && margin < 14);
+  const minimumData =
+    rankHome !== null && rankAway !== null &&
+    (formHome !== null || formAway !== null || ppgHome !== null || ppgAway !== null || gfHome !== null || gfAway !== null);
+
   const isEvitar = (
     pick !== 'draw' &&
-    (probability < 65 || margin < 10 || internalScore < 55)
+    (probability < 65 || margin < 10 || internalScore < 75 || drawAlert || !minimumData)
   ) || (
-    pick === 'draw' && probability < 65
+    pick === 'draw'
   );
 
   // Se evitar, ainda mostramos o palpite mais provável mas com label "Evitar 1X2"
@@ -3548,13 +3554,18 @@ async function fetchAllWcFixturesForVencer(page) {
     // Calcula palpite
     const vencer = computeWcVencerFrontend(f, pf, mf);
 
-    // Odd: pega da prediction existente se houver
+    // Odd: pega a odd do lado escolhido. Se for Evitar/Empate, nÃ£o exibe odd.
     let odd = null;
-    if (pf.length) {
-      const bestPred = pf.find(p => {
-        const mk = String(p.market||'').toLowerCase();
-        return mk.includes('vitoria da casa') || mk.includes('vitoria do visitante');
-      });
+    if (pf.length && !vencer.isEvitar) {
+      const wantedMarket = vencer.pick === 'home'
+        ? 'vitoria da casa'
+        : vencer.pick === 'away'
+        ? 'vitoria do visitante'
+        : 'empate';
+      const bestPred = pf.find(p => String(p.market||'')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .includes(wantedMarket));
       if (bestPred && bestPred.odd) odd = bestPred.odd;
     }
 
@@ -3574,6 +3585,7 @@ async function fetchAllWcFixturesForVencer(page) {
       // Palpite calculado
       market:         vencer.isEvitar ? 'Evitar 1X2' : (vencer.pick === 'home' ? 'Vitória da Casa' : vencer.pick === 'away' ? 'Vitória do Visitante' : 'Empate'),
       wc_pick_label:  vencer.pickLabel,
+      wc_pick:        vencer.isEvitar ? 'evitar' : vencer.pick,
       wc_probability: vencer.probability,
       wc_confidence:  vencer.confidence,
       wc_conf_grade:  vencer.confGrade,
@@ -3930,7 +3942,7 @@ function confBadge(conf) {
   const meta = {
     'A+': { cls: 'conf-aplus', label: 'Elite',     tip: 'Máxima confiança, cenário extremamente favorável' },
     'A':  { cls: 'conf-a',     label: 'Alta',      tip: 'Excelente oportunidade, forte convergência dos indicadores' },
-    'B':  { cls: 'conf-b',     label: 'Moderado',  tip: 'Boa oportunidade, maioria dos critérios atendidos' },
+    'B':  { cls: 'conf-b',     label: 'Moderada',  tip: 'Boa oportunidade, maioria dos critérios atendidos' },
     'C':  { cls: 'conf-c',     label: 'Arriscado', tip: 'Mercado aceitável, mas com alguns sinais de alerta' },
     'D':  { cls: 'conf-d',     label: 'Evitar',    tip: 'Pouca confiança, não recomendado para entrada principal' },
   };
@@ -4000,6 +4012,39 @@ function formatResult(snap) {
   if (status === 'red')   return '<span class="result-red">&times; RED</span>';
   if (status === 'void')  return '<span style="color:var(--text-muted);font-size:11px;border:1px solid var(--border);padding:3px 8px;border-radius:5px">VOID</span>';
   return '<span style="color:var(--text-muted);font-size:11px">' + status + '</span>';
+}
+
+function formatWcVencerResult(snap) {
+  if (snap.result_status && snap.result_status !== 'pending' && snap.result_status !== 'null') {
+    return formatResult(snap);
+  }
+
+  const status = snap.status || snap.fixture_status || null;
+  const FINISHED = new Set(['FT','AET','PEN','FT_PEN','AWD','WO']);
+  const LIVE     = new Set(['1H','HT','2H','ET','BT','P','SUSP','INT','LIVE']);
+
+  if (LIVE.has(status)) {
+    return '<span style="color:#00d2a0;font-size:11px;font-weight:800;letter-spacing:.4px">AO VIVO</span>';
+  }
+  if (!FINISHED.has(status)) {
+    return '<span style="color:var(--text-muted);font-size:11px;font-weight:700;letter-spacing:.3px">PENDENTE</span>';
+  }
+
+  const gh = snap.goals_home ?? snap.home_goals ?? snap.fixture_goals_home ?? null;
+  const ga = snap.goals_away ?? snap.away_goals ?? snap.fixture_goals_away ?? null;
+  if (gh === null || ga === null) {
+    return '<span style="color:var(--text-muted);font-size:11px">PENDENTE</span>';
+  }
+  if (snap.wc_is_evitar || snap.wc_pick === 'evitar') {
+    return '<span style="color:var(--text-muted);font-size:11px;border:1px solid var(--border);padding:3px 8px;border-radius:5px">VOID</span>';
+  }
+
+  const won =
+    (snap.wc_pick === 'home' && Number(gh) > Number(ga)) ||
+    (snap.wc_pick === 'away' && Number(ga) > Number(gh)) ||
+    (snap.wc_pick === 'draw' && Number(gh) === Number(ga));
+
+  return won ? '<span class="result-green">&check; GREEN</span>' : '<span class="result-red">&times; RED</span>';
 }
 
 function formatPlacar(snap) {
@@ -4242,9 +4287,7 @@ function renderEmpty() {
       <div style="font-size:32px;margin-bottom:10px">&#128237;</div>
       <div style="font-size:14px;margin-bottom:8px">Nenhuma previsão encontrada ${filterLabel}.</div>
       <div style="font-size:12px;color:var(--text-muted);max-width:360px;margin:0 auto;line-height:1.6">
-        Esta página exibe apenas previsões classificadas como <strong style="color:var(--purple)">Alta</strong> ou <strong style="color:var(--purple)">Elite</strong>
-        geradas pelo Prediction Engine. Se não há resultados, é possível que não existam previsões
-        de baixo risco para esse período.
+        Na aba Vencer, confira se existe jogo da Copa do Mundo no dia selecionado. Jogos sem entrada segura aparecem como <strong style="color:var(--purple)">Evitar 1X2</strong>.
       </div>
     </td></tr>`;
   document.querySelector('.pagination-info').textContent = 'Nenhum resultado';
@@ -4277,7 +4320,7 @@ function renderMobileCards(snapshots, predictionsMap, snapshotsMap = {}) {
     const data       = formatDate(snap.match_date);
     const matchName  = cleanMatchName(snap.match_name);
     const leagueName = snap.league_name || '';
-    const resultHtml = formatResult(snap);
+    const resultHtml = snap._isWcVencer ? formatWcVencerResult(snap) : formatResult(snap);
     const placar     = formatPlacar(snap);
 
     // Card especial para aba Vencer WC
@@ -4415,7 +4458,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
     <td class="col-prob" style="padding:10px 8px;">${probHtml}</td>
     <td class="col-odd">${odd !== null ? `<span class="odd-val">${oddStr}</span>` : `<span class="odd-unavailable">-</span>`}</td>
     ${placarCell}
-    <td class="col-result">${formatResult(snap)}</td>
+    <td class="col-result">${formatWcVencerResult(snap)}</td>
     <td class="col-confidence">${confBadge(confGrade)}</td>
   </tr>`;
     }
