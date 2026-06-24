@@ -447,6 +447,45 @@ async function confirmarVencerPred(pred, resultado, fixtureInfo) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// WC ESCANTEIOS SNAPSHOTS
+// ─────────────────────────────────────────────────────────────────
+
+async function fetchWcEscanteiosPendentes(fixtureIds) {
+  if (!fixtureIds.length) return [];
+  const { data, error } = await supabase
+    .from('wc_escanteios_snapshots')
+    .select('id, fixture_id, market_key, market')
+    .in('fixture_id', fixtureIds)
+    .is('result_status', null);
+  if (error || !data?.length) return [];
+  return data;
+}
+
+async function confirmarWcEscanteios(snap, resultado, fixtureInfo) {
+  const total = num(resultado.corners_total) ?? num(resultado.corners_home) + num(resultado.corners_away);
+  if (total === null || total < 0) return null;
+
+  let resultStatus = null;
+  switch (snap.market_key) {
+    case 'over75':   resultStatus = total > 7.5  ? 'green' : 'red'; break;
+    case 'over85':   resultStatus = total > 8.5  ? 'green' : 'red'; break;
+    case 'over95':   resultStatus = total > 9.5  ? 'green' : 'red'; break;
+    case 'over105':  resultStatus = total > 10.5 ? 'green' : 'red'; break;
+    case 'under105': resultStatus = total < 10.5 ? 'green' : 'red'; break;
+    case 'under115': resultStatus = total < 11.5 ? 'green' : 'red'; break;
+    default: return null;
+  }
+
+  const { error } = await supabase
+    .from('wc_escanteios_snapshots')
+    .update({ result_status: resultStatus, confirmed_at: new Date().toISOString() })
+    .eq('id', snap.id);
+
+  if (error) { LOG.error(`  Erro confirmar wc_escanteios ${snap.fixture_id} ${snap.market_key}: ${error.message}`); return null; }
+  return resultStatus;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // WC GOLS SNAPSHOTS — confirmar resultado para jogos Copa do Mundo
 // ─────────────────────────────────────────────────────────────────
 
@@ -645,9 +684,10 @@ async function processarDia(dateStr) {
   // Buscar predictions de Vencer/Dupla Chance pendentes
   const vencerPreds     = await fetchVencerPendentes(fixturesDiaIds);
   const wcVencerPendentes = await fetchWcVencerPendentes(fixturesDiaIds);
-  const wcGolsPendentes   = await fetchWcGolsPendentes(fixturesDiaIds);
+  const wcGolsPendentes        = await fetchWcGolsPendentes(fixturesDiaIds);
+  const wcEscanteiosPendentes  = await fetchWcEscanteiosPendentes(fixturesDiaIds);
 
-  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length + wcGolsPendentes.length;
+  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length + wcGolsPendentes.length + wcEscanteiosPendentes.length;
 
   if (!totalPendentes) {
     LOG.dim(`  Nenhum snapshot pendente em ${dateStr}`);
@@ -676,9 +716,15 @@ async function processarDia(dateStr) {
   }
 
   for (const snap of wcGolsPendentes) {
-    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [] };
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [], wcEscanteios: [] };
     if (!byFixture[snap.fixture_id].wcGols) byFixture[snap.fixture_id].wcGols = [];
     byFixture[snap.fixture_id].wcGols.push(snap);
+  }
+
+  for (const snap of wcEscanteiosPendentes) {
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [], wcEscanteios: [] };
+    if (!byFixture[snap.fixture_id].wcEscanteios) byFixture[snap.fixture_id].wcEscanteios = [];
+    byFixture[snap.fixture_id].wcEscanteios.push(snap);
   }
 
   const stats = { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
@@ -719,6 +765,21 @@ async function processarDia(dateStr) {
         const cor   = resultStatus === 'green' ? '\x1b[32m' : '\x1b[31m';
         LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | ${snap.market} → ${resultStatus.toUpperCase()}`);
         stats[resultStatus]++;
+      }
+    }
+
+    // ── WC Escanteios ──
+    for (const snap of (grupo.wcEscanteios || [])) {
+      const fixtureInfo = fixturesById[Number(fixtureId)];
+      if (!fixtureInfo) { stats.sem_dados++; continue; }
+      const rs = await confirmarWcEscanteios(snap, resultado, fixtureInfo);
+      if (rs === null) {
+        stats.sem_dados++;
+      } else {
+        const emoji = rs === 'green' ? '✓' : '✗';
+        const cor   = rs === 'green' ? '[32m' : '[31m';
+        LOG.ok(`  ${cor}${emoji}[0m ${matchName} ${placar} | WC Esc ${snap.market} → ${rs.toUpperCase()}`);
+        stats[rs]++;
       }
     }
 
