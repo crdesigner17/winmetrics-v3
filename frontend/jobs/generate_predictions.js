@@ -1269,16 +1269,6 @@ async function upsertSnapshot(result, raw) {
 async function upsertWcVencerSnapshot(raw, wcVencer) {
   if (!wcVencer) return;
 
-  // Verificar se já foi confirmado — preservar result_status
-  const { data: existing } = await supabase
-    .from('wc_vencer_snapshots')
-    .select('id, result_status, confirmed_at')
-    .eq('fixture_id', raw.fixture_id)
-    .maybeSingle();
-
-  const isConfirmed = existing?.result_status !== null &&
-                      existing?.result_status !== undefined;
-
   const row = {
     fixture_id:    raw.fixture_id,
     match_name:    raw.jogo || `${raw.home_team} x ${raw.away_team}`,
@@ -1308,19 +1298,30 @@ async function upsertWcVencerSnapshot(raw, wcVencer) {
                  : null,
     source:        'wc_vencer_engine',
     updated_at:    new Date().toISOString(),
-    // Preserva result_status se já confirmado
-    ...(isConfirmed ? {
-      result_status: existing.result_status,
-      confirmed_at:  existing.confirmed_at,
-    } : {
-      result_status: null,
-      confirmed_at:  null,
-    }),
   };
 
-  const { error } = await supabase
+  // Estratégia: tenta INSERT primeiro. Se já existe (conflito), faz UPDATE
+  // apenas nos campos de palpite — nunca toca em result_status/confirmed_at.
+  const { data: existing2 } = await supabase
     .from('wc_vencer_snapshots')
-    .upsert(row, { onConflict: 'fixture_id' });
+    .select('id, result_status, confirmed_at')
+    .eq('fixture_id', raw.fixture_id)
+    .maybeSingle();
+
+  let error;
+  if (!existing2) {
+    // Novo registro — INSERT com result_status null
+    ({ error } = await supabase
+      .from('wc_vencer_snapshots')
+      .insert({ ...row, result_status: null, confirmed_at: null }));
+  } else {
+    // Registro existente — UPDATE só nos campos de palpite, preserva result_status
+    const { result_status: _rs, confirmed_at: _ca, ...palpiteFields } = row;
+    ({ error } = await supabase
+      .from('wc_vencer_snapshots')
+      .update(palpiteFields)
+      .eq('fixture_id', raw.fixture_id));
+  }
 
   if (error) throw new Error(`upsertWcVencerSnapshot: ${error.message}`);
 }
