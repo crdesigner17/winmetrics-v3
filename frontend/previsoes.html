@@ -2949,15 +2949,6 @@ let filterDateStart = null;  // section
 let filterDateEnd   = null;
 let searchQuery      = '';
 const worldCupOnly = false; // modo WC desativado
-
-// ── Cache de palpites WC Vencer ───────────────────────────────────────────
-// Estrutura: { [dateKey]: { rows: [...], count: N, lockedAt: timestamp } }
-// "dateKey" = string da data selecionada (ex: '2026-06-23').
-// Uma vez calculado para uma data, o palpite (pick/probability/confidence)
-// fica travado — apenas placar e result_status são atualizados nas chamadas
-// seguintes. Isso evita que o motor recalcule e mude o palpite no meio do
-// jogo por variação nos dados do banco.
-const _wcVencerCache = {};
 const WORLD_CUP_LEAGUES = ['World: World Cup', 'FIFA World Cup', 'World Cup'];
 
 // section
@@ -3447,7 +3438,8 @@ function computeWcVencerFrontend(snap, predsForFixture, metrics) {
                      probDraw - Math.max(probHome, probAway)
   );
 
-  // Para vitória seca: exige >= 65%, diferença >= 10pp, score interno >= 55
+  // isEvitar mantido como flag informativo — não altera pickLabel nem market.
+  // A categoria (Arriscado) já comunica o risco ao usuário.
   const isEvitar = (
     pick !== 'draw' &&
     (probability < 65 || margin < 10 || internalScore < 55)
@@ -3455,24 +3447,17 @@ function computeWcVencerFrontend(snap, predsForFixture, metrics) {
     pick === 'draw' && probability < 65
   );
 
-  // Se evitar, ainda mostramos o palpite mais provável mas com label "Evitar 1X2"
-  const finalPickLabel = isEvitar ? 'Evitar 1X2' : pickLabel;
-
   // ── 7. Confiança ─────────────────────────────────────────────────────────
   let confidence, confGrade;
-  const prob = isEvitar ? Math.max(probHome, probAway, probDraw) : probability;
-  if (prob >= 85)      { confidence = 'Elite';    confGrade = 'A+'; }
-  else if (prob >= 75) { confidence = 'Alta';     confGrade = 'A'; }
-  else if (prob >= 65) { confidence = 'Moderada'; confGrade = 'B'; }
-  else                 { confidence = 'Arriscado';confGrade = 'C'; }
-
-  // Se "Evitar": sempre Arriscado
-  if (isEvitar) { confidence = 'Arriscado'; confGrade = 'C'; }
+  if (probability >= 85)      { confidence = 'Elite';    confGrade = 'A+'; }
+  else if (probability >= 75) { confidence = 'Alta';     confGrade = 'A'; }
+  else if (probability >= 65) { confidence = 'Moderada'; confGrade = 'B'; }
+  else                        { confidence = 'Arriscado';confGrade = 'C'; }
 
   return {
     pick,
-    pickLabel: finalPickLabel,
-    probability: isEvitar ? prob : probability,
+    pickLabel,
+    probability,
     confidence,
     confGrade,
     isEvitar,
@@ -3489,63 +3474,6 @@ function computeWcVencerFrontend(snap, predsForFixture, metrics) {
 
 async function fetchAllWcFixturesForVencer(page) {
   const { start, end } = getDateRange();
-
-  // Chave de cache = intervalo de datas ativo
-  const dateKey = `${start||'all'}__${end||'all'}`;
-
-  // ── Se já temos cache para essa data: reutiliza palpites, só atualiza
-  // placar e result_status buscando fixtures frescos do banco ──────────────
-  if (_wcVencerCache[dateKey]) {
-    const cached = _wcVencerCache[dateKey];
-
-    // Busca placar/status atualizados (query leve, só fixtures)
-    let qf = supabaseClient
-      .from('fixtures')
-      .select('fixture_id, goals_home, goals_away, status')
-      .in('league_name', WORLD_CUP_LEAGUES);
-    if (start) qf = qf.gte('match_date', start);
-    if (end)   qf = qf.lte('match_date', end);
-    const { data: freshFixtures } = await qf;
-
-    // Busca result_status atualizado (confirmar.js pode ter confirmado)
-    const fixtureIds = cached.rows.map(r => r.fixture_id);
-    const { data: freshSnaps } = await supabaseClient
-      .from('prediction_snapshots')
-      .select('fixture_id, market, result_status, confirmed_at')
-      .in('fixture_id', fixtureIds)
-      .in('market', WC_VENCER_MARKETS);
-
-    const fixtureIdx = {};
-    (freshFixtures || []).forEach(f => { fixtureIdx[f.fixture_id] = f; });
-
-    const snapIdx = {};
-    (freshSnaps || []).forEach(s => {
-      const key = String(s.fixture_id);
-      if (!snapIdx[key] || (s.confirmed_at || '') > (snapIdx[key].confirmed_at || '')) {
-        snapIdx[key] = s;
-      }
-    });
-
-    // Mescla: palpite congelado + placar/status frescos
-    const updatedRows = cached.rows.map(row => {
-      const fresh     = fixtureIdx[row.fixture_id] || {};
-      const snapData  = snapIdx[String(row.fixture_id)] || {};
-      return {
-        ...row,                                       // palpite congelado
-        goals_home:    fresh.goals_home    ?? row.goals_home,
-        goals_away:    fresh.goals_away    ?? row.goals_away,
-        status:        fresh.status        ?? row.status,
-        result_status: snapData.result_status ?? row.result_status,
-        confirmed_at:  snapData.confirmed_at  ?? row.confirmed_at,
-      };
-    });
-
-    const offset   = (page - 1) * PAGE_SIZE;
-    const pageRows = updatedRows.slice(offset, offset + PAGE_SIZE);
-    return { data: pageRows, error: null, count: cached.count };
-  }
-
-  // ── Primeira vez para essa data: calcula motor completo ─────────────────
   let q = supabaseClient
     .from('fixtures')
     .select('fixture_id, match_date, hour, home_team, away_team, home_team_logo, away_team_logo, league_name, goals_home, goals_away, status')
@@ -3565,7 +3493,7 @@ async function fetchAllWcFixturesForVencer(page) {
   const offset    = (page - 1) * PAGE_SIZE;
   const fixtureIds = fixtures.map(f => f.fixture_id);
 
-  // Busca predictions existentes (fonte de probabilidade da API)
+  // Busca predictions existentes (para usar como fonte de probabilidade)
   const { data: preds } = await supabaseClient
     .from('predictions')
     .select('fixture_id, market, score, grade, odd')
@@ -3586,7 +3514,7 @@ async function fetchAllWcFixturesForVencer(page) {
     .in('fixture_id', fixtureIds);
 
   // Indexa
-  const predsIdx = {};
+  const predsIdx   = {};
   (preds || []).forEach(p => {
     if (!predsIdx[p.fixture_id]) predsIdx[p.fixture_id] = [];
     predsIdx[p.fixture_id].push(p);
@@ -3594,8 +3522,9 @@ async function fetchAllWcFixturesForVencer(page) {
 
   const snapIdx = {};
   (snapResults || []).forEach(s => {
+    // Prefere resultado mais recente / já confirmado
     const key = String(s.fixture_id);
-    if (!snapIdx[key] || (s.confirmed_at || '') > (snapIdx[key].confirmed_at || '')) {
+    if (!snapIdx[key] || s.confirmed_at > (snapIdx[key].confirmed_at || '')) {
       snapIdx[key] = s;
     }
   });
@@ -3610,7 +3539,7 @@ async function fetchAllWcFixturesForVencer(page) {
     const mf        = metricsIdx[f.fixture_id] || null;
     const snapData  = snapIdx[String(f.fixture_id)] || {};
 
-    // Calcula palpite (uma única vez — vai para o cache)
+    // Calcula palpite
     const vencer = computeWcVencerFrontend(f, pf, mf);
 
     // Odd: pega da prediction existente se houver
@@ -3636,8 +3565,8 @@ async function fetchAllWcFixturesForVencer(page) {
       status:         f.status,
       goals_home:     f.goals_home,
       goals_away:     f.goals_away,
-      // ── Palpite calculado e CONGELADO ──
-      market:         vencer.isEvitar ? 'Evitar 1X2' : (vencer.pick === 'home' ? 'Vitória da Casa' : vencer.pick === 'away' ? 'Vitória do Visitante' : 'Empate'),
+      // Palpite calculado
+      market:         vencer.pick === 'home' ? 'Vitória da Casa' : vencer.pick === 'away' ? 'Vitória do Visitante' : 'Empate',
       wc_pick_label:  vencer.pickLabel,
       wc_probability: vencer.probability,
       wc_confidence:  vencer.confidence,
@@ -3648,6 +3577,7 @@ async function fetchAllWcFixturesForVencer(page) {
       odd:            odd,
       result_status:  snapData.result_status ?? null,
       confirmed_at:   snapData.confirmed_at  ?? null,
+      // Flag para renderRows saber que é WC com palpite calculado inline
       _isWcVencer:    true,
     };
   });
@@ -3660,9 +3590,6 @@ async function fetchAllWcFixturesForVencer(page) {
     if (aLive !== bLive) return aLive - bLive;
     return (a.match_date || '').localeCompare(b.match_date || '');
   });
-
-  // ── Grava no cache (palpites congelados para essa data) ─────────────────
-  _wcVencerCache[dateKey] = { rows, count: rows.length, lockedAt: Date.now() };
 
   const count    = rows.length;
   const pageRows = rows.slice(offset, offset + PAGE_SIZE);
@@ -4353,7 +4280,7 @@ function renderMobileCards(snapshots, predictionsMap, snapshotsMap = {}) {
       const probability = snap.wc_probability || 0;
       const confGrade  = snap.wc_conf_grade || 'C';
       const isEvitar   = snap.wc_is_evitar || false;
-      const pickCls    = isEvitar ? 'pick-conf-d' : pickConfidenceClass(confGrade);
+      const pickCls    = pickConfidenceClass(confGrade);
       const probColor  = probability >= 85 ? 'var(--green)' : probability >= 75 ? 'var(--gold)' : probability >= 65 ? '#60a5fa' : '#a78bfa';
       const LIVE_S     = new Set(['1H','HT','2H','ET','BT','P','SUSP','INT','LIVE']);
       const liveTag    = LIVE_S.has(snap.status)
@@ -4453,7 +4380,7 @@ function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, sn
       </div>`;
 
       // Badge do palpite
-      const pickCls = isEvitar ? 'pick-conf-d' : pickConfidenceClass(confGrade);
+      const pickCls = pickConfidenceClass(confGrade);
       const pickHtml = `<span class="best-pick ${pickCls}" style="font-size:12px;">${pickLabel}</span>`;
 
       // Live indicator
@@ -4779,7 +4706,7 @@ function _bindTabEvents() {
 
       const ymd = t.dataset.ymd || null;
       if (ymd) {
-        // Tab de dia específico — invalida cache WC Vencer para forçar recálculo
+        // Tab de dia específico
         activeFilter    = 'dia';
         filterDateStart = ymd;
         filterDateEnd   = ymd;
@@ -4788,9 +4715,6 @@ function _bindTabEvents() {
         filterDateStart = null;
         filterDateEnd   = null;
       }
-
-      // Invalida cache WC Vencer ao trocar de data (novo dia = novo cálculo)
-      Object.keys(_wcVencerCache).forEach(k => delete _wcVencerCache[k]);
 
       const fdLabel = document.getElementById('filter-date-label');
       const fdBtn   = document.getElementById('filter-date-btn');
