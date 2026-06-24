@@ -1639,6 +1639,13 @@ async function run() {
         console.log(`[PIPELINE] best_odd=${result.best_odd}  best_ev=${result.best_ev}`);
       }
 
+      // ── [NOVO] VENCER/VENCER + DUPLA CHANCE — declarações antecipadas ────
+      // homeFormString/awayFormString precisam estar disponíveis antes do
+      // bloco computeWcVencer abaixo (e também nos motores de clube mais
+      // adiante). Declaradas aqui para evitar temporal dead zone (TDZ) do JS.
+      const homeFormString = apiData.homeStats?.response?.form || null;
+      const awayFormString = apiData.awayStats?.response?.form || null;
+
       // ── [NOVO] WC VENCER ENGINE — todos os jogos WC ──────────────────────
       // Roda para qualquer jogo da Copa do Mundo. Grava SEMPRE em
       // wc_vencer_snapshots — inclusive jogos equilibrados ("Evitar 1X2").
@@ -1678,9 +1685,6 @@ async function run() {
       let wcDuplaChance = null;
       let vencerFonte = null;
       let duplaChanceFonte = null;
-      const homeFormString = apiData.homeStats?.response?.form || null;
-      const awayFormString = apiData.awayStats?.response?.form || null;
-
       // [NOVO] Estatísticas balanceadas casa+fora (metodologia True Signal —
       // "cada métrica = (média jogando em casa + média jogando fora) / 2").
       // Calculado uma vez por jogo, usado pelos 4 motores Vencer/Vencer e
