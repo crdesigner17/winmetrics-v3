@@ -3641,6 +3641,71 @@ async function fetchDuplaChanceCopaSnapshots(page) {
   return fetchMarketPredictionSnapshots(page, WC_DUPLA_CHANCE_MARKETS);
 }
 
+// ── WC ESCANTEIOS — busca direto de wc_escanteios_snapshots ─────────────────
+
+const WC_ESC_MARKET_MAP = {
+  over75:   'Over 7.5 Escanteios',
+  over85:   'Over 8.5 Escanteios',
+  over95:   'Over 9.5 Escanteios',
+  over105:  'Over 10.5 Escanteios',
+  under105: 'Under 10.5 Escanteios',
+  under115: 'Under 11.5 Escanteios',
+};
+
+async function fetchWcEscanteiosSnapshots(page, marketKey) {
+  const fixtures = await fetchWorldCupFixtures();
+  if (!fixtures.length) return { data: [], error: null, count: 0 };
+
+  const offset = (page - 1) * PAGE_SIZE;
+  const fixtureIds = fixtures.map(f => f.fixture_id);
+  const fixturesById = {};
+  fixtures.forEach(f => { fixturesById[f.fixture_id] = f; });
+
+  const { data: snaps, error } = await supabaseClient
+    .from('wc_escanteios_snapshots')
+    .select('fixture_id, market_key, market, probability, odd, ev, score, grade, confidence, recommended, result_status, confirmed_at')
+    .in('fixture_id', fixtureIds)
+    .eq('market_key', marketKey)
+    .order('probability', { ascending: false });
+
+  if (error) return { data: [], error, count: 0 };
+
+  const snapIdx = {};
+  (snaps || []).forEach(s => { snapIdx[s.fixture_id] = s; });
+
+  const rows = fixtures.map(f => {
+    const snap = snapIdx[f.fixture_id] || null;
+    return {
+      fixture_id:     f.fixture_id,
+      match_name:     f.match_name || `${f.home_team} x ${f.away_team}`,
+      home_team:      f.home_team,
+      away_team:      f.away_team,
+      home_team_logo: f.home_team_logo,
+      away_team_logo: f.away_team_logo,
+      league_name:    f.league_name,
+      match_date:     f.match_date,
+      hour:           f.hour,
+      status:         f.status,
+      goals_home:     f.goals_home,
+      goals_away:     f.goals_away,
+      market:         WC_ESC_MARKET_MAP[marketKey] || marketKey,
+      market_key:     marketKey,
+      probability:    snap?.probability ?? null,
+      odd:            snap?.odd         ?? null,
+      ev:             snap?.ev          ?? null,
+      score:          snap?.score       ?? null,
+      grade:          snap?.grade       ?? 'C',
+      confidence:     snap?.confidence  ?? 'Aguardando',
+      recommended:    snap?.recommended ?? false,
+      result_status:  snap?.result_status ?? null,
+      confirmed_at:   snap?.confirmed_at  ?? null,
+      _isWcEscanteios: true,
+    };
+  });
+
+  return { data: rows.slice(offset, offset + PAGE_SIZE), error: null, count: rows.length };
+}
+
 // ── WC GOLS — busca direto de wc_gols_snapshots ──────────────────────────────
 const WC_GOLS_MARKET_MAP = {
   over05ht: 'Over 0.5 HT',
@@ -3962,12 +4027,12 @@ const MARKET_CATEGORIES = {
     { key: 'over05ht', label: 'Over 0.5 HT' },
   ],
   escanteios: [
-    { key: 'esc65',      label: 'Over 6.5'   },
-    { key: 'esc75',      label: 'Esc 7.5'    },
-    { key: 'esc85',      label: 'Esc 8.5'    },
-    { key: 'under115',   label: 'Under 11.5' },
-    { key: 'under125',   label: 'Under 12.5' },
-    { key: 'under135',   label: 'Under 13.5' },
+    { key: 'over75',   label: 'Over 7.5'    },
+    { key: 'over85',   label: 'Over 8.5'    },
+    { key: 'over95',   label: 'Over 9.5'    },
+    { key: 'over105',  label: 'Over 10.5'   },
+    { key: 'under105', label: 'Under 10.5'  },
+    { key: 'under115', label: 'Under 11.5'  },
   ],
   cartoes: [
     { key: 'cards25', label: 'Cart 2.5' },
@@ -4319,6 +4384,18 @@ const THEAD_VENCER_WC = `
   <th class="col-confidence center">CONFIANÇA</th>
 `;
 
+// Thead exclusivo da aba Escanteios (Copa do Mundo) — igual ao Gols
+const THEAD_ESC_WC = `
+  <th class="col-star"></th>
+  <th class="col-game">JOGO</th>
+  <th class="col-date center">DATA</th>
+  <th class="col-prob center" style="min-width:90px">PROBABILIDADE</th>
+  <th class="col-odd center">ODD</th>
+  <th class="col-scoreboard center js-col-placar">PLACAR</th>
+  <th class="col-result center">RESULTADO</th>
+  <th class="col-confidence center">CONFIANÇA</th>
+`;
+
 // Thead exclusivo da aba Gols (Copa do Mundo) — sem PALPITE, com PROBABILIDADE
 const THEAD_GOLS_WC = `
   <th class="col-star"></th>
@@ -4336,8 +4413,9 @@ function applyWcThead() {
   if (!thead) return;
   const activeCatEl = document.querySelector('.mkt-cat-tab.active');
   const cat = activeCatEl?.dataset.cat || '';
-  thead.innerHTML = cat === 'vencer' ? THEAD_VENCER_WC
-                  : cat === 'gols'   ? THEAD_GOLS_WC
+  thead.innerHTML = cat === 'vencer'     ? THEAD_VENCER_WC
+                  : cat === 'gols'       ? THEAD_GOLS_WC
+                  : cat === 'escanteios' ? THEAD_ESC_WC
                   : THEAD_NORMAL;
   // Ajusta min-width da tabela
   const table = document.querySelector('.table-wrap table');
@@ -4470,13 +4548,13 @@ function updateTableHeader(cat) {
   const thPlacar = document.querySelector('th.js-col-placar');
   if (thPlacar) thPlacar.style.display = isEscanteios ? 'none' : '';
 
-  // PALPITE: oculta em gols (WC Gols não tem palpite — a aba já é o mercado)
+  // PALPITE: oculta em gols e escanteios WC
   const thPick = document.querySelector('th.col-pick');
-  if (thPick) thPick.style.display = isGols ? 'none' : '';
+  if (thPick) thPick.style.display = (isGols || cat === 'escanteios') ? 'none' : '';
 
-  // WIN SCORE: oculta em gols (não usamos score externo)
+  // WIN SCORE: oculta em gols e escanteios WC
   const thScore = document.querySelector('th.col-score');
-  if (thScore) thScore.style.display = isGols ? 'none' : '';
+  if (thScore) thScore.style.display = (isGols || cat === 'escanteios') ? 'none' : '';
 }
 
 // ── RENDER WC GOLS — renderiza linhas do motor wc_gols_engine ────────────────
@@ -4716,6 +4794,20 @@ async function loadPrevisoes() {
     const isDuplaChance = filterMarket === 'dupla_chance';
     const WC_GOLS_KEYS  = ['over05ht','over15','over25','under35','under45','btts','nobtts'];
     const isWcGols      = WC_GOLS_KEYS.includes(filterMarket);
+    const WC_ESC_KEYS   = ['over75','over85','over95','over105','under105','under115'];
+    const isWcEsc       = WC_ESC_KEYS.includes(filterMarket);
+
+    // ── Aba ESCANTEIOS WC — motor exclusivo wc_escanteios_engine ──────────
+    if (isWcEsc) {
+      const { data: wcEscRows, error: wcEscErr, count: wcEscCount } =
+        await fetchWcEscanteiosSnapshots(currentPage, filterMarket);
+      if (wcEscErr) { renderError(wcEscErr.message); return; }
+      totalCount = wcEscCount || 0;
+      if (!wcEscRows || !wcEscRows.length) { renderEmpty(); renderPagination(0, 1); return; }
+      renderWcGolsRows(wcEscRows); // mesma renderização do WC Gols
+      renderPagination(totalCount, currentPage);
+      return;
+    }
 
     // ── Aba GOLS WC — motor exclusivo wc_gols_engine ─────────────────────
     if (isWcGols) {
