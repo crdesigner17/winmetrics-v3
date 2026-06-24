@@ -349,10 +349,22 @@ function computeWcVencer(input = {}) {
   );
 
   // Regras de entrada: só recomenda vitória seca quando seguro
+  const drawAlert = probDraw >= 30 || (probDraw >= 25 && margin < 14);
+  const hasMinimumData =
+    rankHome !== null && rankAway !== null &&
+    (
+      num(raw?.home_form_score) !== null ||
+      num(raw?.away_form_score) !== null ||
+      num(raw?.ppg_h) !== null ||
+      num(raw?.ppg_a) !== null ||
+      num(raw?.avg_sc_h) !== null ||
+      num(raw?.avg_sc_a) !== null
+    );
+
   const isEvitar = (
-    pick !== 'draw' && (probability < 65 || margin < 10 || pickScore < 55)
+    pick !== 'draw' && (probability < 65 || margin < 10 || pickScore < 75 || drawAlert || !hasMinimumData)
   ) || (
-    pick === 'draw' && probability < 65
+    pick === 'draw'
   );
 
   // Labels
