@@ -56,6 +56,7 @@ const { computeWcResultadoFinal, computeWcResultadoFinalDebug, WORLD_CUP_LEAGUE_
 // [NOVO] Mercado "Dupla Chance" (1X/X2) — exclusivo Copa do Mundo, isolado
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
 const { computeWcGols }         = require('../lib/wc_gols_engine.js');
+const { computeWcEscanteios }   = require('../lib/wc_escanteios_engine.js');
 // [NOVO] Motores padrão para todos os campeonatos que NÃO são Copa do Mundo
 const { computeClubResultadoFinal, computeClubResultadoFinalDebug } = require('../lib/club_resultado_final.js');
 // [NOVO] Estatísticas balanceadas casa+fora (metodologia True Signal)
@@ -1335,6 +1336,37 @@ async function upsertWcGolsSnapshots(raw, wcGols) {
   }
 }
 
+async function upsertWcEscanteiosSnapshots(raw, wcEsc) {
+  if (!wcEsc?.markets) return;
+  const { MARKETS } = require('../lib/wc_escanteios_engine.js');
+  const base = {
+    fixture_id: raw.fixture_id, match_name: raw.jogo || `${raw.home_team} x ${raw.away_team}`,
+    home_team: raw.home_team, away_team: raw.away_team,
+    home_team_logo: raw.home_team_logo || null, away_team_logo: raw.away_team_logo || null,
+    league_name: raw.league_name, match_date: raw.match_date, hour: raw.hour || null,
+    source: 'wc_escanteios_engine', updated_at: new Date().toISOString(),
+  };
+  for (const marketKey of MARKETS) {
+    const m = wcEsc.markets[marketKey];
+    if (!m) continue;
+    const row = { ...base, market_key: marketKey, market: m.market, probability: m.probability,
+      odd: m.odd ?? null, ev: m.ev ?? null, score: m.score ?? null, grade: m.grade ?? null,
+      confidence: m.confidence ?? null, recommended: m.recommended ?? false };
+    const { data: existing } = await supabase.from('wc_escanteios_snapshots')
+      .select('id, result_status, confirmed_at').eq('fixture_id', raw.fixture_id)
+      .eq('market_key', marketKey).maybeSingle();
+    let error;
+    if (!existing) {
+      ({ error } = await supabase.from('wc_escanteios_snapshots')
+        .insert({ ...row, result_status: null, confirmed_at: null }));
+    } else {
+      ({ error } = await supabase.from('wc_escanteios_snapshots')
+        .update(row).eq('fixture_id', raw.fixture_id).eq('market_key', marketKey));
+    }
+    if (error) LOG.warn(`  [WC Esc] Erro ${marketKey} fixture ${raw.fixture_id}: ${error.message}`);
+  }
+}
+
 async function upsertWcVencerSnapshot(raw, wcVencer) {
   if (!wcVencer) return;
 
@@ -1743,6 +1775,33 @@ async function run() {
         }
       }
 
+      // ── [WC ESCANTEIOS ENGINE] ────────────────────────────────────────────
+      let wcEscanteiosSnap = null;
+      if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+        try {
+          wcEscanteiosSnap = computeWcEscanteios({
+            raw,
+            homeFormString,
+            awayFormString,
+            h2hGames:      apiData.h2hGames || [],
+            manualContext: WC_MANUAL_CONTEXT,
+            odds: {
+              over75:   raw.odd_esc75   ?? null,
+              over85:   raw.odd_esc85   ?? null,
+              over95:   raw.odd_esc95   ?? null,
+              over105:  raw.odd_esc105  ?? null,
+              under105: raw.odd_uesc105 ?? null,
+              under115: raw.odd_uesc115 ?? null,
+            },
+          });
+          const best = wcEscanteiosSnap.bestMarket ?? 'sem recomendação';
+          const bestProb = wcEscanteiosSnap.markets[wcEscanteiosSnap.bestMarket]?.probability ?? '-';
+          LOG.ok(`  🚩 WC Escanteios Engine: best=${best} prob=${bestProb}% avgCorners=${wcEscanteiosSnap._debug.avgCornFinal?.toFixed(1)}`);
+        } catch (e) {
+          LOG.warn(`  [WC Esc] Erro fixture ${fixtureId}: ${e.message}`);
+        }
+      }
+
       // ── [NOVO] WC VENCER ENGINE — todos os jogos WC ──────────────────────
       // Roda para qualquer jogo da Copa do Mundo. Grava SEMPRE em
       // wc_vencer_snapshots — inclusive jogos equilibrados.
@@ -1880,6 +1939,11 @@ async function run() {
         // Grava gols WC
         if (wcGolsSnap && WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
           await upsertWcGolsSnapshots(raw, wcGolsSnap);
+        }
+
+        // Grava escanteios WC
+        if (wcEscanteiosSnap && WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+          await upsertWcEscanteiosSnapshots(raw, wcEscanteiosSnap);
         }
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
