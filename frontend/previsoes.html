@@ -248,12 +248,13 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .tab-group { display: flex; justify-content: flex-start; gap: 4px; background: var(--bg-card2); border-radius: 8px; padding: 4px; border: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex: 1 1 auto; min-width: 0; }
+  .tab-group { display: flex; justify-content: flex-start; gap: 4px; background: var(--bg-card2); border-radius: 8px; padding: 4px; border: 1px solid var(--border); overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; flex: 1 1 auto; min-width: 0; width: 0; }
   .tab-group::-webkit-scrollbar { display: none; }
   .tab {
-    padding: 10px 22px; border-radius: 6px;
-    font-size: 14px; font-weight: 500; cursor: pointer;
+    padding: 8px 14px; border-radius: 6px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
     color: var(--text-secondary); transition: all .15s;
+    white-space: nowrap; flex-shrink: 0;
   }
   .tab.active { background: var(--bg-hover); color: var(--text-primary); }
 
@@ -333,7 +334,7 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: auto; }
+  table { width: 100%; min-width: 880px; border-collapse: collapse; table-layout: auto; }
   thead tr {
     background: var(--bg-card2);
     border-bottom: 1px solid var(--border);
@@ -358,12 +359,12 @@
   td { padding: 13px 16px; font-size: 13.5px; vertical-align: middle; }
   thead th + th,
   tbody td + td { border-left: 1px solid rgba(255,255,255,.045); }
-  th.col-star, td.col-star { width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; white-space: nowrap; }
-  th.col-game, td.col-game { min-width: 160px; text-align: left; }
-  th.col-date, td.col-date { width: 70px; text-align: center; white-space: nowrap; }
-  th.col-pick, td.col-pick { min-width: 100px; width: auto; text-align: left; white-space: normal; }
-  th.col-prob, td.col-prob { min-width: 90px; width: 90px; text-align: center; white-space: nowrap; }
-  th.col-alts, td.col-alts { min-width: 120px; width: auto; text-align: left; }
+  th.col-star, td.col-star { width: 36px; min-width: 36px; padding-left: 14px; padding-right: 8px; text-align: center; white-space: nowrap; }
+  th.col-game, td.col-game { min-width: 180px; text-align: left; }
+  th.col-date, td.col-date { width: 62px; min-width: 62px; text-align: center; white-space: nowrap; }
+  th.col-pick, td.col-pick { min-width: 140px; width: 160px; text-align: left; white-space: nowrap; }
+  th.col-prob, td.col-prob { width: 120px; min-width: 100px; text-align: center; white-space: nowrap; }
+  th.col-alts, td.col-alts { min-width: 120px; width: 140px; text-align: left; }
   /* World Cup mode — colunas específicas por mercado */
 
   /* Tabela World Cup — colunas de categoria de mercado */
@@ -401,11 +402,11 @@
 
   /* ═══════════════════════════════════════════
 
-  th.col-score, td.col-score { width: 76px; text-align: center; white-space: nowrap; }
-  th.col-odd, td.col-odd { min-width: 80px; text-align: center; white-space: nowrap; }
-  th.col-scoreboard, td.col-scoreboard { min-width: 60px; text-align: center; white-space: nowrap; }
-  th.col-result, td.col-result { min-width: 70px; text-align: center; white-space: nowrap; }
-  th.col-confidence, td.col-confidence { min-width: 90px; text-align: center; white-space: nowrap; }
+  th.col-score, td.col-score { width: 90px; min-width: 80px; text-align: center; white-space: nowrap; }
+  th.col-odd, td.col-odd { width: 80px; min-width: 70px; text-align: center; white-space: nowrap; }
+  th.col-scoreboard, td.col-scoreboard { width: 85px; min-width: 70px; text-align: center; white-space: nowrap; }
+  th.col-result, td.col-result { width: 105px; min-width: 90px; text-align: center; white-space: nowrap; }
+  th.col-confidence, td.col-confidence { width: 110px; min-width: 90px; text-align: right; white-space: nowrap; padding-right: 16px; }
   .table-wrap thead th:not(.col-game):not(.col-pick):not(.col-alts),
   .table-wrap tbody td:not(.col-game):not(.col-pick):not(.col-alts) { text-align: center; }
 
@@ -4234,7 +4235,7 @@ function applyWcThead() {
   thead.innerHTML = isVencer ? THEAD_VENCER_WC : THEAD_NORMAL;
   // Ajusta min-width da tabela
   const table = document.querySelector('.table-wrap table');
-  if (table) table.style.minWidth = isVencer ? '1100px' : '1040px';
+  if (table) table.style.minWidth = isVencer ? '980px' : '920px';
   // Atualiza visibilidade da coluna PLACAR conforme categoria ativa
   if (activeCatEl) updateTableHeader(activeCatEl.dataset.cat);
 }
