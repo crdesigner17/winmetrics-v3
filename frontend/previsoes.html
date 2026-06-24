@@ -4341,9 +4341,9 @@ function applyWcThead() {
                   : THEAD_NORMAL;
   // Ajusta min-width da tabela
   const table = document.querySelector('.table-wrap table');
-  if (table) table.style.minWidth = isVencer ? '980px' : '920px';
-  // Atualiza visibilidade da coluna PLACAR conforme categoria ativa
-  if (activeCatEl) updateTableHeader(activeCatEl.dataset.cat);
+  if (table) table.style.minWidth = cat === 'vencer' ? '980px' : '920px';
+  // Atualiza visibilidade de colunas conforme categoria ativa
+  if (activeCatEl) updateTableHeader(cat);
 }
 
 function renderEmpty() {
