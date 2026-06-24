@@ -462,7 +462,11 @@ async function fetchWcEscanteiosPendentes(fixtureIds) {
 }
 
 async function confirmarWcEscanteios(snap, resultado, fixtureInfo) {
-  const total = num(resultado.corners_total) ?? num(resultado.corners_home) + num(resultado.corners_away);
+  const toNum = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+  const ch = toNum(resultado.corners_home);
+  const ca = toNum(resultado.corners_away);
+  const ct = toNum(resultado.corners_total);
+  const total = ct ?? (ch !== null && ca !== null ? ch + ca : null);
   if (total === null || total < 0) return null;
 
   let resultStatus = null;
