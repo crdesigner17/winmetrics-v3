@@ -3641,6 +3641,80 @@ async function fetchDuplaChanceCopaSnapshots(page) {
   return fetchMarketPredictionSnapshots(page, WC_DUPLA_CHANCE_MARKETS);
 }
 
+// ── WC GOLS — busca direto de wc_gols_snapshots ──────────────────────────────
+const WC_GOLS_MARKET_MAP = {
+  over05ht: 'Over 0.5 HT',
+  over15:   'Over 1.5',
+  over25:   'Over 2.5',
+  under35:  'Under 3.5',
+  under45:  'Under 4.5',
+  btts:     'BTTS Sim',
+  nobtts:   'BTTS Não',
+};
+
+async function fetchWcGolsSnapshots(page, marketKey) {
+  const fixtures = await fetchWorldCupFixtures();
+  if (!fixtures.length) return { data: [], error: null, count: 0 };
+
+  const offset     = (page - 1) * PAGE_SIZE;
+  const fixtureIds = fixtures.map(f => f.fixture_id);
+  const fixturesById = {};
+  fixtures.forEach(f => { fixturesById[f.fixture_id] = f; });
+
+  // Busca todos os mercados de uma vez para este marketKey
+  const { data: snaps, error } = await supabaseClient
+    .from('wc_gols_snapshots')
+    .select('fixture_id, market_key, market, probability, odd, ev, score, grade, confidence, recommended, result_status, confirmed_at')
+    .in('fixture_id', fixtureIds)
+    .eq('market_key', marketKey)
+    .order('probability', { ascending: false });
+
+  if (error) return { data: [], error, count: 0 };
+
+  // Indexa por fixture_id para merge com fixture info
+  const snapIdx = {};
+  (snaps || []).forEach(s => { snapIdx[s.fixture_id] = s; });
+
+  // Garante que TODOS os jogos do dia aparecem, mesmo sem snapshot ainda
+  const rows = fixtures.map(f => {
+    const snap = snapIdx[f.fixture_id] || null;
+    const matchName = f.match_name || `${f.home_team} x ${f.away_team}`;
+
+    return {
+      fixture_id:     f.fixture_id,
+      match_name:     matchName,
+      home_team:      f.home_team,
+      away_team:      f.away_team,
+      home_team_logo: f.home_team_logo,
+      away_team_logo: f.away_team_logo,
+      league_name:    f.league_name,
+      match_date:     f.match_date,
+      hour:           f.hour,
+      status:         f.status,
+      goals_home:     f.goals_home,
+      goals_away:     f.goals_away,
+      // Dados do engine (null se ainda não processado)
+      market:         WC_GOLS_MARKET_MAP[marketKey] || marketKey,
+      market_key:     marketKey,
+      probability:    snap?.probability ?? null,
+      odd:            snap?.odd         ?? null,
+      ev:             snap?.ev          ?? null,
+      score:          snap?.score       ?? null,
+      grade:          snap?.grade       ?? 'C',
+      confidence:     snap?.confidence  ?? 'Aguardando',
+      recommended:    snap?.recommended ?? false,
+      result_status:  snap?.result_status ?? null,
+      confirmed_at:   snap?.confirmed_at  ?? null,
+      _isWcGols:      true,
+    };
+  });
+
+  const total  = rows.length;
+  const paged  = rows.slice(offset, offset + PAGE_SIZE);
+
+  return { data: paged, error: null, count: total };
+}
+
 
 async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
   if (!fixtureIds.length) return {};
@@ -3879,11 +3953,12 @@ const MARKET_CATEGORIES = {
     { key: 'dupla_chance', label: 'Dupla Chance' },
   ],
   gols: [
-    { key: 'over15',   label: 'Over 1.5' },
-    { key: 'over25',   label: 'Over 2.5' },
-    { key: 'under35',  label: 'Under 3.5' },
-    { key: 'under45',  label: 'Under 4.5' },
-    { key: 'btts',     label: 'BTTS' },
+    { key: 'over15',   label: 'Over 1.5'    },
+    { key: 'over25',   label: 'Over 2.5'    },
+    { key: 'under35',  label: 'Under 3.5'   },
+    { key: 'under45',  label: 'Under 4.5'   },
+    { key: 'btts',     label: 'BTTS Sim'    },
+    { key: 'nobtts',   label: 'BTTS Não'    },
     { key: 'over05ht', label: 'Over 0.5 HT' },
   ],
   escanteios: [
@@ -4378,10 +4453,80 @@ function renderMobileCards(snapshots, predictionsMap, snapshotsMap = {}) {
 // Escanteios: sem PLACAR (cantos não têm placar de gols)
 function updateTableHeader(cat) {
   const isEscanteios = cat === 'escanteios';
+  const isGols       = cat === 'gols';
+
+  // PLACAR: oculta em escanteios
   const thPlacar = document.querySelector('th.js-col-placar');
-  if (thPlacar) {
-    thPlacar.style.display = isEscanteios ? 'none' : '';
-  }
+  if (thPlacar) thPlacar.style.display = isEscanteios ? 'none' : '';
+
+  // PALPITE: oculta em gols (WC Gols não tem palpite — a aba já é o mercado)
+  const thPick = document.querySelector('th.col-pick');
+  if (thPick) thPick.style.display = isGols ? 'none' : '';
+
+  // WIN SCORE: oculta em gols (não usamos score externo)
+  const thScore = document.querySelector('th.col-score');
+  if (thScore) thScore.style.display = isGols ? 'none' : '';
+}
+
+// ── RENDER WC GOLS — renderiza linhas do motor wc_gols_engine ────────────────
+function renderWcGolsRows(rows) {
+  const tbody = document.getElementById('tableBody');
+  if (!rows || !rows.length) { renderEmpty(); return; }
+
+  tbody.innerHTML = rows.map(row => {
+    const matchName  = row.match_name || `${row.home_team} x ${row.away_team}`;
+    const dateStr    = formatDate(row.match_date);
+    const hourStr    = row.hour || '';
+    const prob       = row.probability !== null ? `${row.probability}%` : '-';
+    const odd        = row.odd !== null ? row.odd.toFixed(2) : '-';
+    const conf       = row.confidence || 'Aguardando';
+    const grade      = row.grade      || 'C';
+    const confCls    = pickConfidenceClass(grade);
+    const confLabel  = row.probability === null ? 'Aguardando' : conf;
+
+    const placarCell = formatPlacar(row);
+    const resultCell = formatResult(row);
+
+    // Badge de probabilidade com cor por nível
+    const probColor  = row.probability === null  ? 'var(--text-muted)'
+                     : row.probability >= 85     ? 'var(--green)'
+                     : row.probability >= 75     ? 'var(--teal)'
+                     : row.probability >= 65     ? '#a78bfa'
+                     : 'var(--text-secondary)';
+
+    const probCell = row.probability !== null
+      ? `<span style="font-size:16px;font-weight:700;color:${probColor}">${prob}</span>
+         <div style="height:2px;width:40px;margin:3px auto 0;background:${probColor};border-radius:2px;opacity:.7"></div>`
+      : `<span style="color:var(--text-muted);font-size:12px">Aguardando</span>`;
+
+    const oddCell = row.odd !== null
+      ? `<span class="odd-val">${odd}</span>`
+      : `<span class="odd-unavailable">-</span>`;
+
+    const confBadgeHtml = row.probability !== null
+      ? confBadge(grade)
+      : `<span style="color:var(--text-muted);font-size:11px">-</span>`;
+
+    return `<tr>
+      <td class="col-star"><span class="star-icon" data-id="${row.fixture_id}">&#9734;</span></td>
+      <td class="col-game">
+        <div style="font-weight:600;font-size:13px;line-height:1.4">${matchName}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${row.league_name || 'World Cup'}</div>
+      </td>
+      <td class="col-date">
+        <div style="font-weight:600;font-size:12px">${dateStr}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${hourStr}</div>
+      </td>
+      <td class="col-prob">${probCell}</td>
+      <td class="col-odd">${oddCell}</td>
+      <td class="col-scoreboard">${placarCell}</td>
+      <td class="col-result">${resultCell}</td>
+      <td class="col-confidence">${confBadgeHtml}</td>
+    </tr>`;
+  }).join('');
+
+  document.querySelector('.pagination-info').textContent =
+    `Mostrando ${rows.length} de ${rows.length} previsões`;
 }
 
 function renderRows(snapshots, predictionsMap, metricsMap = {}, oddsMap = {}, snapshotsMap = {}) {
@@ -4558,6 +4703,20 @@ async function loadPrevisoes() {
 
     const isVencer      = filterMarket === 'vencer';
     const isDuplaChance = filterMarket === 'dupla_chance';
+    const WC_GOLS_KEYS  = ['over05ht','over15','over25','under35','under45','btts','nobtts'];
+    const isWcGols      = WC_GOLS_KEYS.includes(filterMarket);
+
+    // ── Aba GOLS WC — motor exclusivo wc_gols_engine ─────────────────────
+    if (isWcGols) {
+      const { data: wcGolsRows, error: wcGolsErr, count: wcGolsCount } =
+        await fetchWcGolsSnapshots(currentPage, filterMarket);
+      if (wcGolsErr) { renderError(wcGolsErr.message); return; }
+      totalCount = wcGolsCount || 0;
+      if (!wcGolsRows || !wcGolsRows.length) { renderEmpty(); renderPagination(0, 1); return; }
+      renderWcGolsRows(wcGolsRows);
+      renderPagination(totalCount, currentPage);
+      return;
+    }
 
     // ── Aba VENCER — pipeline 100% independente ──────────────────────────
     // Busca todos os jogos WC do dia, calcula motor inline, renderiza.
