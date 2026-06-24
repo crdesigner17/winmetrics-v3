@@ -446,6 +446,97 @@ async function confirmarVencerPred(pred, resultado, fixtureInfo) {
   return resultStatus;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// WC VENCER SNAPSHOTS — confirmar resultado para jogos Copa do Mundo
+// calculados inline pelo wc_vencer_engine (não passam por predictions)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Busca registros de wc_vencer_snapshots do dia que ainda não têm result_status.
+ */
+async function fetchWcVencerPendentes(fixtureIds) {
+  if (!fixtureIds.length) return [];
+
+  const { data, error } = await supabase
+    .from('wc_vencer_snapshots')
+    .select('id, fixture_id, market, pick, pick_label, score, grade, odd, probability')
+    .in('fixture_id', fixtureIds)
+    .is('result_status', null);
+
+  if (error || !data?.length) return [];
+
+  // Se FORCE, retorna todos; senão só os pendentes (result_status null)
+  return data;
+}
+
+/**
+ * Calcula e grava result_status em wc_vencer_snapshots.
+ */
+async function confirmarWcVencer(snap, resultado, fixtureInfo) {
+  // Mapear pick para market equivalente e calcular resultado
+  let resultStatus = null;
+  if (snap.pick === 'home' || snap.market === 'Vitória da Casa') {
+    resultStatus = calcResultStatus('Vitória da Casa', resultado);
+  } else if (snap.pick === 'away' || snap.market === 'Vitória do Visitante') {
+    resultStatus = calcResultStatus('Vitória do Visitante', resultado);
+  } else if (snap.pick === 'draw' || snap.market === 'Empate') {
+    // Empate: goals_home === goals_away
+    if (resultado.goals_home !== null && resultado.goals_away !== null) {
+      resultStatus = resultado.goals_home === resultado.goals_away ? 'green' : 'red';
+    }
+  }
+
+  if (resultStatus === null) return null;
+
+  const { error } = await supabase
+    .from('wc_vencer_snapshots')
+    .update({
+      result_status: resultStatus,
+      confirmed_at:  new Date().toISOString(),
+    })
+    .eq('id', snap.id);
+
+  if (error) {
+    LOG.error(`  Erro ao confirmar wc_vencer_snapshot ${snap.fixture_id}:`, error.message);
+    return null;
+  }
+
+  // Espelha também em prediction_snapshots para o frontend ler result_status
+  const market = snap.pick === 'home' ? 'Vitória da Casa'
+               : snap.pick === 'away' ? 'Vitória do Visitante'
+               : 'Empate';
+
+  const row = {
+    fixture_id:     snap.fixture_id,
+    match_name:     fixtureInfo.match_name,
+    home_team:      fixtureInfo.home_team,
+    away_team:      fixtureInfo.away_team,
+    home_team_logo: fixtureInfo.home_team_logo ?? null,
+    away_team_logo: fixtureInfo.away_team_logo ?? null,
+    league_name:    fixtureInfo.league_name,
+    match_date:     fixtureInfo.match_date,
+    hour:           fixtureInfo.hour ?? null,
+    market,
+    score:          snap.score  ?? null,
+    grade:          snap.grade  ?? null,
+    odd:            snap.odd    ?? null,
+    result_status:  resultStatus,
+    confirmed_at:   new Date().toISOString(),
+    source:         'confirmar_wc_vencer',
+    created_at:     new Date().toISOString(),
+  };
+
+  const { error: err2 } = await supabase
+    .from('prediction_snapshots')
+    .upsert(row, { onConflict: 'fixture_id,market' });
+
+  if (err2) {
+    LOG.warn(`  Aviso: não foi possível espelhar em prediction_snapshots para fixture ${snap.fixture_id}:`, err2.message);
+  }
+
+  return resultStatus;
+}
+
 async function processarDia(dateStr) {
   LOG.info(`Confirmando resultados para ${dateStr}...`);
 
@@ -477,9 +568,10 @@ async function processarDia(dateStr) {
   });
 
   // Buscar predictions de Vencer/Dupla Chance pendentes
-  const vencerPreds = await fetchVencerPendentes(fixturesDiaIds);
+  const vencerPreds     = await fetchVencerPendentes(fixturesDiaIds);
+  const wcVencerPendentes = await fetchWcVencerPendentes(fixturesDiaIds);
 
-  const totalPendentes = snapshots.length + vencerPreds.length;
+  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length;
 
   if (!totalPendentes) {
     LOG.dim(`  Nenhum snapshot pendente em ${dateStr}`);
@@ -497,8 +589,14 @@ async function processarDia(dateStr) {
   }
 
   for (const pred of vencerPreds) {
-    if (!byFixture[pred.fixture_id]) byFixture[pred.fixture_id] = { snaps: [], vencers: [] };
+    if (!byFixture[pred.fixture_id]) byFixture[pred.fixture_id] = { snaps: [], vencers: [], wcVencers: [] };
     byFixture[pred.fixture_id].vencers.push(pred);
+  }
+
+  for (const snap of wcVencerPendentes) {
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [] };
+    if (!byFixture[snap.fixture_id].wcVencers) byFixture[snap.fixture_id].wcVencers = [];
+    byFixture[snap.fixture_id].wcVencers.push(snap);
   }
 
   const stats = { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
@@ -539,6 +637,28 @@ async function processarDia(dateStr) {
         const cor   = resultStatus === 'green' ? '\x1b[32m' : '\x1b[31m';
         LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | ${snap.market} → ${resultStatus.toUpperCase()}`);
         stats[resultStatus]++;
+      }
+    }
+
+    // ── WC Vencer (vêm de wc_vencer_snapshots, calculados inline) ──
+    for (const snap of (grupo.wcVencers || [])) {
+      const fixtureInfo = fixturesById[Number(fixtureId)];
+      if (!fixtureInfo) {
+        LOG.warn(`  ? ${matchName} — fixture não encontrado para WC Vencer`);
+        stats.sem_dados++;
+        continue;
+      }
+
+      const rs = await confirmarWcVencer(snap, resultado, fixtureInfo);
+
+      if (rs === null) {
+        LOG.warn(`  ? ${matchName} ${placar} | WC Vencer (${snap.grade}) — sem dados suficientes`);
+        stats.sem_dados++;
+      } else {
+        const emoji = rs === 'green' ? '✓' : '✗';
+        const cor   = rs === 'green' ? '\x1b[32m' : '\x1b[31m';
+        LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | WC Vencer (${snap.grade}) → ${rs.toUpperCase()}`);
+        stats[rs]++;
       }
     }
 
