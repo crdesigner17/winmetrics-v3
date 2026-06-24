@@ -49,7 +49,9 @@ const { applyWorldCupBoost, WC_LEAGUE_NAME } = require('../lib/world_cup_boost.j
 const { PackBallCSVEnricher, applyCsvToRaw } = require('../lib/packball_csv_enricher.js');
 const { enrichOddsExternas, enrichResultScores } = require('../lib/enrich_odds.js'); // [NOVO]
 const { enrichOddsOddspapi }                        = require('../lib/enrich_odds_oddspapi.js'); // fallback OddsPapi
-// [NOVO] Mercado "Resultado Final (Vitória)" — exclusivo Copa do Mundo, isolado
+// [NOVO] Motor WC Vencer — grava TODOS os jogos WC (inclusive Evitar 1X2)
+const { computeWcVencer } = require('../lib/wc_vencer_engine.js');
+// Mercado "Resultado Final (Vitória)" — exclusivo Copa do Mundo, isolado
 const { computeWcResultadoFinal, computeWcResultadoFinalDebug, WORLD_CUP_LEAGUE_NAMES } = require('../lib/wc_resultado_final.js');
 // [NOVO] Mercado "Dupla Chance" (1X/X2) — exclusivo Copa do Mundo, isolado
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
@@ -1260,6 +1262,67 @@ async function upsertSnapshot(result, raw) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// UPSERT WC VENCER SNAPSHOT
+// Grava em wc_vencer_snapshots — TODOS os jogos WC, sempre.
+// Preserva result_status se já confirmado (não sobrescreve green/red).
+// ─────────────────────────────────────────────────────────────────
+async function upsertWcVencerSnapshot(raw, wcVencer) {
+  if (!wcVencer) return;
+
+  // Verificar se já foi confirmado — preservar result_status
+  const { data: existing } = await supabase
+    .from('wc_vencer_snapshots')
+    .select('id, result_status, confirmed_at')
+    .eq('fixture_id', raw.fixture_id)
+    .maybeSingle();
+
+  const isConfirmed = existing?.result_status !== null &&
+                      existing?.result_status !== undefined;
+
+  const row = {
+    fixture_id:    raw.fixture_id,
+    match_name:    raw.jogo || `${raw.home_team} x ${raw.away_team}`,
+    home_team:     raw.home_team,
+    away_team:     raw.away_team,
+    home_team_logo: raw.home_team_logo || null,
+    away_team_logo: raw.away_team_logo || null,
+    league_name:   raw.league_name,
+    match_date:    raw.match_date,
+    hour:          raw.hour || null,
+    pick:          wcVencer.pick,
+    market:        wcVencer.market,
+    pick_label:    wcVencer.pickLabel,
+    favored_team:  wcVencer.favoredTeam,
+    opponent_team: wcVencer.opponentTeam,
+    probability:   wcVencer.probability,
+    prob_home:     wcVencer.probHome,
+    prob_away:     wcVencer.probAway,
+    prob_draw:     wcVencer.probDraw,
+    confidence:    wcVencer.confidence,
+    grade:         wcVencer.grade,
+    score:         wcVencer.score,
+    is_evitar:     wcVencer.isEvitar,
+    odd:           raw.odd_o15 || null, // melhor odd disponível como referência
+    source:        'wc_vencer_engine',
+    updated_at:    new Date().toISOString(),
+    // Preserva result_status se já confirmado
+    ...(isConfirmed ? {
+      result_status: existing.result_status,
+      confirmed_at:  existing.confirmed_at,
+    } : {
+      result_status: null,
+      confirmed_at:  null,
+    }),
+  };
+
+  const { error } = await supabase
+    .from('wc_vencer_snapshots')
+    .upsert(row, { onConflict: 'fixture_id' });
+
+  if (error) throw new Error(`upsertWcVencerSnapshot: ${error.message}`);
+}
+
+// ─────────────────────────────────────────────────────────────────
 // § 5 — LOG DETALHADO POR FIXTURE
 // ─────────────────────────────────────────────────────────────────
 
@@ -1576,6 +1639,24 @@ async function run() {
         console.log(`[PIPELINE] best_odd=${result.best_odd}  best_ev=${result.best_ev}`);
       }
 
+      // ── [NOVO] WC VENCER ENGINE — todos os jogos WC ──────────────────────
+      // Roda para qualquer jogo da Copa do Mundo. Grava SEMPRE em
+      // wc_vencer_snapshots — inclusive jogos equilibrados ("Evitar 1X2").
+      // Independente do wc_resultado_final.js (que só aprova fortes).
+      let wcVencerSnap = null;
+      if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+        wcVencerSnap = computeWcVencer({
+          raw,
+          homeFormString,
+          awayFormString,
+          h2hGames: apiData.h2hGames || [],
+          manualContext: WC_MANUAL_CONTEXT,
+          oddHome: raw.odd_home ?? null,
+          oddAway: raw.odd_away ?? null,
+        });
+        LOG.ok(`  ⚽ WC Vencer Engine: ${wcVencerSnap.pickLabel} prob=${wcVencerSnap.probability}% grade=${wcVencerSnap.grade} evitar=${wcVencerSnap.isEvitar}`);
+      }
+
       // ── [WC BOOST] Camada especializada Copa do Mundo ─────────────────────
       // Usa WORLD_CUP_LEAGUE_NAMES para cobrir as 3 variações de nome da Copa
       // ('World: World Cup', 'FIFA World Cup', 'World Cup') — mesmo array
@@ -1689,6 +1770,11 @@ async function run() {
 
         // Novo: cada mercado aprovado gera snapshot independente
         savedSnapshot = await upsertSnapshotsPorMercado(result, raw);
+
+        // [NOVO] WC Vencer Engine — grava TODOS os jogos WC
+        if (wcVencerSnap) {
+          await upsertWcVencerSnapshot(raw, wcVencerSnap);
+        }
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
         LOG.ok(`  Salvo: fixture ${fixtureId}  ${scoredMarkets} mercados  ${savedSnapshot ? `${savedSnapshot} snapshot(s) ✓` : ''}`);
