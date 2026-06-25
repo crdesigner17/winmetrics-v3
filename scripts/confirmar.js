@@ -106,6 +106,15 @@ const MKT_RESULTADO = {
   // 1X = casa vence OU empata. X2 = fora vence OU empata.
   'Dupla Chance 1X':    'dupla_chance_1x_ok',
   'Dupla Chance X2':    'dupla_chance_x2_ok',
+  // WC Gols — labels do wc_gols_engine.js (MARKET_LABELS)
+  'BTTS Sim':              'btts',
+  'BTTS Não':              'nobtts_ok',
+  // WC Escanteios — labels do wc_escanteios_engine.js (MARKET_LABELS)
+  'Over 7.5 Escanteios':   'esc75_ok',
+  'Over 8.5 Escanteios':   'esc85_ok',
+  'Over 9.5 Escanteios':   'esc95_ok',
+  'Under 10.5 Escanteios': 'under105_ok',
+  'Under 11.5 Escanteios': 'under115_ok',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -255,6 +264,8 @@ async function buscarResultado(fixtureId) {
     under115_ok:  cornersTotal !== null ? cornersTotal < 11.5 : null,
     under125_ok:  cornersTotal !== null ? cornersTotal < 12.5 : null,
     under135_ok:  cornersTotal !== null ? cornersTotal < 13.5 : null,
+    under105_ok:  cornersTotal !== null ? cornersTotal < 10.5 : null,
+    esc95_ok:     cornersTotal !== null ? cornersTotal > 9.5  : null,
     cart25_ok:    cardsTotal   !== null ? cardsTotal   > 2.5  : null,
     cart35_ok:    cardsTotal   !== null ? cardsTotal   > 3.5  : null,
     corners_total: cornersTotal,
@@ -265,6 +276,8 @@ async function buscarResultado(fixtureId) {
     // Dupla Chance: 1X = casa vence OU empata; X2 = fora vence OU empata
     dupla_chance_1x_ok:    homeWon || draw,
     dupla_chance_x2_ok:    awayWon || draw,
+    // WC Gols: BTTS Não
+    nobtts_ok:    !(gh_ft > 0 && ga_ft > 0),  // true quando pelo menos um time não marcou
   };
 }
 
@@ -546,6 +559,99 @@ async function confirmarWcVencer(snap, resultado, fixtureInfo) {
   return resultStatus;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// WC GOLS SNAPSHOTS — confirmar resultado para jogos Copa do Mundo
+// calculados pelo wc_gols_engine (tabela wc_gols_snapshots)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Busca registros de wc_gols_snapshots do dia que ainda não têm result_status.
+ */
+async function fetchWcGolsPendentes(fixtureIds) {
+  if (!fixtureIds.length) return [];
+
+  const query = supabase
+    .from('wc_gols_snapshots')
+    .select('id, fixture_id, market_key, market, score, grade, odd')
+    .in('fixture_id', fixtureIds);
+
+  // Se FORCE, busca todos; caso contrário só os sem result_status
+  const { data, error } = FORCE
+    ? await query
+    : await query.is('result_status', null);
+
+  if (error || !data?.length) return [];
+  return data;
+}
+
+/**
+ * Atualiza result_status em wc_gols_snapshots para um snapshot específico.
+ */
+async function confirmarWcGols(snap, resultado) {
+  const resultStatus = calcResultStatus(snap.market, resultado);
+  if (resultStatus === null) return null;
+
+  const { error } = await supabase
+    .from('wc_gols_snapshots')
+    .update({
+      result_status: resultStatus,
+      confirmed_at:  new Date().toISOString(),
+    })
+    .eq('id', snap.id);
+
+  if (error) {
+    LOG.error(`  Erro ao confirmar wc_gols_snapshot ${snap.fixture_id} ${snap.market}: ${error.message}`);
+    return null;
+  }
+  return resultStatus;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// WC ESCANTEIOS SNAPSHOTS — confirmar resultado para jogos Copa do Mundo
+// calculados pelo wc_escanteios_engine (tabela wc_escanteios_snapshots)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Busca registros de wc_escanteios_snapshots do dia que ainda não têm result_status.
+ */
+async function fetchWcEscanteiosPendentes(fixtureIds) {
+  if (!fixtureIds.length) return [];
+
+  const query = supabase
+    .from('wc_escanteios_snapshots')
+    .select('id, fixture_id, market_key, market, score, grade, odd')
+    .in('fixture_id', fixtureIds);
+
+  const { data, error } = FORCE
+    ? await query
+    : await query.is('result_status', null);
+
+  if (error || !data?.length) return [];
+  return data;
+}
+
+/**
+ * Atualiza result_status em wc_escanteios_snapshots para um snapshot específico.
+ */
+async function confirmarWcEscanteios(snap, resultado) {
+  const resultStatus = calcResultStatus(snap.market, resultado);
+  if (resultStatus === null) return null;
+
+  const { error } = await supabase
+    .from('wc_escanteios_snapshots')
+    .update({
+      result_status: resultStatus,
+      confirmed_at:  new Date().toISOString(),
+    })
+    .eq('id', snap.id);
+
+  if (error) {
+    LOG.error(`  Erro ao confirmar wc_escanteios_snapshot ${snap.fixture_id} ${snap.market}: ${error.message}`);
+    return null;
+  }
+  return resultStatus;
+}
+
 async function processarDia(dateStr) {
   LOG.info(`Confirmando resultados para ${dateStr}...`);
 
@@ -577,17 +683,20 @@ async function processarDia(dateStr) {
   });
 
   // Buscar predictions de Vencer/Dupla Chance pendentes
-  const vencerPreds     = await fetchVencerPendentes(fixturesDiaIds);
-  const wcVencerPendentes = await fetchWcVencerPendentes(fixturesDiaIds);
+  const vencerPreds         = await fetchVencerPendentes(fixturesDiaIds);
+  const wcVencerPendentes   = await fetchWcVencerPendentes(fixturesDiaIds);
+  const wcGolsPendentes     = await fetchWcGolsPendentes(fixturesDiaIds);
+  const wcEscanteiosPendentes = await fetchWcEscanteiosPendentes(fixturesDiaIds);
 
-  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length;
+  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length
+    + wcGolsPendentes.length + wcEscanteiosPendentes.length;
 
   if (!totalPendentes) {
     LOG.dim(`  Nenhum snapshot pendente em ${dateStr}`);
     return { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
   }
 
-  LOG.info(`  ${snapshots.length} snapshot(s) normais + ${vencerPreds.length} Vencer/Dupla Chance para confirmar`);
+  LOG.info(`  ${snapshots.length} snapshot(s) normais + ${vencerPreds.length} Vencer/Dupla Chance + ${wcGolsPendentes.length} WC Gols + ${wcEscanteiosPendentes.length} WC Escanteios para confirmar`);
 
   // Agrupa tudo por fixture_id para chamar API uma vez por jogo
   const byFixture = {};
@@ -608,6 +717,18 @@ async function processarDia(dateStr) {
     byFixture[snap.fixture_id].wcVencers.push(snap);
   }
 
+  for (const snap of wcGolsPendentes) {
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [], wcEscanteios: [] };
+    if (!byFixture[snap.fixture_id].wcGols) byFixture[snap.fixture_id].wcGols = [];
+    byFixture[snap.fixture_id].wcGols.push(snap);
+  }
+
+  for (const snap of wcEscanteiosPendentes) {
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [], wcEscanteios: [] };
+    if (!byFixture[snap.fixture_id].wcEscanteios) byFixture[snap.fixture_id].wcEscanteios = [];
+    byFixture[snap.fixture_id].wcEscanteios.push(snap);
+  }
+
   const stats = { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
 
   for (const [fixtureId, grupo] of Object.entries(byFixture)) {
@@ -620,7 +741,8 @@ async function processarDia(dateStr) {
 
     if (!resultado) {
       LOG.dim(`  ⏳ ${matchName} — ainda não finalizado`);
-      const total = grupo.snaps.length + grupo.vencers.length;
+      const total = grupo.snaps.length + grupo.vencers.length
+        + (grupo.wcVencers?.length || 0) + (grupo.wcGols?.length || 0) + (grupo.wcEscanteios?.length || 0);
       stats.nao_finalizado += total;
       continue;
     }
@@ -667,6 +789,36 @@ async function processarDia(dateStr) {
         const emoji = rs === 'green' ? '✓' : '✗';
         const cor   = rs === 'green' ? '\x1b[32m' : '\x1b[31m';
         LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | WC Vencer (${snap.grade}) → ${rs.toUpperCase()}`);
+        stats[rs]++;
+      }
+    }
+
+    // ── WC Gols (vêm de wc_gols_snapshots) ──
+    for (const snap of (grupo.wcGols || [])) {
+      const rs = await confirmarWcGols(snap, resultado);
+
+      if (rs === null) {
+        LOG.warn(`  ? ${matchName} ${placar} | WC Gols ${snap.market} (${snap.grade}) — sem dados suficientes`);
+        stats.sem_dados++;
+      } else {
+        const emoji = rs === 'green' ? '✓' : '✗';
+        const cor   = rs === 'green' ? '\x1b[32m' : '\x1b[31m';
+        LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | WC Gols ${snap.market} (${snap.grade}) → ${rs.toUpperCase()}`);
+        stats[rs]++;
+      }
+    }
+
+    // ── WC Escanteios (vêm de wc_escanteios_snapshots) ──
+    for (const snap of (grupo.wcEscanteios || [])) {
+      const rs = await confirmarWcEscanteios(snap, resultado);
+
+      if (rs === null) {
+        LOG.warn(`  ? ${matchName} ${placar} | WC Esc ${snap.market} (${snap.grade}) — sem dados suficientes`);
+        stats.sem_dados++;
+      } else {
+        const emoji = rs === 'green' ? '✓' : '✗';
+        const cor   = rs === 'green' ? '\x1b[32m' : '\x1b[31m';
+        LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | WC Esc ${snap.market} (${snap.grade}) → ${rs.toUpperCase()}`);
         stats[rs]++;
       }
     }
