@@ -381,7 +381,10 @@ function applyWorldCupBoost(result, raw, LOG = {}) {
   };
 
   // ── GUARDA DE SEGURANÇA: só Copa do Mundo ───────────────────────────────
-  if (raw.league_name !== WC_LEAGUE_NAME) return result;
+  // Aceita as 3 variações de nome que a API-Football pode retornar:
+  //   'FIFA World Cup' (padrão atual), 'World Cup', 'World: World Cup' (legado)
+  const WC_LEAGUE_NAMES_ALL = ['World: World Cup', 'FIFA World Cup', 'World Cup'];
+  if (!WC_LEAGUE_NAMES_ALL.includes(raw.league_name)) return result;
 
   // ── Calcula o world_cup_score ───────────────────────────────────────────
   const wcMetrics = calculateWorldCupScore(raw);
