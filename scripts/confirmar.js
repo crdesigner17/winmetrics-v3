@@ -447,115 +447,6 @@ async function confirmarVencerPred(pred, resultado, fixtureInfo) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// WC ESCANTEIOS SNAPSHOTS
-// ─────────────────────────────────────────────────────────────────
-
-async function fetchWcEscanteiosPendentes(fixtureIds) {
-  if (!fixtureIds.length) return [];
-  const { data, error } = await supabase
-    .from('wc_escanteios_snapshots')
-    .select('id, fixture_id, market_key, market')
-    .in('fixture_id', fixtureIds)
-    .is('result_status', null);
-  if (error || !data?.length) return [];
-  return data;
-}
-
-async function confirmarWcEscanteios(snap, resultado, fixtureInfo) {
-  const toNum = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
-  const ch = toNum(resultado.corners_home);
-  const ca = toNum(resultado.corners_away);
-  const ct = toNum(resultado.corners_total);
-  const total = ct ?? (ch !== null && ca !== null ? ch + ca : null);
-  if (total === null || total < 0) return null;
-
-  let resultStatus = null;
-  switch (snap.market_key) {
-    case 'over75':   resultStatus = total > 7.5  ? 'green' : 'red'; break;
-    case 'over85':   resultStatus = total > 8.5  ? 'green' : 'red'; break;
-    case 'over95':   resultStatus = total > 9.5  ? 'green' : 'red'; break;
-    case 'over105':  resultStatus = total > 10.5 ? 'green' : 'red'; break;
-    case 'under105': resultStatus = total < 10.5 ? 'green' : 'red'; break;
-    case 'under115': resultStatus = total < 11.5 ? 'green' : 'red'; break;
-    default: return null;
-  }
-
-  const { error } = await supabase
-    .from('wc_escanteios_snapshots')
-    .update({ result_status: resultStatus, confirmed_at: new Date().toISOString() })
-    .eq('id', snap.id);
-
-  if (error) { LOG.error(`  Erro confirmar wc_escanteios ${snap.fixture_id} ${snap.market_key}: ${error.message}`); return null; }
-  return resultStatus;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// WC GOLS SNAPSHOTS — confirmar resultado para jogos Copa do Mundo
-// ─────────────────────────────────────────────────────────────────
-
-const WC_GOLS_MARKET_KEYS = ['over05ht','over15','over25','under35','under45','btts','nobtts'];
-
-async function fetchWcGolsPendentes(fixtureIds) {
-  if (!fixtureIds.length) return [];
-  const { data, error } = await supabase
-    .from('wc_gols_snapshots')
-    .select('id, fixture_id, market_key, market, recommended')
-    .in('fixture_id', fixtureIds)
-    .is('result_status', null);
-  if (error || !data?.length) return [];
-  return data;
-}
-
-async function confirmarWcGols(snap, resultado, fixtureInfo) {
-  const gh = resultado.goals_home;
-  const ga = resultado.goals_away;
-  if (gh === null || ga === null) return null;
-
-  const total = gh + ga;
-  let resultStatus = null;
-
-  switch (snap.market_key) {
-    case 'over05ht':
-      // Não temos gols do 1º tempo disponíveis via API geralmente
-      // Usa proxy: se total >= 1 = green (conservador)
-      resultStatus = total >= 1 ? 'green' : 'red';
-      break;
-    case 'over15':
-      resultStatus = total >= 2 ? 'green' : 'red';
-      break;
-    case 'over25':
-      resultStatus = total >= 3 ? 'green' : 'red';
-      break;
-    case 'under35':
-      resultStatus = total <= 3 ? 'green' : 'red';
-      break;
-    case 'under45':
-      resultStatus = total <= 4 ? 'green' : 'red';
-      break;
-    case 'btts':
-      resultStatus = (gh >= 1 && ga >= 1) ? 'green' : 'red';
-      break;
-    case 'nobtts':
-      resultStatus = (gh === 0 || ga === 0) ? 'green' : 'red';
-      break;
-    default:
-      return null;
-  }
-
-  const { error } = await supabase
-    .from('wc_gols_snapshots')
-    .update({ result_status: resultStatus, confirmed_at: new Date().toISOString() })
-    .eq('id', snap.id);
-
-  if (error) {
-    LOG.error(`  Erro ao confirmar wc_gols_snapshot ${snap.fixture_id} ${snap.market_key}: ${error.message}`);
-    return null;
-  }
-
-  return resultStatus;
-}
-
-// ─────────────────────────────────────────────────────────────────
 // WC VENCER SNAPSHOTS — confirmar resultado para jogos Copa do Mundo
 // calculados inline pelo wc_vencer_engine (não passam por predictions)
 // ─────────────────────────────────────────────────────────────────
@@ -688,10 +579,8 @@ async function processarDia(dateStr) {
   // Buscar predictions de Vencer/Dupla Chance pendentes
   const vencerPreds     = await fetchVencerPendentes(fixturesDiaIds);
   const wcVencerPendentes = await fetchWcVencerPendentes(fixturesDiaIds);
-  const wcGolsPendentes        = await fetchWcGolsPendentes(fixturesDiaIds);
-  const wcEscanteiosPendentes  = await fetchWcEscanteiosPendentes(fixturesDiaIds);
 
-  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length + wcGolsPendentes.length + wcEscanteiosPendentes.length;
+  const totalPendentes = snapshots.length + vencerPreds.length + wcVencerPendentes.length;
 
   if (!totalPendentes) {
     LOG.dim(`  Nenhum snapshot pendente em ${dateStr}`);
@@ -714,21 +603,9 @@ async function processarDia(dateStr) {
   }
 
   for (const snap of wcVencerPendentes) {
-    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [] };
+    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [] };
     if (!byFixture[snap.fixture_id].wcVencers) byFixture[snap.fixture_id].wcVencers = [];
     byFixture[snap.fixture_id].wcVencers.push(snap);
-  }
-
-  for (const snap of wcGolsPendentes) {
-    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [], wcEscanteios: [] };
-    if (!byFixture[snap.fixture_id].wcGols) byFixture[snap.fixture_id].wcGols = [];
-    byFixture[snap.fixture_id].wcGols.push(snap);
-  }
-
-  for (const snap of wcEscanteiosPendentes) {
-    if (!byFixture[snap.fixture_id]) byFixture[snap.fixture_id] = { snaps: [], vencers: [], wcVencers: [], wcGols: [], wcEscanteios: [] };
-    if (!byFixture[snap.fixture_id].wcEscanteios) byFixture[snap.fixture_id].wcEscanteios = [];
-    byFixture[snap.fixture_id].wcEscanteios.push(snap);
   }
 
   const stats = { green: 0, red: 0, sem_dados: 0, nao_finalizado: 0 };
@@ -769,37 +646,6 @@ async function processarDia(dateStr) {
         const cor   = resultStatus === 'green' ? '\x1b[32m' : '\x1b[31m';
         LOG.ok(`  ${cor}${emoji}\x1b[0m ${matchName} ${placar} | ${snap.market} → ${resultStatus.toUpperCase()}`);
         stats[resultStatus]++;
-      }
-    }
-
-    // ── WC Escanteios ──
-    for (const snap of (grupo.wcEscanteios || [])) {
-      const fixtureInfo = fixturesById[Number(fixtureId)];
-      if (!fixtureInfo) { stats.sem_dados++; continue; }
-      const rs = await confirmarWcEscanteios(snap, resultado, fixtureInfo);
-      if (rs === null) {
-        stats.sem_dados++;
-      } else {
-        const emoji = rs === 'green' ? '✓' : '✗';
-        const cor   = rs === 'green' ? '[32m' : '[31m';
-        LOG.ok(`  ${cor}${emoji}[0m ${matchName} ${placar} | WC Esc ${snap.market} → ${rs.toUpperCase()}`);
-        stats[rs]++;
-      }
-    }
-
-    // ── WC Gols (vêm de wc_gols_snapshots) ──
-    for (const snap of (grupo.wcGols || [])) {
-      const fixtureInfo = fixturesById[Number(fixtureId)];
-      if (!fixtureInfo) { stats.sem_dados++; continue; }
-
-      const rs = await confirmarWcGols(snap, resultado, fixtureInfo);
-      if (rs === null) {
-        stats.sem_dados++;
-      } else {
-        const emoji = rs === 'green' ? '✓' : '✗';
-        const cor   = rs === 'green' ? '[32m' : '[31m';
-        LOG.ok(`  ${cor}${emoji}[0m ${matchName} ${placar} | WC Gols ${snap.market} → ${rs.toUpperCase()}`);
-        stats[rs]++;
       }
     }
 
