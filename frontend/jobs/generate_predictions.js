@@ -57,6 +57,7 @@ const { computeWcResultadoFinal, computeWcResultadoFinalDebug, WORLD_CUP_LEAGUE_
 const { computeWcDuplaChance } = require('../lib/wc_dupla_chance.js');
 const { computeWcGols }         = require('../lib/wc_gols_engine.js');
 const { computeWcEscanteios }   = require('../lib/wc_escanteios_engine.js');
+const { computeWcCartoes }      = require('../lib/wc_cartoes_engine.js');
 // [NOVO] Motores padrão para todos os campeonatos que NÃO são Copa do Mundo
 const { computeClubResultadoFinal, computeClubResultadoFinalDebug } = require('../lib/club_resultado_final.js');
 // [NOVO] Estatísticas balanceadas casa+fora (metodologia True Signal)
@@ -1367,7 +1368,36 @@ async function upsertWcEscanteiosSnapshots(raw, wcEsc) {
   }
 }
 
-async function upsertWcVencerSnapshot(raw, wcVencer) {
+async function upsertWcCartoesSnapshots(raw, wcCart) {
+  if (!wcCart?.markets) return;
+  const { MARKETS } = require('../lib/wc_cartoes_engine.js');
+  const base = {
+    fixture_id: raw.fixture_id, match_name: raw.jogo || `${raw.home_team} x ${raw.away_team}`,
+    home_team: raw.home_team, away_team: raw.away_team,
+    home_team_logo: raw.home_team_logo || null, away_team_logo: raw.away_team_logo || null,
+    league_name: raw.league_name, match_date: raw.match_date, hour: raw.hour || null,
+    source: 'wc_cartoes_engine', updated_at: new Date().toISOString(),
+  };
+  for (const marketKey of MARKETS) {
+    const m = wcCart.markets[marketKey];
+    if (!m) continue;
+    const row = { ...base, market_key: marketKey, market: m.market, probability: m.probability,
+      odd: m.odd ?? null, ev: m.ev ?? null, score: m.score ?? null, grade: m.grade ?? null,
+      confidence: m.confidence ?? null, recommended: m.recommended ?? false };
+    const { data: existing } = await supabase.from('wc_cartoes_snapshots')
+      .select('id, result_status, confirmed_at').eq('fixture_id', raw.fixture_id)
+      .eq('market_key', marketKey).maybeSingle();
+    let error;
+    if (!existing) {
+      ({ error } = await supabase.from('wc_cartoes_snapshots')
+        .insert({ ...row, result_status: null, confirmed_at: null }));
+    } else {
+      ({ error } = await supabase.from('wc_cartoes_snapshots')
+        .update(row).eq('fixture_id', raw.fixture_id).eq('market_key', marketKey));
+    }
+    if (error) LOG.warn(`  [WC Cart] Erro ${marketKey} fixture ${raw.fixture_id}: ${error.message}`);
+  }
+}
   if (!wcVencer) return;
 
   // Verificar se já foi confirmado — preservar result_status
@@ -1802,6 +1832,32 @@ async function run() {
         }
       }
 
+      // ── [WC CARTÕES ENGINE] ───────────────────────────────────────────────
+      let wcCartoesSnap = null;
+      if (WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+        try {
+          wcCartoesSnap = computeWcCartoes({
+            raw,
+            homeFormString,
+            awayFormString,
+            h2hGames:      apiData.h2hGames || [],
+            manualContext: WC_MANUAL_CONTEXT,
+            odds: {
+              over25:  raw.odd_c25  ?? null,
+              over35:  raw.odd_c35  ?? null,
+              over45:  raw.odd_c45  ?? null,
+              under55: raw.odd_c55  ?? null,
+              under65: raw.odd_c65  ?? null,
+            },
+          });
+          const best = wcCartoesSnap.bestMarket ?? 'sem recomendação';
+          const bestProb = wcCartoesSnap.markets[wcCartoesSnap.bestMarket]?.probability ?? '-';
+          LOG.ok(`  🟨 WC Cartões Engine: best=${best} prob=${bestProb}% avgCards=${wcCartoesSnap._debug.avgCards?.toFixed(1)}`);
+        } catch (e) {
+          LOG.warn(`  [WC Cart] Erro fixture ${fixtureId}: ${e.message}`);
+        }
+      }
+
       // ── [NOVO] WC VENCER ENGINE — todos os jogos WC ──────────────────────
       // Roda para qualquer jogo da Copa do Mundo. Grava SEMPRE em
       // wc_vencer_snapshots — inclusive jogos equilibrados.
@@ -1944,6 +2000,11 @@ async function run() {
         // Grava escanteios WC
         if (wcEscanteiosSnap && WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
           await upsertWcEscanteiosSnapshots(raw, wcEscanteiosSnap);
+        }
+
+        // Grava cartões WC
+        if (wcCartoesSnap && WORLD_CUP_LEAGUE_NAMES.includes(raw.league_name)) {
+          await upsertWcCartoesSnapshots(raw, wcCartoesSnap);
         }
 
         if (savedSnapshot) stats.snapshots += Number(savedSnapshot);
