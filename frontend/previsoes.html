@@ -3781,6 +3781,68 @@ async function fetchWcGolsSnapshots(page, marketKey) {
 }
 
 
+// ── WC CARTÕES — busca direto de wc_cartoes_snapshots ────────────────────────
+const WC_CART_MARKET_MAP = {
+  over25:  'Over 2.5 Cartões',
+  over35:  'Over 3.5 Cartões',
+  over45:  'Over 4.5 Cartões',
+  under55: 'Under 5.5 Cartões',
+  under65: 'Under 6.5 Cartões',
+};
+
+async function fetchWcCartoesSnapshots(page, marketKey) {
+  const fixtures = await fetchWorldCupFixtures();
+  if (!fixtures.length) return { data: [], error: null, count: 0 };
+
+  const offset     = (page - 1) * PAGE_SIZE;
+  const fixtureIds = fixtures.map(f => f.fixture_id);
+
+  const { data: snaps, error } = await supabaseClient
+    .from('wc_cartoes_snapshots')
+    .select('fixture_id, market_key, market, probability, odd, ev, score, grade, confidence, recommended, result_status, confirmed_at')
+    .in('fixture_id', fixtureIds)
+    .eq('market_key', marketKey)
+    .order('probability', { ascending: false });
+
+  if (error) return { data: [], error, count: 0 };
+
+  const snapIdx = {};
+  (snaps || []).forEach(s => { snapIdx[s.fixture_id] = s; });
+
+  const rows = fixtures.map(f => {
+    const snap = snapIdx[f.fixture_id] || null;
+    return {
+      fixture_id:     f.fixture_id,
+      match_name:     f.match_name || `${f.home_team} x ${f.away_team}`,
+      home_team:      f.home_team,
+      away_team:      f.away_team,
+      home_team_logo: f.home_team_logo,
+      away_team_logo: f.away_team_logo,
+      league_name:    f.league_name,
+      match_date:     f.match_date,
+      hour:           f.hour,
+      status:         f.status,
+      goals_home:     f.goals_home,
+      goals_away:     f.goals_away,
+      market:         WC_CART_MARKET_MAP[marketKey] || marketKey,
+      market_key:     marketKey,
+      probability:    snap?.probability ?? null,
+      odd:            snap?.odd         ?? null,
+      ev:             snap?.ev          ?? null,
+      score:          snap?.score       ?? null,
+      grade:          snap?.grade       ?? 'C',
+      confidence:     snap?.confidence  ?? 'Aguardando',
+      recommended:    snap?.recommended ?? false,
+      result_status:  snap?.result_status ?? null,
+      confirmed_at:   snap?.confirmed_at  ?? null,
+      _isWcCartoes:   true,
+    };
+  });
+
+  return { data: rows.slice(offset, offset + PAGE_SIZE), error: null, count: rows.length };
+}
+
+
 async function fetchOfficialSnapshotsByFixtureIds(fixtureIds) {
   if (!fixtureIds.length) return {};
   let q = supabaseClient
@@ -4035,10 +4097,11 @@ const MARKET_CATEGORIES = {
     { key: 'under115', label: 'Under 11.5'  },
   ],
   cartoes: [
-    { key: 'cards25', label: 'Cart 2.5' },
-    { key: 'cards35', label: 'Cart 3.5' },
-    { key: 'cards55', label: 'Over 5.5', disabled: true },
-    { key: 'cart_ambas_recebem', label: 'Ambas Recebem', disabled: true },
+    { key: 'over25',  label: 'Over 2.5' },
+    { key: 'over35',  label: 'Over 3.5' },
+    { key: 'over45',  label: 'Over 4.5' },
+    { key: 'under55', label: 'Under 5.5' },
+    { key: 'under65', label: 'Under 6.5' },
   ],
 };
 
@@ -4796,6 +4859,21 @@ async function loadPrevisoes() {
     const isWcGols      = WC_GOLS_KEYS.includes(filterMarket);
     const WC_ESC_KEYS   = ['over75','over85','over95','over105','under105','under115'];
     const isWcEsc       = WC_ESC_KEYS.includes(filterMarket);
+    const WC_CART_KEYS  = ['over25','over35','over45','under55','under65'];
+    const activeCat     = document.querySelector('.mkt-cat-tab.active')?.dataset.cat;
+    const isWcCartoes   = activeCat === 'cartoes' && WC_CART_KEYS.includes(filterMarket);
+
+    // ── Aba CARTÕES WC — motor exclusivo wc_cartoes_engine ───────────────
+    if (isWcCartoes) {
+      const { data: wcCartRows, error: wcCartErr, count: wcCartCount } =
+        await fetchWcCartoesSnapshots(currentPage, filterMarket);
+      if (wcCartErr) { renderError(wcCartErr.message); return; }
+      totalCount = wcCartCount || 0;
+      if (!wcCartRows || !wcCartRows.length) { renderEmpty(); renderPagination(0, 1); return; }
+      renderWcGolsRows(wcCartRows); // mesma renderização do WC Gols/Escanteios
+      renderPagination(totalCount, currentPage);
+      return;
+    }
 
     // ── Aba ESCANTEIOS WC — motor exclusivo wc_escanteios_engine ──────────
     if (isWcEsc) {
